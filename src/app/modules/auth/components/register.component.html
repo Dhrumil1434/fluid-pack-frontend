@@ -1,0 +1,320 @@
+<!-- Registration Page - Multi-step Form with Beautiful Design -->
+<div class="register-container">
+  <div class="register-card">
+    <!-- Header Section -->
+    <div class="register-header">
+      <div class="logo-container">
+        <i class="pi pi-building"></i>
+      </div>
+      <h1 class="register-title">Create Account</h1>
+      <p class="register-subtitle">Join Fluid Pack and get started</p>
+    </div>
+
+    <!-- Progress Indicator -->
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="(currentStep / totalSteps) * 100"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="step" [class.active]="currentStep >= 1" [class.completed]="currentStep > 1">
+          <div class="step-number">1</div>
+          <div class="step-label">Basic Info</div>
+        </div>
+        <div class="step" [class.active]="currentStep >= 2" [class.completed]="currentStep > 2">
+          <div class="step-number">2</div>
+          <div class="step-label">Security</div>
+        </div>
+        <div class="step" [class.active]="currentStep >= 3" [class.completed]="currentStep > 3">
+          <div class="step-number">3</div>
+          <div class="step-label">Organization</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Registration Form -->
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" novalidate>
+      
+      <!-- Step 1: Basic Information -->
+      <div *ngIf="currentStep === 1" class="form-step">
+        <h3 class="step-title">Basic Information</h3>
+        <p class="step-description">Tell us about yourself</p>
+
+        <!-- Username Field -->
+        <div class="form-group">
+          <label for="username" class="form-label">Username</label>
+          <div class="input-container">
+            <input
+              id="username"
+              type="text"
+              formControlName="username"
+              class="form-input"
+              [class.error]="isFieldInvalid('username')"
+              placeholder="Enter your username"
+              autocomplete="username"
+              required
+            />
+            <i class="pi pi-user input-icon"></i>
+          </div>
+          <div *ngIf="isFieldInvalid('username')" class="error-message">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            {{ getFieldError('username') }}
+          </div>
+        </div>
+
+        <!-- Email Field -->
+        <div class="form-group">
+          <label for="email" class="form-label">Email Address</label>
+          <div class="input-container">
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              class="form-input"
+              [class.error]="isFieldInvalid('email')"
+              placeholder="Enter your email address"
+              autocomplete="email"
+              required
+            />
+            <i class="pi pi-envelope input-icon"></i>
+          </div>
+          <div *ngIf="isFieldInvalid('email')" class="error-message">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            {{ getFieldError('email') }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Security -->
+      <div *ngIf="currentStep === 2" class="form-step">
+        <h3 class="step-title">Security</h3>
+        <p class="step-description">Create a secure password</p>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label for="password" class="form-label">Password</label>
+          <div class="input-container">
+            <input
+              id="password"
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              class="form-input"
+              [class.error]="isFieldInvalid('password')"
+              placeholder="Create a strong password"
+              autocomplete="new-password"
+              required
+            />
+            <i class="pi pi-lock input-icon"></i>
+            <button
+              type="button"
+              (click)="togglePasswordVisibility()"
+              class="password-toggle"
+              [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+              title="Toggle password visibility"
+            >
+              <svg *ngIf="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+              <svg *ngIf="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+              </svg>
+            </button>
+          </div>
+          
+          <!-- Password Strength Indicator -->
+          <div *ngIf="registerForm.get('password')?.value" class="password-strength">
+            <div class="strength-bar">
+              <div 
+                class="strength-fill" 
+                [style.width.%]="(getPasswordStrength().score / 6) * 100"
+                [style.background-color]="getPasswordStrength().color">
+              </div>
+            </div>
+            <div class="strength-label" [style.color]="getPasswordStrength().color">
+              {{ getPasswordStrength().label }}
+            </div>
+          </div>
+
+          <div *ngIf="isFieldInvalid('password')" class="error-message">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            {{ getFieldError('password') }}
+          </div>
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div class="form-group">
+          <label for="confirmPassword" class="form-label">Confirm Password</label>
+          <div class="input-container">
+            <input
+              id="confirmPassword"
+              [type]="showConfirmPassword ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              class="form-input"
+              [class.error]="isFieldInvalid('confirmPassword')"
+              placeholder="Confirm your password"
+              autocomplete="new-password"
+              required
+            />
+            <i class="pi pi-lock input-icon"></i>
+            <button
+              type="button"
+              (click)="toggleConfirmPasswordVisibility()"
+              class="password-toggle"
+              [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'"
+              title="Toggle password visibility"
+            >
+              <svg *ngIf="!showConfirmPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+              <svg *ngIf="showConfirmPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+              </svg>
+            </button>
+          </div>
+          <div *ngIf="isFieldInvalid('confirmPassword')" class="error-message">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            {{ getFieldError('confirmPassword') }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Organization -->
+      <div *ngIf="currentStep === 3" class="form-step">
+        <h3 class="step-title">Organization</h3>
+        <p class="step-description">Select your department and role</p>
+
+        <!-- Department Field -->
+        <div class="form-group">
+          <label for="department" class="form-label">Department</label>
+          <div class="input-container">
+            <select
+              id="department"
+              formControlName="department"
+              class="form-select"
+              [class.error]="isFieldInvalid('department')"
+              required
+            >
+              <option value="">Select your department</option>
+              <option *ngFor="let dept of departments" [value]="dept._id">
+                {{ dept.name }} - {{ dept.description }}
+              </option>
+            </select>
+            <i class="pi pi-building input-icon"></i>
+          </div>
+          <div *ngIf="isFieldInvalid('department')" class="error-message">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            {{ getFieldError('department') }}
+          </div>
+        </div>
+
+        <!-- Role Field -->
+        <div class="form-group">
+          <label for="role" class="form-label">Role</label>
+          <div class="input-container">
+            <select
+              id="role"
+              formControlName="role"
+              class="form-select"
+              [class.error]="isFieldInvalid('role')"
+              required
+            >
+              <option value="">Select your role</option>
+              <option *ngFor="let role of roles" [value]="role._id">
+                {{ role.name }} - {{ role.description }}
+              </option>
+            </select>
+            <i class="pi pi-users input-icon"></i>
+          </div>
+          <div *ngIf="isFieldInvalid('role')" class="error-message">
+            <i class="pi pi-exclamation-triangle error-icon"></i>
+            {{ getFieldError('role') }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="form-navigation">
+        <div class="nav-buttons">
+          <!-- Previous Button -->
+          <button
+            *ngIf="currentStep > 1"
+            type="button"
+            (click)="previousStep()"
+            class="nav-button prev-button"
+          >
+            <i class="pi pi-arrow-left mr-2"></i>
+            Previous
+          </button>
+
+          <!-- Next Button -->
+          <button
+            *ngIf="currentStep < totalSteps"
+            type="button"
+            (click)="nextStep()"
+            class="nav-button next-button"
+            [disabled]="!isCurrentStepValid()"
+          >
+            Next
+            <i class="pi pi-arrow-right ml-2"></i>
+          </button>
+
+          <!-- Submit Button -->
+          <div *ngIf="currentStep === totalSteps" class="submit-button">
+            <app-common-loader-button
+              type="submit"
+              variant="primary"
+              size="lg"
+              buttonId="register-button"
+              loadingText="Creating Account..."
+              [disabled]="registerForm.invalid || isSubmitting"
+              [fullWidth]="true"
+              (clicked)="onSubmit()"
+            >
+              <i class="pi pi-user-plus mr-2"></i>
+              Create Account
+            </app-common-loader-button>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <!-- Result Message -->
+    <div *ngIf="registerResult" class="result-message" [class.success]="registerResult.success" [class.error]="!registerResult.success">
+      <div class="result-icon">
+        <i *ngIf="registerResult.success" class="pi pi-check-circle"></i>
+        <i *ngIf="!registerResult.success" class="pi pi-times-circle"></i>
+      </div>
+      <div class="result-content">
+        <div class="result-title">{{ registerResult.message }}</div>
+        <div *ngIf="registerResult.errors" class="result-errors">
+          <ul>
+            <li *ngFor="let error of registerResult.errors; trackBy: trackByError">{{ error.message }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider">
+      <span class="divider-text">Already have an account?</span>
+    </div>
+
+    <!-- Login Section -->
+    <div class="login-section">
+      <app-common-loader-button
+        type="button"
+        variant="outline"
+        size="lg"
+        [fullWidth]="true"
+        (clicked)="goToLogin()"
+      >
+        <i class="pi pi-sign-in mr-2"></i>
+        Sign In
+      </app-common-loader-button>
+      <p class="login-text">
+        <a routerLink="/auth/login" class="login-link">Sign in</a> to your existing account
+      </p>
+    </div>
+  </div>
+</div>

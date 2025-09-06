@@ -1,0 +1,364 @@
+/* App Container - Using design system */
+.app-container {
+  min-height: 100vh;
+  background: var(--color-bg-soft);
+  color: var(--color-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Header */
+.app-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.app-header p {
+  margin: 0.5rem 0 0 0;
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+/* Main Content */
+.app-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Test Controls */
+.test-controls {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.test-controls h2 {
+  margin: 0 0 1.5rem 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.button-group button {
+  min-width: 140px;
+}
+
+/* Loading Section */
+.loading-section {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.loading-spinner p {
+  font-size: 1.2rem;
+  color: #3498db;
+  margin: 0;
+}
+
+/* Error Section */
+.error-section {
+  background: rgba(231, 76, 60, 0.1);
+  border: 2px solid #e74c3c;
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.error-message h3 {
+  margin: 0 0 1rem 0;
+  color: #c0392b;
+}
+
+.error-message p {
+  margin: 0;
+  color: #e74c3c;
+  font-size: 1.1rem;
+}
+
+/* Users Section */
+.users-section {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.users-section h2 {
+  margin: 0 0 1.5rem 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+}
+
+.users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.user-card {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.user-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border-color: #3498db;
+}
+
+.user-card h4 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 0.5rem;
+}
+
+.user-card p {
+  margin: 0.5rem 0;
+  color: #555;
+}
+
+.user-card strong {
+  color: #2c3e50;
+}
+
+/* Test Results */
+.test-results {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.test-results h2 {
+  margin: 0 0 1.5rem 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+}
+
+.results-table {
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.result-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 3fr 1fr;
+  gap: 1rem;
+  background: #2c3e50;
+  color: white;
+  padding: 1rem;
+  font-weight: 600;
+}
+
+.result-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 3fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.3s ease;
+}
+
+.result-row:hover {
+  background: #f8f9fa;
+}
+
+.result-row:last-child {
+  border-bottom: none;
+}
+
+.result-row.success {
+  background: rgba(46, 204, 113, 0.1);
+}
+
+.result-row.error {
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.success {
+  background: #27ae60;
+  color: white;
+}
+
+.status-badge.error {
+  background: #e74c3c;
+  color: white;
+}
+
+.error-text {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+/* No Results */
+.no-results {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 3rem;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.empty-state p {
+  margin: 0.5rem 0;
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+.empty-state ul {
+  text-align: left;
+  max-width: 500px;
+  margin: 1.5rem auto;
+  color: #7f8c8d;
+}
+
+.empty-state li {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 5px;
+  border-left: 4px solid #3498db;
+}
+
+/* Footer */
+.app-footer {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.app-footer p {
+  margin: 0.25rem 0;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1.5rem;
+  }
+  
+  .app-header h1 {
+    font-size: 2rem;
+  }
+  
+  .app-main {
+    padding: 1rem;
+  }
+  
+  .test-controls,
+  .loading-section,
+  .error-section,
+  .users-section,
+  .test-results,
+  .no-results {
+    padding: 1.5rem;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+  
+  .button-group button {
+    min-width: auto;
+  }
+  
+  .users-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .result-header,
+  .result-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .result-header {
+    display: none;
+  }
+  
+  .result-row {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+  }
+  
+  .result-row::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Animation for loading */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.loading-spinner p {
+  animation: pulse 2s infinite;
+}
+
+/* Hover effects for buttons */
+.button-group button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.3s ease;
+}

@@ -1,0 +1,84 @@
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { BaseApiService } from './base-api.service';
+import { 
+  Machine, 
+  CreateMachineRequest, 
+  UpdateMachineRequest, 
+  MachineFilters, 
+  MachineApprovalRequest 
+} from '../models/machine.model';
+import { ApiResponse } from '../models/api-response.model';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class MachineService {
+  constructor(private baseApiService: BaseApiService) {}
+
+  /**
+   * Get all machines with pagination and filters
+   */
+  getAllMachines(filters?: MachineFilters): Observable<ApiResponse<{ machines: Machine[]; total: number; pages: number }>> {
+    return this.baseApiService.get<{ machines: Machine[]; total: number; pages: number }>(
+      '/machines',
+      filters
+    );
+  }
+
+  /**
+   * Get approved machines only
+   */
+  getApprovedMachines(): Observable<ApiResponse<Machine[]>> {
+    return this.baseApiService.get<Machine[]>('/machines/approved');
+  }
+
+  /**
+   * Get machine by ID
+   */
+  getMachineById(id: string): Observable<ApiResponse<Machine>> {
+    return this.baseApiService.get<Machine>(`/machines/${id}`);
+  }
+
+  /**
+   * Create a new machine
+   */
+  createMachine(machineData: CreateMachineRequest): Observable<ApiResponse<Machine>> {
+    return this.baseApiService.post<Machine>('/machines', machineData);
+  }
+
+  /**
+   * Update machine
+   */
+  updateMachine(id: string, machineData: UpdateMachineRequest): Observable<ApiResponse<Machine>> {
+    return this.baseApiService.put<Machine>(`/machines/${id}`, machineData);
+  }
+
+  /**
+   * Delete machine (soft delete)
+   */
+  deleteMachine(id: string): Observable<ApiResponse<null>> {
+    return this.baseApiService.delete<null>(`/machines/${id}`);
+  }
+
+  /**
+   * Update machine approval status
+   */
+  updateMachineApproval(id: string, approvalData: MachineApprovalRequest): Observable<ApiResponse<Machine>> {
+    return this.baseApiService.patch<Machine>(`/machines/${id}/approval`, approvalData);
+  }
+
+  /**
+   * Get machines by category
+   */
+  getMachinesByCategory(categoryId: string): Observable<ApiResponse<Machine[]>> {
+    return this.baseApiService.get<Machine[]>(`/machines/category/${categoryId}`);
+  }
+
+  /**
+   * Validate multiple machine IDs
+   */
+  validateMachineIds(machineIds: string[]): Observable<ApiResponse<{ id: string; isValid: boolean }[]>> {
+    return this.baseApiService.post<{ id: string; isValid: boolean }[]>('/machines/validate-ids', { machineIds });
+  }
+}

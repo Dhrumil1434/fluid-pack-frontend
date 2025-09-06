@@ -1,0 +1,25 @@
+<!-- User Dashboard -->
+<div class="user-dashboard">
+  <div class="dashboard-header">
+    <h1>Welcome, {{ currentUser?.username || 'User' }}!</h1>
+    <button class="logout-btn" (click)="logout()">
+      <i class="pi pi-sign-out"></i>
+      Logout
+    </button>
+  </div>
+
+  <div class="dashboard-content">
+    <div class="welcome-card">
+      <h2>User Dashboard</h2>
+      <p>You are logged in as: <strong>{{ currentUser?.role?.name || 'User' }}</strong></p>
+      <p>Department: <strong>{{ currentUser?.department?.name || 'N/A' }}</strong></p>
+      <p>Email: <strong>{{ currentUser?.email || 'N/A' }}</strong></p>
+    </div>
+
+    <div class="info-card">
+      <h3>Access Information</h3>
+      <p>This is a basic user dashboard. Admin users have access to the full admin panel.</p>
+      <p>If you need admin access, please contact your administrator.</p>
+    </div>
+  </div>
+</div>

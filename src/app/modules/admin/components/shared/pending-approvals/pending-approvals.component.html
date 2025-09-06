@@ -1,0 +1,107 @@
+<!-- Pending Approvals Card -->
+<div class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+  <!-- Card Header -->
+  <div class="p-6 border-b border-gray-100">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+          <i class="pi pi-clock text-white text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-text">Pending Approvals</h3>
+          <p class="text-sm text-text-muted">Items awaiting your review</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="px-3 py-1 bg-accent-amber text-white text-sm font-bold rounded-full animate-pulse">
+          {{ data.length }}
+        </span>
+        <button
+          class="px-4 py-2 text-primary hover:text-primary-light hover:bg-primary/10 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 group"
+          title="View all approvals">
+          <span>View All</span>
+          <i class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Approvals List -->
+  <div class="p-6">
+    <div class="space-y-4">
+      <div
+        *ngFor="let approval of data; trackBy: trackByApprovalId; let i = index"
+        class="flex items-center space-x-4 p-4 rounded-xl hover:bg-bg-soft transition-all duration-200 group"
+        [style.animation-delay]="(i * 100) + 'ms'">
+
+        <!-- Approval Icon -->
+        <div class="relative">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
+               [ngClass]="getApprovalAvatarClass(approval.type)">
+            <i [class]="getTypeIcon(approval.type)" class="text-white text-sm"></i>
+          </div>
+          <!-- Priority Indicator -->
+          <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-white flex items-center justify-center">
+            <div class="w-2 h-2 rounded-full" [ngClass]="getPriorityIndicatorClass(approval.priority)"></div>
+          </div>
+        </div>
+
+        <!-- Approval Content -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center space-x-2 mb-1">
+                <h4 class="text-sm font-semibold text-text group-hover:text-primary transition-colors duration-200">
+                  {{ approval.title }}
+                </h4>
+                <span class="text-xs px-2 py-1 rounded-full font-medium"
+                      [ngClass]="getPriorityBadgeClass(approval.priority)">
+                  {{ approval.priority }}
+                </span>
+              </div>
+              <p class="text-sm text-text-muted mt-1 line-clamp-2">{{ approval.description }}</p>
+              <div class="flex items-center space-x-2 mt-2">
+                <span class="text-xs text-text-muted flex items-center">
+                  <i class="pi pi-user mr-1"></i>
+                  {{ approval.requestedBy }}
+                </span>
+                <span class="text-xs text-text-muted">•</span>
+                <span class="text-xs text-text-muted">{{ getRelativeTime(approval.requestedAt) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approval Actions -->
+        <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <button
+            class="p-2 text-success hover:bg-success/10 rounded-lg transition-all duration-200 group/btn"
+            (click)="approveItem(approval.id)"
+            title="Approve">
+            <i class="pi pi-check text-sm group-hover/btn:scale-110 transition-transform duration-200"></i>
+          </button>
+          <button
+            class="p-2 text-error hover:bg-error/10 rounded-lg transition-all duration-200 group/btn"
+            (click)="rejectItem(approval.id)"
+            title="Reject">
+            <i class="pi pi-times text-sm group-hover/btn:scale-110 transition-transform duration-200"></i>
+          </button>
+          <button
+            class="p-2 text-info hover:bg-info/10 rounded-lg transition-all duration-200 group/btn"
+            title="View Details">
+            <i class="pi pi-eye text-sm group-hover/btn:scale-110 transition-transform duration-200"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="data.length === 0" class="text-center py-12">
+      <div class="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="pi pi-check-circle text-3xl text-success"></i>
+      </div>
+      <h4 class="text-lg font-semibold text-text mb-2">No Pending Approvals</h4>
+      <p class="text-text-muted">All items have been reviewed</p>
+    </div>
+  </div>
+</div>

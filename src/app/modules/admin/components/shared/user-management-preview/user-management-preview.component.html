@@ -1,0 +1,111 @@
+<!-- User Management Preview Card -->
+<div class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+  <!-- Card Header -->
+  <div class="p-6 border-b border-gray-100">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+          <i class="pi pi-users text-white text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-text">User Management</h3>
+          <p class="text-sm text-text-muted">Manage system users</p>
+        </div>
+      </div>
+      <button
+        class="px-4 py-2 text-primary hover:text-primary-light hover:bg-primary/10 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 group"
+        title="View all users">
+        <span>View All</span>
+        <i class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- User Statistics -->
+  <div class="p-6" *ngIf="data">
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <div class="text-center p-4 bg-bg-soft rounded-xl">
+        <div class="text-2xl font-bold text-primary">{{ data.totalUsers }}</div>
+        <div class="text-sm text-text-muted">Total Users</div>
+      </div>
+      <div class="text-center p-4 bg-warning/10 rounded-xl">
+        <div class="text-2xl font-bold text-warning">{{ data.pendingApprovals }}</div>
+        <div class="text-sm text-text-muted">Pending</div>
+      </div>
+      <div class="text-center p-4 bg-success/10 rounded-xl">
+        <div class="text-2xl font-bold text-success">{{ data.userStats.activeUsers }}</div>
+        <div class="text-sm text-text-muted">Active</div>
+      </div>
+    </div>
+
+    <!-- Recent Users List -->
+    <div *ngIf="data && data.recentUsers.length > 0">
+      <h4 class="text-lg font-semibold text-text mb-4">Recent Users</h4>
+      <div class="space-y-3">
+        <div
+          *ngFor="let user of data.recentUsers; trackBy: trackByUserId; let i = index"
+          class="flex items-center space-x-3 p-3 rounded-xl hover:bg-bg-soft transition-all duration-200 group"
+          [style.animation-delay]="(i * 100) + 'ms'">
+
+          <!-- User Avatar -->
+          <div class="relative">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-r from-accent-teal to-info">
+              <img
+                *ngIf="user.avatar"
+                [src]="user.avatar"
+                [alt]="user.name"
+                class="w-full h-full rounded-full object-cover">
+              <span
+                *ngIf="!user.avatar"
+                class="text-white font-bold text-sm">
+                {{ getUserInitials(user.name) }}
+              </span>
+            </div>
+            <!-- Status Indicator -->
+            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-white flex items-center justify-center">
+              <div class="w-2 h-2 rounded-full" [ngClass]="getStatusIndicatorClass(user.status)"></div>
+            </div>
+          </div>
+
+          <!-- User Info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <div class="flex-1">
+                <h5 class="text-sm font-semibold text-text group-hover:text-primary transition-colors duration-200">
+                  {{ user.name }}
+                </h5>
+                <p class="text-xs text-text-muted">{{ user.role }} • {{ user.department }}</p>
+                <p class="text-xs text-text-muted">{{ getRelativeTime(user.lastLogin) }}</p>
+              </div>
+              <span class="text-xs px-2 py-1 rounded-full font-medium"
+                    [ngClass]="getStatusBadgeClass(user.status)">
+                {{ user.status }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!data || data.recentUsers.length === 0" class="text-center py-8">
+      <div class="w-16 h-16 bg-bg-soft rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="pi pi-user-plus text-2xl text-text-muted"></i>
+      </div>
+      <h4 class="text-lg font-semibold text-text mb-2">No Recent Users</h4>
+      <p class="text-text-muted">New users will appear here</p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="flex space-x-3 mt-6">
+      <button class="flex-1 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-light transition-all duration-200 flex items-center justify-center space-x-2 group">
+        <i class="pi pi-user-plus text-sm group-hover:scale-110 transition-transform duration-200"></i>
+        <span>Add User</span>
+      </button>
+      <button class="flex-1 px-4 py-2 bg-bg-soft text-text border border-neutral-300 rounded-xl font-semibold hover:bg-neutral-300 transition-all duration-200 flex items-center justify-center space-x-2 group">
+        <i class="pi pi-users text-sm group-hover:scale-110 transition-transform duration-200"></i>
+        <span>Manage Users</span>
+      </button>
+    </div>
+  </div>
+</div>

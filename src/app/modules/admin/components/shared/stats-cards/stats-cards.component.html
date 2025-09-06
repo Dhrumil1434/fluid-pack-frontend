@@ -1,0 +1,48 @@
+<!-- Statistics Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div
+    *ngFor="let stat of data; let i = index; trackBy: trackByStatCard"
+    class="group relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-white/20"
+    [style.animation-delay]="(i * 100) + 'ms'">
+
+    <!-- Background Gradient -->
+    <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+         [ngClass]="getGradientClass(stat.color)"></div>
+
+    <!-- Card Content -->
+    <div class="relative p-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300"
+             [ngClass]="getIconBgClass(stat.color)">
+          <i [class]="stat.icon" class="text-white text-xl"></i>
+        </div>
+        <div class="text-right">
+          <p class="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+            {{ formatNumber(stat.value) }}
+          </p>
+          <p class="text-sm text-gray-500">{{ stat.title }}</p>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="space-y-2" *ngIf="stat.description">
+        <p class="text-sm text-gray-600">{{ stat.description }}</p>
+      </div>
+
+      <!-- Change Indicator -->
+      <div class="mt-4" *ngIf="stat.change !== 0">
+        <div class="flex items-center justify-between text-sm">
+          <span class="flex items-center" [ngClass]="getChangeColorClass(stat.changeType)">
+            <i [class]="getChangeIconClass(stat.changeType)" class="mr-2"></i>
+            {{ getChangeText(stat.change) }}
+          </span>
+          <span class="text-xs text-gray-500">vs last period</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hover Effect -->
+    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+  </div>
+</div>

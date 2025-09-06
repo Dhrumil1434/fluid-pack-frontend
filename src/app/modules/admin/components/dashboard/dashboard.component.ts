@@ -1,0 +1,94 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+
+// Shared Components
+import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
+import { StatsCardsComponent } from '../shared/stats-cards/stats-cards.component';
+import { RecentActivityComponent } from '../shared/recent-activity/recent-activity.component';
+import { PendingApprovalsComponent } from '../shared/pending-approvals/pending-approvals.component';
+import { UserManagementPreviewComponent } from '../shared/user-management-preview/user-management-preview.component';
+import { MachineManagementPreviewComponent } from '../shared/machine-management-preview/machine-management-preview.component';
+
+// Services
+import { AdminDashboardService } from '../../services/admin-dashboard.service';
+import { LoaderService } from '../../../../core/services/loader.service';
+import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    AdminSidebarComponent,
+    StatsCardsComponent,
+    RecentActivityComponent,
+    PendingApprovalsComponent,
+    UserManagementPreviewComponent,
+    MachineManagementPreviewComponent
+  ],
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.css']
+})
+export class DashboardComponent implements OnInit {
+  // Dashboard data
+  dashboardData: any = null;
+  isLoading = false;
+  error: string | null = null;
+
+  // Sidebar state
+  sidebarCollapsed = false;
+
+  constructor(
+    private adminDashboardService: AdminDashboardService,
+    private loaderService: LoaderService,
+    private errorHandler: ErrorHandlerService
+  ) {}
+
+  ngOnInit() {
+    this.loadDashboardData();
+  }
+
+  /**
+   * Load dashboard data from API
+   */
+  private async loadDashboardData() {
+    try {
+      this.isLoading = true;
+      this.error = null;
+
+      this.loaderService.showCardLoader('dashboard', 'Loading dashboard data...');
+
+      this.dashboardData = await this.adminDashboardService.getDashboardData();
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      this.error = 'Failed to load dashboard data. Please try again.';
+    } finally {
+      this.isLoading = false;
+      this.loaderService.hideCardLoader('dashboard');
+    }
+  }
+
+  /**
+   * Toggle sidebar collapsed state
+   */
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  /**
+   * Refresh dashboard data
+   */
+  refreshDashboard() {
+    this.loadDashboardData();
+  }
+
+  /**
+   * Handle sidebar collapse state change
+   */
+  onSidebarCollapseChange(collapsed: boolean) {
+    this.sidebarCollapsed = collapsed;
+  }
+}

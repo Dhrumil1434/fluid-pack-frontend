@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
   // User management
   USERS: '/user',
   USER_APPROVE: '/user/:id/approve',
+  USER_STATISTICS: '/user/statistics',
 
   // Machine management
   MACHINES: '/machines',
@@ -16,6 +17,7 @@ export const API_ENDPOINTS = {
   MACHINE_APPROVAL: '/machines/:id/approval',
   MACHINE_BY_CATEGORY: '/machines/category/:id',
   MACHINE_VALIDATE_IDS: '/machines/validate-ids',
+  MACHINE_STATISTICS: '/machines/statistics',
 
   // Category management
   CATEGORIES: '/admin/category',
@@ -36,6 +38,7 @@ export const API_ENDPOINTS = {
   PENDING_APPROVALS: '/machine-approvals/pending',
   PROCESS_APPROVAL: '/machine-approvals/:id/process',
   CANCEL_APPROVAL: '/machine-approvals/:id/cancel',
+  APPROVAL_STATISTICS: '/machine-approvals/statistics',
 
   // QA Machine management
   QA_MACHINES: '/qa-machines',
@@ -43,6 +46,7 @@ export const API_ENDPOINTS = {
   QA_MACHINE_BY_MACHINE: '/qa-machines/machine/:machineId',
   QA_MACHINE_BY_USER: '/qa-machines/user/:userId',
   QA_MACHINE_VALIDATE_IDS: '/qa-machines/validate-ids',
+  QA_STATISTICS: '/qa-machines/statistics',
 
   // Permission configuration
   PERMISSIONS: '/permission',

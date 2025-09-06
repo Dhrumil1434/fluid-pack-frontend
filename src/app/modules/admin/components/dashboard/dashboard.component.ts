@@ -26,10 +26,10 @@ import { ErrorHandlerService } from '../../../../core/services/error-handler.ser
     RecentActivityComponent,
     PendingApprovalsComponent,
     UserManagementPreviewComponent,
-    MachineManagementPreviewComponent
+    MachineManagementPreviewComponent,
   ],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.css']
+  styleUrls: ['./dashboard.component.css'],
 })
 export class DashboardComponent implements OnInit {
   // Dashboard data
@@ -53,22 +53,25 @@ export class DashboardComponent implements OnInit {
   /**
    * Load dashboard data from API
    */
-  private async loadDashboardData() {
-    try {
-      this.isLoading = true;
-      this.error = null;
+  private loadDashboardData() {
+    this.isLoading = true;
+    this.error = null;
 
-      this.loaderService.showCardLoader('dashboard', 'Loading dashboard data...');
+    this.loaderService.showCardLoader('dashboard', 'Loading dashboard data...');
 
-      this.dashboardData = await this.adminDashboardService.getDashboardData();
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      this.error = 'Failed to load dashboard data. Please try again.';
-    } finally {
-      this.isLoading = false;
-      this.loaderService.hideCardLoader('dashboard');
-    }
+    this.adminDashboardService.getDashboardData().subscribe({
+      next: data => {
+        this.dashboardData = data;
+        this.isLoading = false;
+        this.loaderService.hideCardLoader('dashboard');
+      },
+      error: error => {
+        console.error('Error loading dashboard data:', error);
+        this.error = 'Failed to load dashboard data. Please try again.';
+        this.isLoading = false;
+        this.loaderService.hideCardLoader('dashboard');
+      },
+    });
   }
 
   /**
@@ -83,6 +86,34 @@ export class DashboardComponent implements OnInit {
    */
   refreshDashboard() {
     this.loadDashboardData();
+  }
+
+  /**
+   * Refresh dashboard data for specific time range
+   */
+  refreshDashboardForTimeRange(
+    timeRange: 'today' | 'week' | 'month' | 'quarter' | 'year'
+  ) {
+    this.isLoading = true;
+    this.error = null;
+
+    this.loaderService.showCardLoader('dashboard', 'Loading dashboard data...');
+
+    this.adminDashboardService
+      .getDashboardDataForTimeRange(timeRange)
+      .subscribe({
+        next: data => {
+          this.dashboardData = data;
+          this.isLoading = false;
+          this.loaderService.hideCardLoader('dashboard');
+        },
+        error: error => {
+          console.error('Error loading dashboard data:', error);
+          this.error = 'Failed to load dashboard data. Please try again.';
+          this.isLoading = false;
+          this.loaderService.hideCardLoader('dashboard');
+        },
+      });
   }
 
   /**

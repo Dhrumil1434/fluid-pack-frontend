@@ -1,204 +1,57 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, throwError } from 'rxjs';
-import { delay, catchError } from 'rxjs/operators';
+import { Observable, forkJoin, of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { BaseApiService } from '../../../core/services/base-api.service';
-import { API_ENDPOINTS } from '../../../core/constants/api.constants';
 
-export interface DashboardData {
-  statistics: {
-    totalUsers: number;
-    totalMachines: number;
-    pendingApprovals: number;
-    qaEntries: number;
-  };
-  recentActivity: any[];
-  pendingApprovals: any[];
-  userManagement: {
-    totalUsers: number;
-    pendingApprovals: number;
-    recentUsers: any[];
-    userStats: {
-      activeUsers: number;
-      inactiveUsers: number;
-      adminUsers: number;
-      regularUsers: number;
-    };
-  };
-  machineManagement: {
-    totalMachines: number;
-    pendingApprovals: number;
-    recentMachines: any[];
-    machineStats: {
-      activeMachines: number;
-      inactiveMachines: number;
-      approvedMachines: number;
-      pendingMachines: number;
-    };
-  };
-}
+// Import individual services
+import { ApprovalStatisticsService } from './approval-statistics.service';
+import { MachineStatisticsService } from './machine-statistics.service';
+import { QAStatisticsService } from './qa-statistics.service';
+import { UserStatisticsService } from './user-statistics.service';
+
+// Import interfaces
+import {
+  DashboardData,
+  DashboardQueryParams,
+  DashboardStatistics,
+  RecentActivity,
+} from '../interfaces/dashboard.interfaces';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AdminDashboardService {
-  constructor(private baseApiService: BaseApiService) {}
+  constructor(
+    private baseApiService: BaseApiService,
+    private userStatisticsService: UserStatisticsService,
+    private machineStatisticsService: MachineStatisticsService,
+    private approvalStatisticsService: ApprovalStatisticsService,
+    private qaStatisticsService: QAStatisticsService
+  ) {}
 
   /**
-   * Get dashboard data from API
+   * Get comprehensive dashboard data from multiple APIs
    */
-  getDashboardData(): Observable<DashboardData> {
-    // For now, return mock data
-    // In production, this would make API calls to get real data
-    const mockData: DashboardData = {
-      statistics: {
-        totalUsers: 156,
-        totalMachines: 89,
-        pendingApprovals: 12,
-        qaEntries: 234
-      },
-      recentActivity: [
-        {
-          id: '1',
-          type: 'user',
-          title: 'New User Registered',
-          description: 'John Doe registered for the system',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30),
-          user: 'System',
-          icon: 'pi pi-user-plus',
-          color: 'blue'
-        },
-        {
-          id: '2',
-          type: 'machine',
-          title: 'Machine Created',
-          description: 'New machine "Hydraulic Press" added to Engineering category',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-          user: 'Admin User',
-          icon: 'pi pi-cog',
-          color: 'green'
-        },
-        {
-          id: '3',
-          type: 'approval',
-          title: 'Approval Requested',
-          description: 'Machine update approval requested for "Conveyor Belt"',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
-          user: 'Engineer',
-          icon: 'pi pi-clock',
-          color: 'orange'
-        }
-      ],
-      pendingApprovals: [
-        {
-          id: '1',
-          type: 'machine_creation',
-          title: 'New Machine: Hydraulic Press',
-          description: 'Request to add new hydraulic press to Engineering category',
-          requestedBy: 'John Engineer',
-          requestedAt: new Date(Date.now() - 1000 * 60 * 30),
-          priority: 'high',
-          status: 'pending'
-        },
-        {
-          id: '2',
-          type: 'machine_update',
-          title: 'Machine Update: Conveyor Belt',
-          description: 'Request to update conveyor belt specifications',
-          requestedBy: 'Jane Manager',
-          requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-          priority: 'medium',
-          status: 'in_review'
-        }
-      ],
-      userManagement: {
-        totalUsers: 156,
-        pendingApprovals: 8,
-        recentUsers: [
-          {
-            id: '1',
-            name: 'John Doe',
-            email: 'john.doe@company.com',
-            role: 'Engineer',
-            department: 'Engineering',
-            status: 'active',
-            lastLogin: new Date(Date.now() - 1000 * 60 * 30),
-            avatar: null
-          },
-          {
-            id: '2',
-            name: 'Jane Smith',
-            email: 'jane.smith@company.com',
-            role: 'QA Specialist',
-            department: 'Quality Assurance',
-            status: 'active',
-            lastLogin: new Date(Date.now() - 1000 * 60 * 60 * 2),
-            avatar: null
-          },
-          {
-            id: '3',
-            name: 'Mike Johnson',
-            email: 'mike.johnson@company.com',
-            role: 'Manager',
-            department: 'Management',
-            status: 'pending',
-            lastLogin: new Date(Date.now() - 1000 * 60 * 60 * 4),
-            avatar: null
-          }
-        ],
-        userStats: {
-          activeUsers: 148,
-          inactiveUsers: 8,
-          adminUsers: 12,
-          regularUsers: 144
-        }
-      },
-      machineManagement: {
-        totalMachines: 89,
-        pendingApprovals: 4,
-        recentMachines: [
-          {
-            id: '1',
-            name: 'Hydraulic Press',
-            category: 'Engineering',
-            status: 'active',
-            createdBy: 'John Engineer',
-            createdAt: new Date(Date.now() - 1000 * 60 * 30),
-            lastUpdated: new Date(Date.now() - 1000 * 60 * 30),
-            image: null
-          },
-          {
-            id: '2',
-            name: 'Conveyor Belt',
-            category: 'Manufacturing',
-            status: 'pending',
-            createdBy: 'Jane Manager',
-            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-            lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 2),
-            image: null
-          },
-          {
-            id: '3',
-            name: 'Welding Machine',
-            category: 'Engineering',
-            status: 'maintenance',
-            createdBy: 'Bob Supervisor',
-            createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4),
-            lastUpdated: new Date(Date.now() - 1000 * 60 * 60 * 4),
-            image: null
-          }
-        ],
-        machineStats: {
-          activeMachines: 78,
-          inactiveMachines: 11,
-          approvedMachines: 85,
-          pendingMachines: 4
-        }
-      }
-    };
-
-    // Simulate API call with delay
-    return of(mockData).pipe(
-      delay(1000), // Simulate network delay
+  getDashboardData(params?: DashboardQueryParams): Observable<DashboardData> {
+    // Fetch all data in parallel for better performance
+    return forkJoin({
+      userStats: this.userStatisticsService.getUserStatistics(params),
+      machineStats: this.machineStatisticsService.getMachineStatistics(params),
+      approvalStats:
+        this.approvalStatisticsService.getApprovalStatistics(params),
+      qaStats: this.qaStatisticsService.getQAStatistics(params),
+      recentActivity: this.getRecentActivity(params),
+      pendingApprovals: this.approvalStatisticsService.getPendingApprovals(
+        10,
+        params
+      ),
+      recentUsers: this.userStatisticsService.getRecentUsers(5, params),
+      recentMachines: this.machineStatisticsService.getRecentMachines(
+        5,
+        params
+      ),
+    }).pipe(
+      map(data => this.buildDashboardData(data)),
       catchError(error => {
         console.error('Error fetching dashboard data:', error);
         return throwError(() => error);
@@ -207,51 +60,179 @@ export class AdminDashboardService {
   }
 
   /**
-   * Get user statistics
+   * Get dashboard statistics summary
    */
-  getUserStatistics(): Observable<any> {
-    // This would typically call the user API
-    return of({
-      totalUsers: 156,
-      activeUsers: 148,
-      inactiveUsers: 8,
-      adminUsers: 12,
-      regularUsers: 144
-    }).pipe(delay(500));
+  getDashboardStatistics(
+    params?: DashboardQueryParams
+  ): Observable<DashboardStatistics> {
+    return forkJoin({
+      userStats: this.userStatisticsService.getUserStatisticsSummary(params),
+      machineStats:
+        this.machineStatisticsService.getMachineStatisticsSummary(params),
+      approvalStats:
+        this.approvalStatisticsService.getApprovalStatisticsSummary(params),
+      qaStats: this.qaStatisticsService.getQAStatisticsSummary(params),
+    }).pipe(
+      map(data => ({
+        totalUsers: data.userStats.totalUsers,
+        totalMachines: data.machineStats.totalMachines,
+        pendingApprovals: data.approvalStats.totalPending,
+        qaEntries: data.qaStats.totalQAEntries,
+        systemHealth: this.calculateSystemHealth(data),
+      })),
+      catchError(error => {
+        console.error('Error fetching dashboard statistics:', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   /**
-   * Get machine statistics
+   * Get recent activity from multiple sources
    */
-  getMachineStatistics(): Observable<any> {
-    // This would typically call the machine API
-    return of({
-      totalMachines: 89,
-      activeMachines: 78,
-      inactiveMachines: 11,
-      approvedMachines: 85,
-      pendingMachines: 4
-    }).pipe(delay(500));
+  private getRecentActivity(
+    _params?: DashboardQueryParams
+  ): Observable<RecentActivity[]> {
+    // This would typically aggregate activity from multiple sources
+    // For now, return mock data that would come from an activity log API
+    return of([
+      {
+        id: '1',
+        type: 'user' as const,
+        title: 'New User Registered',
+        description: 'John Doe registered for the system',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30),
+        user: 'System',
+        userId: 'system',
+        icon: 'pi pi-user-plus',
+        color: 'blue',
+      },
+      {
+        id: '2',
+        type: 'machine' as const,
+        title: 'Machine Created',
+        description:
+          'New machine "Hydraulic Press" added to Engineering category',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+        user: 'Admin User',
+        userId: 'admin-1',
+        icon: 'pi pi-cog',
+        color: 'green',
+      },
+      {
+        id: '3',
+        type: 'approval' as const,
+        title: 'Approval Requested',
+        description: 'Machine update approval requested for "Conveyor Belt"',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
+        user: 'Engineer',
+        userId: 'eng-1',
+        icon: 'pi pi-clock',
+        color: 'orange',
+      },
+    ]).pipe(
+      catchError(error => {
+        console.error('Error fetching recent activity:', error);
+        return of([]);
+      })
+    );
   }
 
   /**
-   * Get pending approvals
+   * Build comprehensive dashboard data from individual service responses
    */
-  getPendingApprovals(): Observable<any> {
-    // This would typically call the approval API
-    return of({
-      total: 12,
-      high: 3,
-      medium: 6,
-      low: 3
-    }).pipe(delay(500));
+  private buildDashboardData(data: any): DashboardData {
+    return {
+      statistics: {
+        totalUsers: data.userStats.totalUsers,
+        totalMachines: data.machineStats.totalMachines,
+        pendingApprovals: data.approvalStats.totalPending,
+        qaEntries: data.qaStats.totalQAEntries,
+        systemHealth: this.calculateSystemHealth({
+          userStats: data.userStats,
+          machineStats: data.machineStats,
+          approvalStats: data.approvalStats,
+          qaStats: data.qaStats,
+        }),
+      },
+      userStatistics: data.userStats,
+      machineStatistics: data.machineStats,
+      approvalStatistics: data.approvalStats,
+      qaStatistics: data.qaStats,
+      recentActivity: data.recentActivity,
+      pendingApprovals: data.pendingApprovals,
+      userManagement: {
+        totalUsers: data.userStats.totalUsers,
+        pendingApprovals: data.approvalStats.totalPending,
+        recentUsers: data.recentUsers,
+        userStats: data.userStats,
+      },
+      machineManagement: {
+        totalMachines: data.machineStats.totalMachines,
+        pendingApprovals: data.approvalStats.totalPending,
+        recentMachines: data.recentMachines,
+        machineStats: data.machineStats,
+      },
+    };
   }
 
   /**
-   * Get recent activity
+   * Calculate system health based on various metrics
    */
-  getRecentActivity(): Observable<any> {
-    // This would typically call the activity API
-    return of([]).pipe(delay(500));
+  private calculateSystemHealth(data: any): 'healthy' | 'warning' | 'critical' {
+    const { userStats, machineStats, approvalStats, qaStats } = data;
+
+    // Calculate health score based on various factors
+    let healthScore = 100;
+
+    // Reduce score based on pending approvals
+    if (approvalStats.totalPending > 20) healthScore -= 30;
+    else if (approvalStats.totalPending > 10) healthScore -= 15;
+
+    // Reduce score based on inactive users
+    const inactiveUserRatio = userStats.inactiveUsers / userStats.totalUsers;
+    if (inactiveUserRatio > 0.2) healthScore -= 20;
+    else if (inactiveUserRatio > 0.1) healthScore -= 10;
+
+    // Reduce score based on inactive machines
+    const inactiveMachineRatio =
+      machineStats.inactiveMachines / machineStats.totalMachines;
+    if (inactiveMachineRatio > 0.3) healthScore -= 25;
+    else if (inactiveMachineRatio > 0.15) healthScore -= 12;
+
+    // Reduce score based on QA completion rate
+    const qaCompletionRate =
+      qaStats.completedQAEntries / qaStats.totalQAEntries;
+    if (qaCompletionRate < 0.7) healthScore -= 20;
+    else if (qaCompletionRate < 0.85) healthScore -= 10;
+
+    if (healthScore >= 80) return 'healthy';
+    if (healthScore >= 60) return 'warning';
+    return 'critical';
+  }
+
+  /**
+   * Refresh dashboard data
+   */
+  refreshDashboard(params?: DashboardQueryParams): Observable<DashboardData> {
+    return this.getDashboardData(params);
+  }
+
+  /**
+   * Get dashboard data for specific time range
+   */
+  getDashboardDataForTimeRange(
+    timeRange: 'today' | 'week' | 'month' | 'quarter' | 'year'
+  ): Observable<DashboardData> {
+    return this.getDashboardData({ timeRange });
+  }
+
+  /**
+   * Get dashboard data for specific department
+   */
+  getDashboardDataForDepartment(
+    departmentId: string
+  ): Observable<DashboardData> {
+    return this.getDashboardData({ departmentId });
   }
 }

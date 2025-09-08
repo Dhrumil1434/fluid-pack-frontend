@@ -23,32 +23,32 @@
 /* CSS Variables for Design System */
 :root {
   /* Primary Colors - Wild/Dark Green Theme */
-  --color-primary: #006B3C;
-  --color-primary-light: #2E8B57;
+  --color-primary: #006b3c;
+  --color-primary-light: #2e8b57;
   --color-primary-dark: #004429;
 
   /* Background Colors */
-  --color-bg: #FFFFFF;
-  --color-bg-soft: #F4F4F2;
+  --color-bg: #ffffff;
+  --color-bg-soft: #f4f4f2;
   --color-bg-dark: #121212;
 
   /* Neutral Colors */
-  --color-neutral-300: #D9D9D6;
-  --color-sand: #C4A484;
+  --color-neutral-300: #d9d9d6;
+  --color-sand: #c4a484;
 
   /* Accent Colors */
-  --color-accent-amber: #FFD166;
-  --color-accent-teal: #118AB2;
+  --color-accent-amber: #ffd166;
+  --color-accent-teal: #118ab2;
 
   /* Text Colors */
-  --color-text: #1C1C1C;
+  --color-text: #1c1c1c;
   --color-text-muted: #555555;
 
   /* Status Colors */
-  --color-success: #2ECC71;
-  --color-warning: #F39C12;
-  --color-error: #E74C3C;
-  --color-info: #3498DB;
+  --color-success: #2ecc71;
+  --color-warning: #f39c12;
+  --color-error: #e74c3c;
+  --color-info: #3498db;
 }
 
 /* PrimeNG Theme Overrides */
@@ -234,15 +234,21 @@
 
 /* Global Utility Classes */
 .shadow-low {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
 .shadow-medium {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .shadow-high {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* Force Tailwind color classes to use our design system */

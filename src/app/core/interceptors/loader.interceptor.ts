@@ -8,15 +8,15 @@ export function loaderInterceptor(
   next: HttpHandlerFn
 ): Observable<HttpEvent<any>> {
   const loaderService = inject(LoaderService);
-  
+
   // Skip loader for certain endpoints
   if (shouldSkipLoader(req.url)) {
     return next(req);
   }
-  
+
   // Show global loader for HTTP requests
   loaderService.showGlobalLoader('Processing request...');
-  
+
   return next(req).pipe(
     finalize(() => {
       // Hide loader when request completes (success or error)
@@ -33,8 +33,11 @@ function shouldSkipLoader(url: string): boolean {
   const skipPatterns = [
     '/api/health',
     '/api/ping',
+    // User management views manage their own loaders
+    '/api/user',
+    '/api/user/statistics',
     // Add more patterns as needed
   ];
-  
+
   return skipPatterns.some(pattern => url.includes(pattern));
 }

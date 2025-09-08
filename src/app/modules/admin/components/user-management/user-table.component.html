@@ -1,0 +1,195 @@
+<div class="border border-neutral-300 rounded-xl overflow-hidden">
+  <div
+    class="flex items-center justify-between px-4 py-3 bg-bg border-b border-neutral-300"
+  >
+    <div class="text-sm text-text-muted">{{ total }} users</div>
+    <div class="flex items-center gap-2">
+      <button
+        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
+        (click)="toggleDensity()"
+      >
+        <i
+          class="pi"
+          [ngClass]="{ 'pi-compress': isCompact, 'pi-expand': !isCompact }"
+        ></i>
+      </button>
+      <div class="relative">
+        <button
+          class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
+        >
+          <i class="pi pi-sliders-h"></i> Columns
+        </button>
+        <!-- simple menu -->
+        <div
+          class="mt-2 bg-bg border border-neutral-300 rounded-md shadow-medium p-2 absolute right-0 z-10"
+          *ngIf="false"
+        >
+          <label
+            class="flex items-center gap-2"
+            *ngFor="
+              let col of [
+                'user',
+                'email',
+                'role',
+                'department',
+                'status',
+                'createdAt',
+                'actions',
+              ];
+              trackBy: trackByCol
+            "
+          >
+            <input
+              type="checkbox"
+              [checked]="visibleColumns[col]"
+              (change)="toggleColumn(col)"
+            />
+            <span class="text-sm">{{ col }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overflow-auto" [class.text-sm]="isCompact">
+    <table class="w-full">
+      <thead class="bg-neutral-50 text-left">
+        <tr>
+          <th class="px-4 py-3 cursor-pointer" (click)="onSort('username')">
+            User
+          </th>
+          <th
+            class="px-4 py-3 cursor-pointer"
+            *ngIf="visibleColumns['email']"
+            (click)="onSort('email')"
+          >
+            Email
+          </th>
+          <th class="px-4 py-3" *ngIf="visibleColumns['role']">Role</th>
+          <th class="px-4 py-3" *ngIf="visibleColumns['department']">
+            Department
+          </th>
+          <th class="px-4 py-3" *ngIf="visibleColumns['status']">Status</th>
+          <th
+            class="px-4 py-3 cursor-pointer"
+            *ngIf="visibleColumns['createdAt']"
+            (click)="onSort('createdAt')"
+          >
+            Created
+          </th>
+          <th
+            class="px-4 py-3 actions-col w-56"
+            *ngIf="visibleColumns['actions']"
+          >
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="loading">
+          <td colspan="7" class="px-4 py-6 text-center text-text-muted">
+            Loading...
+          </td>
+        </tr>
+        <tr
+          *ngFor="let u of users; trackBy: trackByUser"
+          class="border-t border-neutral-200"
+        >
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-neutral-200"></div>
+              <div>
+                <div class="font-medium text-text">{{ u.username }}</div>
+                <div class="text-xs text-text-muted">
+                  #{{ u._id | slice: -6 }}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3" *ngIf="visibleColumns['email']">
+            {{ u['email'] }}
+          </td>
+          <td class="px-4 py-3" *ngIf="visibleColumns['role']">
+            {{ u.role?.name || '-' }}
+          </td>
+          <td class="px-4 py-3" *ngIf="visibleColumns['department']">
+            {{ u.department?.name || '-' }}
+          </td>
+          <td class="px-4 py-3" *ngIf="visibleColumns['status']">
+            <span
+              class="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs"
+              [ngClass]="{
+                'bg-success/10 text-success': statusSeverity(u) === 'success',
+                'bg-warning/10 text-warning': statusSeverity(u) === 'warning',
+              }"
+            >
+              <i
+                class="pi"
+                [ngClass]="{
+                  'pi-check-circle': u.isApproved,
+                  'pi-clock': !u.isApproved,
+                }"
+              ></i>
+              {{ statusLabel(u) }}
+            </span>
+          </td>
+          <td class="px-4 py-3 w-56" *ngIf="visibleColumns['createdAt']">
+            {{ u.createdAt | date: 'mediumDate' }}
+          </td>
+          <td class="px-4 py-3 w-56" *ngIf="visibleColumns['actions']">
+            <div class="flex items-center gap-2">
+              <button
+                class="h-8 px-3 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 cursor-pointer inline-flex items-center"
+                (click)="onViewClick(u)"
+              >
+                <i class="pi pi-eye mr-1"></i>View
+              </button>
+              <button
+                class="h-8 px-3 rounded-md border text-success border-success hover:bg-success/10 cursor-pointer inline-flex items-center"
+                *ngIf="!u.isApproved"
+                (click)="onApproveClick(u)"
+              >
+                <i class="pi pi-check mr-1"></i>Approve
+              </button>
+              <button
+                class="h-8 px-3 rounded-md border text-danger border-danger hover:bg-danger/10 cursor-pointer inline-flex items-center"
+                *ngIf="!u.isApproved"
+                (click)="onRejectClick(u)"
+              >
+                <i class="pi pi-times mr-1"></i>Reject
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="!loading && users.length === 0">
+          <td colspan="7" class="px-4 py-8 text-center text-text-muted">
+            No users found.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div
+    class="flex items-center justify-between px-4 py-3 border-t border-neutral-300 bg-bg"
+  >
+    <div class="text-sm text-text-muted">
+      Page {{ page }} / {{ pages || 1 }}
+    </div>
+    <div class="flex items-center gap-2">
+      <button
+        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
+        (click)="goToPage(page - 1)"
+      >
+        Prev
+      </button>
+      <button
+        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
+        (click)="goToPage(page + 1)"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>

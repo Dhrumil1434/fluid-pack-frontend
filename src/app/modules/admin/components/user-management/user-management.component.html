@@ -1,0 +1,239 @@
+<!-- Admin User Management — Shell with Sidebar -->
+<app-admin-sidebar
+  [collapsed]="sidebarCollapsed"
+  (collapseChange)="sidebarCollapsed = $event"
+></app-admin-sidebar>
+
+<div
+  class="transition-all duration-300"
+  [class.ml-16]="sidebarCollapsed"
+  [class.ml-64]="!sidebarCollapsed"
+>
+  <!-- Sticky Header -->
+  <header class="bg-bg border-b border-neutral-300 px-6 py-3 sticky top-0 z-40">
+    <div class="flex items-center justify-between">
+      <!-- Left: Toggle + Breadcrumbs -->
+      <div class="flex items-center gap-3">
+        <button
+          class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
+          title="Toggle sidebar"
+          (click)="sidebarCollapsed = !sidebarCollapsed"
+        >
+          <i class="pi pi-bars"></i>
+        </button>
+        <nav class="text-sm text-text-muted flex items-center gap-2">
+          <i class="pi pi-home"></i>
+          <a routerLink="/admin/dashboard" class="hover:underline">Dashboard</a>
+          <span>/</span>
+          <span class="text-text">All Users</span>
+        </nav>
+      </div>
+      <!-- Right: Actions -->
+      <div class="flex items-center gap-2">
+        <button
+          class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
+          title="Refresh"
+          (click)="ngOnInit()"
+        >
+          <i class="pi pi-refresh"></i>
+        </button>
+        <button
+          (click)="onOpenAddUser()"
+          class="px-3 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer"
+        >
+          <i class="pi pi-user-plus mr-2"></i>
+          Add User
+        </button>
+        <button
+          class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
+          title="Help"
+        >
+          <i class="pi pi-question-circle"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="p-6 space-y-6">
+    <!-- KPI Strip -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div
+        class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-4 flex items-center gap-3"
+      >
+        <div
+          class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center"
+        >
+          <i class="pi pi-users" style="color: var(--color-primary)"></i>
+        </div>
+        <div>
+          <div class="text-xs text-text-muted">Total Users</div>
+          <div class="text-xl font-semibold text-text">
+            {{ totalUsers ?? '—' }}
+          </div>
+        </div>
+      </div>
+      <div
+        class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-4 flex items-center gap-3"
+      >
+        <div
+          class="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center"
+        >
+          <i class="pi pi-check-circle" style="color: var(--color-success)"></i>
+        </div>
+        <div>
+          <div class="text-xs text-text-muted">Approved</div>
+          <div class="text-xl font-semibold text-text">
+            {{ approvedUsers ?? '—' }}
+          </div>
+        </div>
+      </div>
+      <div
+        class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-4 flex items-center gap-3"
+      >
+        <div
+          class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center"
+        >
+          <i class="pi pi-clock" style="color: var(--color-warning)"></i>
+        </div>
+        <div>
+          <div class="text-xs text-text-muted">Pending</div>
+          <div class="text-xl font-semibold text-text">
+            {{ pendingUsers ?? '—' }}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters Card -->
+    <section
+      class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-6"
+    >
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-text">Filters</h2>
+        <div class="text-xs text-text-muted" *ngIf="loadingFilters">
+          Loading...
+        </div>
+      </div>
+      <form
+        [formGroup]="filtersForm"
+        class="grid grid-cols-1 md:grid-cols-5 gap-4"
+      >
+        <div class="md:col-span-2">
+          <label class="block text-xs text-text-muted mb-1">Search</label>
+          <input
+            type="text"
+            class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+            placeholder="Search by name or email"
+            formControlName="search"
+          />
+        </div>
+        <div>
+          <label class="block text-xs text-text-muted mb-1">Role</label>
+          <select
+            class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+            formControlName="role"
+          >
+            <option value="">All</option>
+            <option *ngFor="let r of roles; trackBy: trackById" [value]="r._id">
+              {{ r.name }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-text-muted mb-1">Department</label>
+          <select
+            class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+            formControlName="department"
+          >
+            <option value="">All</option>
+            <option
+              *ngFor="let d of departments; trackBy: trackById"
+              [value]="d._id"
+            >
+              {{ d.name }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-text-muted mb-1">Status</label>
+          <select
+            class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+            formControlName="status"
+          >
+            <option value="">All</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-text-muted mb-1">From</label>
+          <input
+            type="date"
+            class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+            formControlName="dateFrom"
+          />
+        </div>
+        <div>
+          <label class="block text-xs text-text-muted mb-1">To</label>
+          <input
+            type="date"
+            class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+            formControlName="dateTo"
+          />
+        </div>
+        <div class="md:col-span-5 flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            (click)="onClearFilters()"
+            class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 cursor-pointer transition-colors"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            (click)="onApplyFilters()"
+            [disabled]="!canApply"
+            class="px-3 py-2 rounded-md text-white cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            [class.bg-primary]="!applying"
+            [class.bg-neutral-400]="applying"
+          >
+            <span *ngIf="!applying">Apply</span>
+            <span *ngIf="applying" class="inline-flex items-center gap-2">
+              <i class="pi pi-spin pi-spinner text-white"></i>
+              Applying
+            </span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Users Table -->
+    <section>
+      <app-user-table
+        [filters]="appliedFilters"
+        (view)="onViewUser($event)"
+        (approve)="onApproveUser($event)"
+        (reject)="onRejectUser($event)"
+      ></app-user-table>
+    </section>
+  </main>
+
+  <!-- Approve/Reject Dialog -->
+  <app-approve-reject-dialog
+    [visible]="showApproveReject"
+    [mode]="approveMode"
+    [loading]="actionLoading"
+    (cancel)="onCancelApproveReject()"
+    (confirm)="onConfirmApproveReject($event)"
+  ></app-approve-reject-dialog>
+
+  <!-- Add User Modal -->
+  <app-add-user-modal
+    [visible]="showAddUser"
+    [roles]="roles"
+    [departments]="departments"
+    [loading]="addUserLoading"
+    (cancel)="onCancelAddUser()"
+    (submitForm)="onCreateUser($event)"
+  ></app-add-user-modal>
+</div>

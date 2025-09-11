@@ -406,3 +406,133 @@
 .border-info\/20 {
   border-color: rgba(52, 152, 219, 0.2) !important;
 }
+
+/* PrimeNG Dialog - Global Enhancements aligned with design.md */
+.p-dialog-mask {
+  background-color: color-mix(
+    in srgb,
+    var(--color-bg) 30%,
+    rgba(0, 0, 0, 0.65)
+  );
+  backdrop-filter: blur(2px);
+}
+
+/* Scoped when styleClass="fp-dialog" is present */
+.fp-dialog.p-dialog {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px color-mix(in srgb, var(--color-text) 14%, transparent);
+  border: 1px solid var(--color-neutral-300);
+}
+
+.fp-dialog .p-dialog-header {
+  background: var(--color-bg);
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.fp-dialog .p-dialog-title {
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.fp-dialog .p-dialog-header .p-dialog-header-icon {
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.fp-dialog .p-dialog-header .p-dialog-header-icon:hover {
+  background: color-mix(in srgb, var(--color-neutral-300) 20%, transparent);
+  color: var(--color-text);
+}
+
+.fp-dialog .p-dialog-content {
+  background: var(--color-bg);
+  padding: 1rem 1.25rem;
+}
+
+.fp-dialog .p-dialog-footer {
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-neutral-300);
+  padding: 0.75rem 1rem;
+}
+
+/* Buttons mapped to design tokens */
+.p-button-success {
+  --p-button-bg: var(--color-success);
+}
+.p-button-danger {
+  --p-button-bg: var(--color-error);
+}
+.p-button-info {
+  --p-button-bg: var(--color-primary);
+}
+
+/* Small helper utilities used in components */
+.shadow-medium {
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+.text-text {
+  color: var(--color-text);
+}
+.text-text-muted {
+  color: var(--color-text-muted);
+}
+.bg-bg {
+  background: var(--color-bg);
+}
+.bg-bg-soft {
+  background: var(--color-bg-soft);
+}
+.border-neutral-300 {
+  border-color: var(--color-neutral-300);
+}
+.bg-success\/10 {
+  background-color: color-mix(in srgb, var(--color-success) 16%, transparent);
+}
+.bg-warning\/10 {
+  background-color: color-mix(in srgb, var(--color-warning) 16%, transparent);
+}
+
+/* Dialog button states */
+.fp-dialog .p-dialog-footer .p-button:not(.p-button-text) {
+  transition:
+    transform 120ms ease,
+    filter 120ms ease;
+  box-shadow: none;
+}
+.fp-dialog .p-dialog-footer .p-button:not(.p-button-text):hover {
+  filter: brightness(1.03);
+}
+.fp-dialog .p-dialog-footer .p-button:not(.p-button-text):active {
+  transform: translateY(0.5px) scale(0.99);
+}
+.fp-dialog .p-dialog-footer .p-button.p-button-text:hover {
+  background: color-mix(in srgb, var(--color-neutral-300) 24%, transparent);
+}
+
+/* Match Add User modal footer spacing/neutral look */
+.fp-dialog .p-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* Inputs/selects inside dialog */
+.fp-dialog .p-inputtext,
+.fp-dialog .p-select,
+.fp-dialog select,
+.fp-dialog input[type='text'] {
+  background: var(--color-bg);
+  border-color: var(--color-neutral-300);
+}
+.fp-dialog .p-inputtext:focus,
+.fp-dialog select:focus {
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--color-primary) 20%, transparent);
+  outline: none;
+}

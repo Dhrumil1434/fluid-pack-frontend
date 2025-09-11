@@ -1,0 +1,30 @@
+.text-error {
+  color: var(--color-error);
+}
+
+.border-error {
+  border-color: var(--color-error) !important;
+}
+
+:host ::ng-deep .p-dialog .p-dialog-header {
+  background: var(--color-bg);
+}
+
+:host ::ng-deep .p-inputtext:focus {
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+:host ::ng-deep .p-select {
+  width: 100%;
+}
+
+.bg-primary\/10 {
+  background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+.text-primary {
+  color: var(--color-primary);
+}
+.bg-bg-soft {
+  background-color: var(--color-bg-soft);
+}

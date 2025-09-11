@@ -1,0 +1,36 @@
+/* User Details Modal Styles */
+.user-details-modal {
+  .user-avatar {
+    background: linear-gradient(
+      135deg,
+      var(--color-primary-light),
+      var(--color-primary)
+    );
+    color: white;
+  }
+
+  .info-section {
+    border-left: 3px solid var(--color-primary-light);
+    padding-left: 1rem;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .status-approved {
+    background-color: var(--color-success);
+    color: white;
+  }
+
+  .status-pending {
+    background-color: var(--color-warning);
+    color: white;
+  }
+}

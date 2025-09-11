@@ -78,7 +78,7 @@
             Created
           </th>
           <th
-            class="px-4 py-3 actions-col w-56"
+            class="px-4 py-3 actions-col w-64"
             *ngIf="visibleColumns['actions']"
           >
             Actions
@@ -110,10 +110,10 @@
             {{ u['email'] }}
           </td>
           <td class="px-4 py-3" *ngIf="visibleColumns['role']">
-            {{ u.role?.name || '-' }}
+            {{ u.role ? u.role.name : '-' }}
           </td>
           <td class="px-4 py-3" *ngIf="visibleColumns['department']">
-            {{ u.department?.name || '-' }}
+            {{ u.department ? u.department.name : '-' }}
           </td>
           <td class="px-4 py-3" *ngIf="visibleColumns['status']">
             <span
@@ -136,28 +136,71 @@
           <td class="px-4 py-3 w-56" *ngIf="visibleColumns['createdAt']">
             {{ u.createdAt | date: 'mediumDate' }}
           </td>
-          <td class="px-4 py-3 w-56" *ngIf="visibleColumns['actions']">
-            <div class="flex items-center gap-2">
+          <td class="px-4 py-3 w-64" *ngIf="visibleColumns['actions']">
+            <div class="flex gap-2 flex-col sm:flex-row sm:flex-wrap">
+              <!-- View -->
               <button
-                class="h-8 px-3 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 cursor-pointer inline-flex items-center"
+                pButton
+                type="button"
+                class="cursor-pointer"
+                icon="pi pi-eye"
+                label="View"
+                [outlined]="true"
+                severity="secondary"
+                class="p-button-sm"
+                [loading]="
+                  processing.userId === u._id && processing.action === 'view'
+                "
                 (click)="onViewClick(u)"
-              >
-                <i class="pi pi-eye mr-1"></i>View
-              </button>
+              ></button>
+
+              <!-- Edit -->
               <button
-                class="h-8 px-3 rounded-md border text-success border-success hover:bg-success/10 cursor-pointer inline-flex items-center"
+                pButton
+                type="button"
+                class="cursor-pointer"
+                icon="pi pi-pencil"
+                label="Edit"
+                [outlined]="true"
+                severity="info"
+                class="p-button-sm"
+                [loading]="
+                  processing.userId === u._id && processing.action === 'edit'
+                "
+                (click)="onEditClick(u)"
+              ></button>
+
+              <!-- Approve (only when not approved) -->
+              <button
                 *ngIf="!u.isApproved"
+                pButton
+                type="button"
+                class="cursor-pointer"
+                icon="pi pi-check"
+                label="Approve"
+                severity="success"
+                class="p-button-sm"
+                [loading]="
+                  processing.userId === u._id && processing.action === 'approve'
+                "
                 (click)="onApproveClick(u)"
-              >
-                <i class="pi pi-check mr-1"></i>Approve
-              </button>
+              ></button>
+
+              <!-- Reject (only when not approved) -->
               <button
-                class="h-8 px-3 rounded-md border text-danger border-danger hover:bg-danger/10 cursor-pointer inline-flex items-center"
                 *ngIf="!u.isApproved"
+                pButton
+                type="button"
+                class="cursor-pointer"
+                icon="pi pi-times"
+                label="Reject"
+                severity="danger"
+                class="p-button-sm"
+                [loading]="
+                  processing.userId === u._id && processing.action === 'reject'
+                "
                 (click)="onRejectClick(u)"
-              >
-                <i class="pi pi-times mr-1"></i>Reject
-              </button>
+              ></button>
             </div>
           </td>
         </tr>
@@ -171,25 +214,12 @@
   </div>
 
   <!-- Pagination -->
-  <div
-    class="flex items-center justify-between px-4 py-3 border-t border-neutral-300 bg-bg"
-  >
-    <div class="text-sm text-text-muted">
-      Page {{ page }} / {{ pages || 1 }}
-    </div>
-    <div class="flex items-center gap-2">
-      <button
-        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
-        (click)="goToPage(page - 1)"
-      >
-        Prev
-      </button>
-      <button
-        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
-        (click)="goToPage(page + 1)"
-      >
-        Next
-      </button>
-    </div>
-  </div>
+  <app-table-pagination
+    [page]="page"
+    [pages]="pages"
+    [total]="total"
+    [limit]="limit"
+    (pageChange)="goToPage($event)"
+    (limitChange)="limit = $event; page = 1; load()"
+  ></app-table-pagination>
 </div>

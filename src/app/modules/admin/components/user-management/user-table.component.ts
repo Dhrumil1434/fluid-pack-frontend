@@ -9,27 +9,34 @@ import {
 } from '@angular/core';
 import { UserService } from '../../../../core/services/user.service';
 import { User } from '../../../../core/models/user.model';
+import { ButtonModule } from 'primeng/button';
+import { TablePaginationComponent } from './table-pagination.component';
 
 @Component({
   selector: 'app-user-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ButtonModule, TablePaginationComponent],
   templateUrl: './user-table.component.html',
   styleUrls: ['./user-table.component.css'],
 })
 export class UserTableComponent implements OnChanges {
   @Input() filters: any;
+  @Input() processing: {
+    userId: string | null;
+    action: 'approve' | 'reject' | 'edit' | 'view' | null;
+  } = { userId: null, action: null };
 
   @Output() view = new EventEmitter<User>();
   @Output() approve = new EventEmitter<User>();
   @Output() reject = new EventEmitter<User>();
+  @Output() edit = new EventEmitter<User>();
 
   users: User[] = [];
   loading = false;
 
   // Table state
   page = 1;
-  limit = 10;
+  limit = 5;
   sortBy: string = 'createdAt';
   sortOrder: 'asc' | 'desc' = 'desc';
 
@@ -98,7 +105,7 @@ export class UserTableComponent implements OnChanges {
     });
   }
 
-  private load(): void {
+  load(): void {
     const qk = this.buildQueryKey();
     if (qk === this.lastQueryKey) return;
     this.lastQueryKey = qk;
@@ -145,5 +152,9 @@ export class UserTableComponent implements OnChanges {
 
   onRejectClick(user: User): void {
     this.reject.emit(user);
+  }
+
+  onEditClick(user: User): void {
+    this.edit.emit(user);
   }
 }

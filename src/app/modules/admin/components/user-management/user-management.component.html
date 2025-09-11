@@ -1,4 +1,6 @@
 <!-- Admin User Management — Shell with Sidebar -->
+<p-toast></p-toast>
+<p-confirmDialog></p-confirmDialog>
 <app-admin-sidebar
   [collapsed]="sidebarCollapsed"
   (collapseChange)="sidebarCollapsed = $event"
@@ -211,9 +213,11 @@
     <section>
       <app-user-table
         [filters]="appliedFilters"
+        [processing]="rowProcessing"
         (view)="onViewUser($event)"
         (approve)="onApproveUser($event)"
         (reject)="onRejectUser($event)"
+        (edit)="onEditUser($event)"
       ></app-user-table>
     </section>
   </main>
@@ -224,7 +228,7 @@
     [mode]="approveMode"
     [loading]="actionLoading"
     (cancel)="onCancelApproveReject()"
-    (confirm)="onConfirmApproveReject($event)"
+    (confirm)="onConfirmApproveReject()"
   ></app-approve-reject-dialog>
 
   <!-- Add User Modal -->
@@ -236,4 +240,26 @@
     (cancel)="onCancelAddUser()"
     (submitForm)="onCreateUser($event)"
   ></app-add-user-modal>
+
+  <!-- Edit User Modal -->
+  <app-edit-user-modal
+    [visible]="showEditUser"
+    [user]="selectedUser"
+    [roles]="roles"
+    [departments]="departments"
+    [loading]="editUserLoading"
+    (visibleChange)="onCancelEditUser()"
+    (save)="onUpdateUser($event)"
+  ></app-edit-user-modal>
+
+  <!-- User Details Modal -->
+  <app-user-details-modal
+    [visible]="showUserDetails"
+    [user]="selectedUser"
+    [loading]="actionLoading"
+    (visibleChange)="onCloseUserDetails()"
+    (edit)="onEditFromDetails($event)"
+    (approve)="onApproveFromDetails($event)"
+    (reject)="onRejectFromDetails($event)"
+  ></app-user-details-modal>
 </div>

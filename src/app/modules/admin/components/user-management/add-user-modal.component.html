@@ -32,7 +32,7 @@
           formControlName="username"
         />
         <div
-          class="text-xs text-danger mt-1"
+          class="text-xs text-error mt-1"
           *ngIf="form.get('username')?.touched && form.get('username')?.invalid"
         >
           Username is required
@@ -46,7 +46,7 @@
           formControlName="email"
         />
         <div
-          class="text-xs text-danger mt-1"
+          class="text-xs text-error mt-1"
           *ngIf="form.get('email')?.touched && form.get('email')?.invalid"
         >
           Valid email required
@@ -60,7 +60,7 @@
           formControlName="password"
         />
         <div
-          class="text-xs text-danger mt-1"
+          class="text-xs text-error mt-1"
           *ngIf="form.get('password')?.touched && form.get('password')?.invalid"
         >
           Min 8 characters
@@ -78,7 +78,7 @@
           </option>
         </select>
         <div
-          class="text-xs text-danger mt-1"
+          class="text-xs text-error mt-1"
           *ngIf="form.get('role')?.touched && form.get('role')?.invalid"
         >
           Role is required
@@ -99,7 +99,7 @@
           </option>
         </select>
         <div
-          class="text-xs text-danger mt-1"
+          class="text-xs text-error mt-1"
           *ngIf="
             form.get('department')?.touched && form.get('department')?.invalid
           "
@@ -117,12 +117,13 @@
         Cancel
       </button>
       <button
-        class="px-3 py-2 rounded-md bg-primary text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
         [disabled]="loading || form.invalid"
         (click)="onSubmit()"
       >
-        <i class="pi pi-user-plus mr-2"></i>
-        Create
+        <i *ngIf="loading" class="pi pi-spinner pi-spin"></i>
+        <i *ngIf="!loading" class="pi pi-user-plus"></i>
+        <span>Create</span>
       </button>
     </div>
   </div>

@@ -1,59 +1,41 @@
-<div
-  *ngIf="visible"
-  class="fixed inset-0 z-50 flex items-center justify-center"
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="cancel.emit()"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="fp-dialog"
+  [style]="{ width: '420px' }"
+  (keydown.enter)="onConfirm()"
+  (keydown.escape)="onCancel()"
+  [header]="mode === 'approve' ? 'Approve User' : 'Reject User'"
 >
-  <div
-    class="absolute inset-0 bg-black/40"
-    (click)="onCancel()"
-    role="button"
-    tabindex="0"
-    (keydown.enter)="onCancel()"
-    (keydown.space)="onCancel()"
-  ></div>
-  <div
-    class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-md p-5"
-  >
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="text-lg font-semibold text-text">
-        {{ mode === 'approve' ? 'Approve User' : 'Reject User' }}
-      </h3>
-      <button
-        class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
-        (click)="onCancel()"
-      >
-        <i class="pi pi-times"></i>
-      </button>
-    </div>
-
-    <form [formGroup]="form" class="space-y-3">
-      <label class="block text-xs text-text-muted">Notes (optional)</label>
-      <textarea
-        formControlName="notes"
-        rows="4"
-        class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
-        placeholder="Add any notes..."
-      ></textarea>
-    </form>
-
-    <div class="flex items-center justify-end gap-2 mt-4">
-      <button
-        class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
-        (click)="onCancel()"
-      >
-        Cancel
-      </button>
-      <button
-        class="px-3 py-2 rounded-md text-white"
-        [class.bg-success]="mode === 'approve'"
-        [class.bg-danger]="mode === 'reject'"
-        [class.opacity-50]="loading"
-        [disabled]="loading"
-        (click)="onConfirm()"
-      >
-        <i class="pi pi-check mr-2" *ngIf="mode === 'approve'"></i>
-        <i class="pi pi-times mr-2" *ngIf="mode === 'reject'"></i>
-        {{ mode === 'approve' ? 'Approve' : 'Reject' }}
-      </button>
-    </div>
+  <div class="space-y-3">
+    <p class="text-text">Are you sure you want to {{ mode }} this user?</p>
   </div>
-</div>
+
+  <div class="flex items-center justify-end gap-2 mt-4">
+    <button
+      pButton
+      type="button"
+      label="Cancel"
+      icon="pi pi-times"
+      [outlined]="true"
+      severity="secondary"
+      (click)="onCancel()"
+      [disabled]="loading"
+    ></button>
+
+    <button
+      pButton
+      type="button"
+      [label]="mode === 'approve' ? 'Approve' : 'Reject'"
+      [icon]="mode === 'approve' ? 'pi pi-check' : 'pi pi-times'"
+      [severity]="mode === 'approve' ? 'success' : 'danger'"
+      (click)="onConfirm()"
+      [loading]="loading"
+      [disabled]="loading"
+    ></button>
+  </div>
+</p-dialog>

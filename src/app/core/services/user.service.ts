@@ -26,15 +26,11 @@ export class UserService {
    * Get all users with pagination and filters
    */
   getUsers(filters: UserFilters = {}): Observable<UserListResponse> {
-    // Build query parameters - only include what backend supports
     let params = new HttpParams()
       .set('page', (filters.page || 1).toString())
       .set('limit', (filters.limit || 10).toString())
       .set('sortBy', filters.sortBy || 'createdAt')
       .set('sortOrder', filters.sortOrder || 'desc');
-
-    // Note: Backend doesn't support search, role, department, or isApproved filters yet
-    // These will be implemented in backend later
 
     return this.baseApiService
       .get<{
@@ -76,13 +72,20 @@ export class UserService {
   /**
    * Approve or reject a user
    */
-  approveUser(request: UserApprovalRequest): Observable<User> {
+  approveUser(
+    request: UserApprovalRequest
+  ): Observable<{ data: User; message: string }> {
     return this.baseApiService
       .patch<User>(`${API_ENDPOINTS.USERS}/${request.userId}/approve`, {
         approved: request.approved,
         notes: request.notes,
       })
-      .pipe(map(response => response.data));
+      .pipe(
+        map(response => ({
+          data: response.data as unknown as User,
+          message: (response as any).message || 'Updated',
+        }))
+      );
   }
 
   /**
@@ -102,19 +105,34 @@ export class UserService {
   /**
    * Update user
    */
-  updateUser(id: string, userData: UserUpdateRequest): Observable<User> {
+  updateUser(
+    id: string,
+    userData: UserUpdateRequest
+  ): Observable<{ data: User; message: string }> {
     return this.baseApiService
       .put<User>(`${API_ENDPOINTS.USERS}/${id}`, userData)
-      .pipe(map(response => response.data));
+      .pipe(
+        map(response => ({
+          data: response.data as unknown as User,
+          message: (response as any).message || 'Updated',
+        }))
+      );
   }
 
   /**
    * Create new user
    */
-  createUser(userData: UserCreateRequest): Observable<User> {
+  createUser(
+    userData: UserCreateRequest
+  ): Observable<{ data: User; message: string }> {
     return this.baseApiService
       .post<User>(API_ENDPOINTS.USERS, userData)
-      .pipe(map(response => response.data));
+      .pipe(
+        map(response => ({
+          data: response.data as unknown as User,
+          message: (response as any).message || 'Created',
+        }))
+      );
   }
 
   /**
@@ -123,14 +141,15 @@ export class UserService {
   deleteUser(id: string): Observable<{ message: string }> {
     return this.baseApiService
       .delete<{ message: string }>(`${API_ENDPOINTS.USERS}/${id}`)
-      .pipe(map(response => response.data));
+      .pipe(
+        map(response => ({ message: (response as any).message || 'Deleted' }))
+      );
   }
 
   /**
    * Export users data
    */
   exportUsers(): Observable<Blob> {
-    // For now, return a placeholder - implement actual export later
     return new Observable(observer => {
       observer.next(
         new Blob(['Export functionality coming soon'], { type: 'text/plain' })

@@ -1,0 +1,64 @@
+<div
+  class="flex items-center justify-between px-4 py-3 border-t border-neutral-300 bg-bg"
+>
+  <div class="text-sm text-text-muted">
+    <span *ngIf="total > 0"
+      >Showing {{ startIndex }}–{{ endIndex }} of {{ total }}</span
+    >
+    <span *ngIf="total === 0">No records</span>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-text-muted">Rows</span>
+      <select
+        class="border border-neutral-300 rounded-md px-2 py-1 bg-bg text-text"
+        [value]="limit"
+        (change)="onLimitChange($any($event.target).value)"
+      >
+        <option
+          *ngFor="let l of displayLimits; trackBy: trackByLimit"
+          [value]="l"
+        >
+          {{ l }}
+        </option>
+      </select>
+    </div>
+
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
+        (click)="onPrev()"
+        [disabled]="page <= 1"
+      >
+        Prev
+      </button>
+      <ng-container *ngFor="let item of pageItems; trackBy: trackByPage">
+        <button
+          *ngIf="item !== '…'"
+          type="button"
+          class="px-2 py-1 rounded-md border cursor-pointer transition-colors"
+          [ngClass]="{
+            'border-neutral-300 hover:bg-neutral-50 text-text': item !== page,
+            'bg-primary text-white border-primary': item === page,
+          }"
+          [disabled]="item === page"
+          [attr.aria-current]="item === page ? 'page' : null"
+          (click)="onGoTo(item)"
+        >
+          {{ item }}
+        </button>
+        <span *ngIf="item === '…'" class="px-2 text-text-muted">…</span>
+      </ng-container>
+      <button
+        type="button"
+        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
+        (click)="onNext()"
+        [disabled]="pages && page >= pages"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>

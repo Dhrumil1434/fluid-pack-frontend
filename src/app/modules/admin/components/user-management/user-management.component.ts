@@ -8,7 +8,12 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { UserTableComponent } from './user-table.component';
 import { ApproveRejectDialogComponent } from './approve-reject-dialog.component';
 import { AddUserModalComponent } from './add-user-modal.component';
+import { EditUserModalComponent } from './edit-user-modal.component';
+import { UserDetailsModalComponent } from './user-details-modal.component';
 import { User } from '../../../../core/models/user.model';
+import { ToastModule } from 'primeng/toast';
+import { MessageService, ConfirmationService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 
 @Component({
   selector: 'app-user-management',
@@ -21,7 +26,12 @@ import { User } from '../../../../core/models/user.model';
     UserTableComponent,
     ApproveRejectDialogComponent,
     AddUserModalComponent,
+    EditUserModalComponent,
+    UserDetailsModalComponent,
+    ToastModule,
+    ConfirmDialogModule,
   ],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './user-management.component.html',
   styleUrls: ['./user-management.component.css'],
 })
@@ -39,6 +49,7 @@ export class UserManagementComponent implements OnInit {
   applying = false;
   private lastAppliedFilters: any;
   private refreshVersion = 0;
+  appliedFilters: any;
 
   // Modal state
   showApproveReject = false;
@@ -49,9 +60,22 @@ export class UserManagementComponent implements OnInit {
   showAddUser = false;
   addUserLoading = false;
 
+  showEditUser = false;
+  editUserLoading = false;
+
+  showUserDetails = false;
+
+  // Row-level processing state for button loaders
+  rowProcessing: {
+    userId: string | null;
+    action: 'approve' | 'reject' | 'edit' | 'view' | null;
+  } = { userId: null, action: null };
+
   constructor(
     private userService: UserService,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private messageService: MessageService,
+    private confirmationService: ConfirmationService
   ) {
     this.filtersForm = this.fb.group({
       search: [''],
@@ -62,6 +86,10 @@ export class UserManagementComponent implements OnInit {
       dateTo: [null],
     });
     this.lastAppliedFilters = this.filtersForm.value;
+    this.appliedFilters = {
+      ...this.lastAppliedFilters,
+      _v: this.refreshVersion,
+    };
   }
 
   trackById = (_: number, item: { _id: string; name: string }) => item._id;
@@ -88,9 +116,7 @@ export class UserManagementComponent implements OnInit {
     );
   }
 
-  get appliedFilters(): any {
-    return { ...this.lastAppliedFilters, _v: this.refreshVersion };
-  }
+  // appliedFilters is maintained as a stable reference; updated only when filters or version change
 
   private areEqual(a: any, b: any): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -172,41 +198,59 @@ export class UserManagementComponent implements OnInit {
 
   // Table actions integration
   onViewUser(user: User): void {
+    this.rowProcessing = { userId: user._id, action: 'view' };
     this.selectedUser = user;
-    // Future: open details modal
+    this.showUserDetails = true;
+    this.rowProcessing = { userId: null, action: null };
   }
 
   onApproveUser(user: User): void {
+    this.rowProcessing = { userId: user._id, action: 'approve' };
     this.selectedUser = user;
     this.approveMode = 'approve';
     this.showApproveReject = true;
+    this.rowProcessing = { userId: null, action: null };
   }
 
   onRejectUser(user: User): void {
+    this.rowProcessing = { userId: user._id, action: 'reject' };
     this.selectedUser = user;
     this.approveMode = 'reject';
     this.showApproveReject = true;
+    this.rowProcessing = { userId: null, action: null };
   }
 
-  onConfirmApproveReject(payload: { notes: string }): void {
+  onConfirmApproveReject(): void {
     if (!this.selectedUser) return;
     this.actionLoading = true;
     this.userService
       .approveUser({
         userId: this.selectedUser._id,
         approved: this.approveMode === 'approve',
-        notes: payload.notes,
       })
       .subscribe({
-        next: () => {
+        next: res => {
+          const msg = res.message || `User ${this.approveMode}d successfully.`;
           this.showApproveReject = false;
           this.selectedUser = null;
           this.refreshTable();
           this.loadStats();
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: msg,
+          });
         },
-        error: () => {
+        error: err => {
+          const msg =
+            err?.error?.message || `Failed to ${this.approveMode} user.`;
           this.showApproveReject = false;
           this.selectedUser = null;
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Failed',
+            detail: msg,
+          });
         },
         complete: () => (this.actionLoading = false),
       });
@@ -230,13 +274,25 @@ export class UserManagementComponent implements OnInit {
   }): void {
     this.addUserLoading = true;
     this.userService.createUser(formValue).subscribe({
-      next: () => {
+      next: res => {
+        const msg = res.message || 'User created successfully.';
         this.showAddUser = false;
         this.refreshTable();
         this.loadStats();
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Created',
+          detail: msg,
+        });
       },
-      error: () => {
+      error: err => {
+        const msg = err?.error?.message || 'Failed to create user.';
         this.showAddUser = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: msg,
+        });
       },
       complete: () => (this.addUserLoading = false),
     });
@@ -246,7 +302,118 @@ export class UserManagementComponent implements OnInit {
     this.showAddUser = false;
   }
 
+  // Edit User Modal
+  onEditUser(user: User): void {
+    this.rowProcessing = { userId: user._id, action: 'edit' };
+    this.selectedUser = user;
+    this.showEditUser = true;
+    this.rowProcessing = { userId: null, action: null };
+  }
+
+  onUpdateUser(payload: {
+    userId: string;
+    username: string;
+    email: string;
+    role: string;
+    department: string;
+    isApproved: boolean;
+  }): void {
+    this.editUserLoading = true;
+    const { userId, ...userData } = payload;
+    this.userService.updateUser(userId, userData).subscribe({
+      next: res => {
+        const msg = res.message || 'User updated successfully.';
+        this.showEditUser = false;
+        this.selectedUser = null;
+        this.refreshTable();
+        this.loadStats();
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Updated',
+          detail: msg,
+        });
+      },
+      error: err => {
+        const msg = err?.error?.message || 'Failed to update user.';
+        this.showEditUser = false;
+        this.selectedUser = null;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: msg,
+        });
+      },
+      complete: () => (this.editUserLoading = false),
+    });
+  }
+
+  onCancelEditUser(): void {
+    this.showEditUser = false;
+    this.selectedUser = null;
+  }
+
+  // User Details Modal
+  onCloseUserDetails(): void {
+    this.showUserDetails = false;
+    this.selectedUser = null;
+  }
+
+  onEditFromDetails(user: User): void {
+    this.showUserDetails = false;
+    this.onEditUser(user);
+  }
+
+  onApproveFromDetails(user: User): void {
+    this.showUserDetails = false;
+    this.onApproveUser(user);
+  }
+
+  onRejectFromDetails(user: User): void {
+    this.showUserDetails = false;
+    this.onRejectUser(user);
+  }
+
+  onDeleteUser(user: User): void {
+    this.confirmationService.confirm({
+      header: 'Delete User',
+      message: `Are you sure you want to delete ${user.username}? This action cannot be undone.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptIcon: 'pi pi-trash',
+      acceptLabel: 'Delete',
+      rejectLabel: 'Cancel',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.userService.deleteUser(user._id).subscribe({
+          next: res => {
+            const msg = res.message || 'User removed successfully.';
+            this.showUserDetails = false;
+            this.selectedUser = null;
+            this.refreshTable();
+            this.loadStats();
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Deleted',
+              detail: msg,
+            });
+          },
+          error: err => {
+            const msg = err?.error?.message || 'Failed to delete user.';
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Failed',
+              detail: msg,
+            });
+          },
+        });
+      },
+    });
+  }
+
   private refreshTable(): void {
     this.refreshVersion += 1;
+    this.appliedFilters = {
+      ...this.lastAppliedFilters,
+      _v: this.refreshVersion,
+    };
   }
 }

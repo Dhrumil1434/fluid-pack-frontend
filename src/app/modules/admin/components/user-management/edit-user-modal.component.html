@@ -1,0 +1,140 @@
+<div
+  *ngIf="visible"
+  class="fixed inset-0 z-50 flex items-center justify-center"
+>
+  <div
+    class="absolute inset-0 bg-black/40"
+    (click)="onCancel()"
+    role="button"
+    tabindex="0"
+    (keydown.enter)="onCancel()"
+    (keydown.space)="onCancel()"
+  ></div>
+  <div
+    class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-2xl p-6"
+  >
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-text">Edit User</h3>
+      <button
+        class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+        (click)="onCancel()"
+      >
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-3 mb-4">
+      <div
+        class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center"
+      >
+        <i class="pi pi-user text-primary"></i>
+      </div>
+      <div>
+        <div class="text-sm text-text-muted">Update user information</div>
+        <h3 class="text-lg font-semibold text-text">Profile & Access</h3>
+      </div>
+    </div>
+
+    <form [formGroup]="form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-xs text-text-muted mb-1">Username</label>
+        <input
+          type="text"
+          formControlName="username"
+          class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+          placeholder="Enter username"
+        />
+        <p
+          class="text-error text-xs mt-1"
+          *ngIf="
+            form.controls['username'].touched &&
+            form.controls['username'].invalid
+          "
+        >
+          Username is required (min 3 characters).
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-xs text-text-muted mb-1">Email</label>
+        <input
+          type="email"
+          formControlName="email"
+          class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+          placeholder="Enter email"
+        />
+        <p
+          class="text-error text-xs mt-1"
+          *ngIf="
+            form.controls['email'].touched && form.controls['email'].invalid
+          "
+        >
+          Valid email is required.
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-xs text-text-muted mb-1">Role</label>
+        <select
+          formControlName="role"
+          class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+        >
+          <option value="">Select role</option>
+          <option *ngFor="let r of roles; trackBy: trackById" [value]="r._id">
+            {{ r.name }}
+          </option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs text-text-muted mb-1">Department</label>
+        <select
+          formControlName="department"
+          class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+        >
+          <option value="">Select department</option>
+          <option
+            *ngFor="let d of departments; trackBy: trackById"
+            [value]="d._id"
+          >
+            {{ d.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block text-xs text-text-muted mb-1"
+          >Approval Status</label
+        >
+        <select
+          formControlName="isApproved"
+          class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
+        >
+          <option [ngValue]="true">Approved</option>
+          <option [ngValue]="false">Pending</option>
+        </select>
+        <div class="text-xs text-text-muted mt-1">
+          Controls the status badge and permissions
+        </div>
+      </div>
+    </form>
+
+    <div class="flex items-center justify-end gap-2 mt-6">
+      <button
+        class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 disabled:opacity-50"
+        (click)="onCancel()"
+        [disabled]="loading"
+      >
+        Cancel
+      </button>
+      <button
+        class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+        [disabled]="form.invalid || !hasChanges || loading"
+        (click)="onSubmit()"
+      >
+        <i *ngIf="loading" class="pi pi-spinner pi-spin"></i>
+        <span>Save Changes</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,11 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { DialogModule } from 'primeng/dialog';
+import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-approve-reject-dialog',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, DialogModule, ButtonModule],
   templateUrl: './approve-reject-dialog.component.html',
   styleUrls: ['./approve-reject-dialog.component.css'],
 })
@@ -15,20 +16,13 @@ export class ApproveRejectDialogComponent {
   @Input() loading = false;
 
   @Output() cancel = new EventEmitter<void>();
-  @Output() confirm = new EventEmitter<{ notes: string }>();
-
-  form: FormGroup;
-
-  constructor(private fb: FormBuilder) {
-    this.form = this.fb.group({ notes: [''] });
-  }
+  @Output() confirm = new EventEmitter<void>();
 
   onCancel(): void {
     this.cancel.emit();
   }
 
   onConfirm(): void {
-    if (this.loading) return;
-    this.confirm.emit({ notes: this.form.value.notes || '' });
+    this.confirm.emit();
   }
 }

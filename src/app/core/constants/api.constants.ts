@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   DEPARTMENTS: '/admin/departments',
   DEPARTMENT_BY_ID: '/admin/department/:id',
   ROLES: '/admin/roles',
+  ROLE_CREATE: '/admin/role/create',
   ROLE_BY_ID: '/admin/role/:id',
 
   // Machine Approval workflow

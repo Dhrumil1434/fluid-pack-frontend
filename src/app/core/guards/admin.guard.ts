@@ -1,10 +1,15 @@
 import { Injectable } from '@angular/core';
-import { CanActivate, Router, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
+import {
+  CanActivate,
+  Router,
+  ActivatedRouteSnapshot,
+  RouterStateSnapshot,
+} from '@angular/router';
 import { Observable, map, take } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AdminGuard implements CanActivate {
   constructor(
@@ -13,8 +18,8 @@ export class AdminGuard implements CanActivate {
   ) {}
 
   canActivate(
-    route: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot
+    _route: ActivatedRouteSnapshot,
+    _state: RouterStateSnapshot
   ): Observable<boolean> {
     return this.authService.currentUser$.pipe(
       take(1),
@@ -32,7 +37,7 @@ export class AdminGuard implements CanActivate {
         if (!isAdmin) {
           // User is not admin, redirect to login with error message
           this.router.navigate(['/auth/login'], {
-            queryParams: { error: 'access_denied' }
+            queryParams: { error: 'access_denied' },
           });
           return false;
         }

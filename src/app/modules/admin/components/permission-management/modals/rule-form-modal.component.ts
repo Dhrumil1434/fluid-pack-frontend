@@ -51,7 +51,7 @@ import { FormsModule } from '@angular/forms';
               *ngIf="errors?.['description']?.length"
               class="text-error text-xs mt-1"
             >
-              {{ errors?.['description'][0] }}
+              {{ (errors?.['description'] || [])[0] }}
             </div>
           </div>
           <div>
@@ -71,7 +71,7 @@ import { FormsModule } from '@angular/forms';
               *ngIf="errors?.['action']?.length"
               class="text-error text-xs mt-1"
             >
-              {{ errors?.['action'][0] }}
+              {{ (errors?.['action'] || [])[0] }}
             </div>
           </div>
           <div>
@@ -106,7 +106,7 @@ import { FormsModule } from '@angular/forms';
                 *ngIf="errors?.['approverRoles']?.length"
                 class="text-error text-xs mt-1"
               >
-                {{ errors?.['approverRoles'][0] }}
+                {{ (errors?.['approverRoles'] || [])[0] }}
               </div>
             </div>
             <div>
@@ -172,7 +172,7 @@ import { FormsModule } from '@angular/forms';
             </div>
             <div class="md:col-span-3" *ngIf="errors?.['scope']?.length">
               <div class="text-error text-xs mt-1">
-                {{ errors?.['scope'][0] }}
+                {{ (errors?.['scope'] || [])[0] }}
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@ import { FormsModule } from '@angular/forms';
               *ngIf="errors?.['maxValue']?.length"
               class="text-error text-xs mt-1"
             >
-              {{ errors?.['maxValue'][0] }}
+              {{ (errors?.['maxValue'] || [])[0] }}
             </div>
           </div>
           <div>
@@ -220,18 +220,18 @@ import { FormsModule } from '@angular/forms';
               *ngIf="errors?.['priority']?.length"
               class="text-error text-xs mt-1"
             >
-              {{ errors?.['priority'][0] }}
+              {{ (errors?.['priority'] || [])[0] }}
             </div>
           </div>
           <div class="md:col-span-2 flex items-center gap-2">
             <input id="active" type="checkbox" [(ngModel)]="form.active" />
             <label for="active" class="text-sm text-text-muted">Active</label>
           </div>
-          <div class="md:col-span-2" *ngIf="errors?.form?.length">
+          <div class="md:col-span-2" *ngIf="errors?.['form']?.length">
             <div
               class="px-3 py-2 rounded-md border border-error text-error bg-error/10 text-sm"
             >
-              {{ errors?.form[0] }}
+              {{ (errors?.['form'] || [])[0] }}
             </div>
           </div>
         </div>

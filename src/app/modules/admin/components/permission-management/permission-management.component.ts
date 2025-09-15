@@ -197,7 +197,11 @@ export class PermissionManagementComponent {
 
   loadRules(): void {
     this.permissionService
-      .getAllPermissionConfigs({ page: this.page, limit: this.limit } as any)
+      .getAllPermissionConfigs({
+        page: this.page,
+        limit: this.limit,
+        isActive: true,
+      } as any)
       .subscribe({
         next: res => {
           const configs = (res?.data as any)?.configs || [];

@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
 import { UserService } from '../../../../core/services/user.service';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
@@ -50,6 +50,12 @@ export class UserManagementComponent implements OnInit {
   private lastAppliedFilters: any;
   private refreshVersion = 0;
   appliedFilters: any;
+  qp: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {};
 
   // Modal state
   showApproveReject = false;
@@ -75,7 +81,9 @@ export class UserManagementComponent implements OnInit {
     private userService: UserService,
     private fb: FormBuilder,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService
+    private confirmationService: ConfirmationService,
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     this.filtersForm = this.fb.group({
       search: [''],
@@ -95,6 +103,20 @@ export class UserManagementComponent implements OnInit {
   trackById = (_: number, item: { _id: string; name: string }) => item._id;
 
   ngOnInit(): void {
+    // Read initial query params for table state
+    this.route.queryParamMap.subscribe(params => {
+      const page = Number(params.get('page'));
+      const limit = Number(params.get('limit'));
+      const sortBy = params.get('sortBy') || undefined;
+      const sortOrder =
+        (params.get('sortOrder') as 'asc' | 'desc') || undefined;
+      this.qp = {
+        page: Number.isFinite(page) && page > 0 ? page : undefined,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+        sortBy,
+        sortOrder,
+      };
+    });
     this.loadStats();
     this.loadFilterData();
 
@@ -177,6 +199,7 @@ export class UserManagementComponent implements OnInit {
       this.lastAppliedFilters = this.filtersForm.value;
       this.filtersForm.markAsPristine();
       this.applying = false;
+      this.syncUrlToFirstPage();
       this.refreshTable();
     });
   }
@@ -192,6 +215,7 @@ export class UserManagementComponent implements OnInit {
       };
       this.filtersForm.get('search')?.markAsPristine();
       this.applying = false;
+      this.syncUrlToFirstPage();
       this.refreshTable();
     });
   }
@@ -415,5 +439,47 @@ export class UserManagementComponent implements OnInit {
       ...this.lastAppliedFilters,
       _v: this.refreshVersion,
     };
+  }
+
+  private syncUrlToFirstPage(): void {
+    // Ensure URL reflects page reset when filters/search change
+    const q = { ...this.qp, page: 1 };
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: q,
+      queryParamsHandling: 'merge',
+    });
+    this.qp = q;
+  }
+
+  // URL sync handlers
+  onTablePageChange(event: { page: number; limit: number }): void {
+    const q = { ...this.qp, page: event.page, limit: event.limit };
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: q,
+      queryParamsHandling: 'merge',
+    });
+    this.qp = q;
+  }
+
+  onTableLimitChange(limit: number): void {
+    const q = { ...this.qp, page: 1, limit };
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: q,
+      queryParamsHandling: 'merge',
+    });
+    this.qp = q;
+  }
+
+  onTableSortChange(e: { sortBy: string; sortOrder: 'asc' | 'desc' }): void {
+    const q = { ...this.qp, sortBy: e.sortBy, sortOrder: e.sortOrder };
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: q,
+      queryParamsHandling: 'merge',
+    });
+    this.qp = q;
   }
 }

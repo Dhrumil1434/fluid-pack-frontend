@@ -32,6 +32,27 @@ export class UserService {
       .set('sortBy', filters.sortBy || 'createdAt')
       .set('sortOrder', filters.sortOrder || 'desc');
 
+    // Optional filters
+    if (filters.search) params = params.set('search', filters.search);
+    if (filters.role) params = params.set('role', filters.role);
+    if (filters.department)
+      params = params.set('department', filters.department);
+    // Map status to backend's expected param (isApproved)
+    if (filters.status) {
+      const approved = String(filters.status === 'approved');
+      params = params.set('isApproved', approved);
+    }
+    if ((filters as any).dateFrom) {
+      const df = (filters as any).dateFrom as Date | string;
+      const val = typeof df === 'string' ? df : df.toISOString();
+      params = params.set('dateFrom', val);
+    }
+    if ((filters as any).dateTo) {
+      const dt = (filters as any).dateTo as Date | string;
+      const val = typeof dt === 'string' ? dt : dt.toISOString();
+      params = params.set('dateTo', val);
+    }
+
     return this.baseApiService
       .get<{
         users: User[];
@@ -125,14 +146,12 @@ export class UserService {
   createUser(
     userData: UserCreateRequest
   ): Observable<{ data: User; message: string }> {
-    return this.baseApiService
-      .post<User>(API_ENDPOINTS.USERS, userData)
-      .pipe(
-        map(response => ({
-          data: response.data as unknown as User,
-          message: (response as any).message || 'Created',
-        }))
-      );
+    return this.baseApiService.post<User>(API_ENDPOINTS.USERS, userData).pipe(
+      map(response => ({
+        data: response.data as unknown as User,
+        message: (response as any).message || 'Created',
+      }))
+    );
   }
 
   /**

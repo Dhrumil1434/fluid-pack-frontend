@@ -3,59 +3,16 @@
     class="flex items-center justify-between px-4 py-3 bg-bg border-b border-neutral-300"
   >
     <div class="text-sm text-text-muted">{{ total }} users</div>
-    <div class="flex items-center gap-2">
-      <button
-        class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
-        (click)="toggleDensity()"
-      >
-        <i
-          class="pi"
-          [ngClass]="{ 'pi-compress': isCompact, 'pi-expand': !isCompact }"
-        ></i>
-      </button>
-      <div class="relative">
-        <button
-          class="px-2 py-1 rounded-md border border-neutral-300 hover:bg-neutral-50 cursor-pointer"
-        >
-          <i class="pi pi-sliders-h"></i> Columns
-        </button>
-        <!-- simple menu -->
-        <div
-          class="mt-2 bg-bg border border-neutral-300 rounded-md shadow-medium p-2 absolute right-0 z-10"
-          *ngIf="false"
-        >
-          <label
-            class="flex items-center gap-2"
-            *ngFor="
-              let col of [
-                'user',
-                'email',
-                'role',
-                'department',
-                'status',
-                'createdAt',
-                'actions',
-              ];
-              trackBy: trackByCol
-            "
-          >
-            <input
-              type="checkbox"
-              [checked]="visibleColumns[col]"
-              (change)="toggleColumn(col)"
-            />
-            <span class="text-sm">{{ col }}</span>
-          </label>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="overflow-auto" [class.text-sm]="isCompact">
     <table class="w-full">
       <thead class="bg-neutral-50 text-left">
         <tr>
-          <th class="px-4 py-3 cursor-pointer" (click)="onSort('username')">
+          <th
+            class="px-4 py-3 cursor-pointer min-w-[240px] w-[200px]"
+            (click)="onSort('username')"
+          >
             User
           </th>
           <th
@@ -97,9 +54,15 @@
         >
           <td class="px-4 py-3">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-full bg-neutral-200"></div>
+              <img
+                [src]="getAvatarUrl(u.username || u.email)"
+                [alt]="u.username || u.email"
+                class="w-8 h-8 rounded-full border border-neutral-300"
+              />
               <div>
-                <div class="font-medium text-text">{{ u.username }}</div>
+                <div class="font-medium text-text" [title]="u.username">
+                  {{ getDisplayName(u.username) }}
+                </div>
                 <div class="text-xs text-text-muted">
                   #{{ u._id | slice: -6 }}
                 </div>
@@ -220,6 +183,6 @@
     [total]="total"
     [limit]="limit"
     (pageChange)="goToPage($event)"
-    (limitChange)="limit = $event; page = 1; load()"
+    (limitChange)="onLimitChange($event)"
   ></app-table-pagination>
 </div>

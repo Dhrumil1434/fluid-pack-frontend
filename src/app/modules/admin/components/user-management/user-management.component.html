@@ -213,11 +213,18 @@
     <section>
       <app-user-table
         [filters]="appliedFilters"
+        [initialPage]="qp.page"
+        [initialLimit]="qp.limit"
+        [initialSortBy]="qp.sortBy"
+        [initialSortOrder]="qp.sortOrder"
         [processing]="rowProcessing"
         (view)="onViewUser($event)"
         (approve)="onApproveUser($event)"
         (reject)="onRejectUser($event)"
         (edit)="onEditUser($event)"
+        (pageChange)="onTablePageChange($event)"
+        (sortChange)="onTableSortChange($event)"
+        (limitChange)="onTableLimitChange($event)"
       ></app-user-table>
     </section>
   </main>

@@ -22,6 +22,7 @@ export interface UserFilters {
   role?: string;
   department?: string;
   isApproved?: boolean;
+  status?: 'approved' | 'pending';
   dateFrom?: Date;
   dateTo?: Date;
   page?: number;

@@ -21,6 +21,10 @@ import { TablePaginationComponent } from './table-pagination.component';
 })
 export class UserTableComponent implements OnChanges {
   @Input() filters: any;
+  @Input() initialPage?: number;
+  @Input() initialLimit?: number;
+  @Input() initialSortBy?: string;
+  @Input() initialSortOrder?: 'asc' | 'desc';
   @Input() processing: {
     userId: string | null;
     action: 'approve' | 'reject' | 'edit' | 'view' | null;
@@ -30,6 +34,12 @@ export class UserTableComponent implements OnChanges {
   @Output() approve = new EventEmitter<User>();
   @Output() reject = new EventEmitter<User>();
   @Output() edit = new EventEmitter<User>();
+  @Output() pageChange = new EventEmitter<{ page: number; limit: number }>();
+  @Output() sortChange = new EventEmitter<{
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+  }>();
+  @Output() limitChange = new EventEmitter<number>();
 
   users: User[] = [];
   loading = false;
@@ -56,6 +66,7 @@ export class UserTableComponent implements OnChanges {
   pages = 0;
 
   private lastQueryKey = '';
+  private initialized = false;
 
   constructor(private userService: UserService) {}
 
@@ -64,6 +75,15 @@ export class UserTableComponent implements OnChanges {
   trackByCol = (_: number, item: string) => item;
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (!this.initialized) {
+      if (this.initialPage && this.initialPage > 0)
+        this.page = this.initialPage;
+      if (this.initialLimit && this.initialLimit > 0)
+        this.limit = this.initialLimit;
+      if (this.initialSortBy) this.sortBy = this.initialSortBy;
+      if (this.initialSortOrder) this.sortOrder = this.initialSortOrder;
+      this.initialized = true;
+    }
     if (changes['filters']) {
       this.page = 1; // reset page on filters change
       this.load();
@@ -86,12 +106,14 @@ export class UserTableComponent implements OnChanges {
       this.sortOrder = 'asc';
     }
     this.load();
+    this.sortChange.emit({ sortBy: this.sortBy, sortOrder: this.sortOrder });
   }
 
   goToPage(p: number): void {
     if (p < 1 || (this.pages && p > this.pages) || p === this.page) return;
     this.page = p;
     this.load();
+    this.pageChange.emit({ page: this.page, limit: this.limit });
   }
 
   private buildQueryKey(): string {
@@ -113,6 +135,7 @@ export class UserTableComponent implements OnChanges {
     this.loading = true;
     this.userService
       .getUsers({
+        ...(this.filters || {}),
         page: this.page,
         limit: this.limit,
         sortBy: this.sortBy,
@@ -131,6 +154,15 @@ export class UserTableComponent implements OnChanges {
         },
         complete: () => (this.loading = false),
       });
+  }
+
+  onLimitChange(newLimit: number): void {
+    if (!newLimit || newLimit === this.limit) return;
+    this.limit = newLimit;
+    this.page = 1;
+    this.load();
+    this.limitChange.emit(this.limit);
+    this.pageChange.emit({ page: this.page, limit: this.limit });
   }
 
   // Helpers
@@ -156,5 +188,21 @@ export class UserTableComponent implements OnChanges {
 
   onEditClick(user: User): void {
     this.edit.emit(user);
+  }
+
+  getAvatarUrl(nameOrEmail: string | undefined | null): string {
+    const base = 'https://ui-avatars.com/api/?background=random&name=';
+    const value = (nameOrEmail || '?').toString();
+    try {
+      return base + encodeURIComponent(value);
+    } catch {
+      return base + value;
+    }
+  }
+
+  getDisplayName(name: string | undefined | null): string {
+    const n = (name || '').toString();
+    if (n.length <= 12) return n;
+    return n.slice(0, 12) + '...';
   }
 }

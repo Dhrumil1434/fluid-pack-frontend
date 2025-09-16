@@ -14,6 +14,8 @@ import {
   FormBuilder,
   FormGroup,
   Validators,
+  FormArray,
+  AbstractControl,
 } from '@angular/forms';
 import { BaseApiService } from '../../../../core/services/base-api.service';
 import { API_ENDPOINTS } from '../../../../core/constants/api.constants';
@@ -116,6 +118,80 @@ import { MessageService } from 'primeng/api';
               </div>
             </div>
           </div>
+
+          <!-- Metadata dynamic fields -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-sm font-medium">Additional details</label>
+              <button
+                type="button"
+                class="text-primary text-sm"
+                (click)="addMetadataField()"
+              >
+                + Add field
+              </button>
+            </div>
+            <div class="rounded border border-neutral-200 divide-y">
+              <div
+                class="p-3 grid grid-cols-12 gap-2 items-start"
+                *ngFor="
+                  let ctrl of metadataControls;
+                  let i = index;
+                  trackBy: trackByIndex
+                "
+              >
+                <div class="col-span-5">
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2"
+                    placeholder="Field name (unique)"
+                    [formControl]="ctrl.get('key')"
+                  />
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="ctrl.get('key')?.touched && ctrl.get('key')?.invalid"
+                  >
+                    Key is required and must be unique
+                  </div>
+                </div>
+                <div class="col-span-4">
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2"
+                    placeholder="Value"
+                    [formControl]="ctrl.get('value')"
+                  />
+                </div>
+                <div class="col-span-2">
+                  <select
+                    class="w-full border rounded px-3 py-2"
+                    [formControl]="ctrl.get('type')"
+                  >
+                    <option value="string">Text</option>
+                    <option value="number">Number</option>
+                    <option value="boolean">Boolean</option>
+                  </select>
+                </div>
+                <div class="col-span-1 flex justify-end">
+                  <button
+                    type="button"
+                    class="p-2 hover:bg-neutral-100 rounded"
+                    (click)="removeMetadataField(i)"
+                    aria-label="Remove field"
+                  >
+                    <i class="pi pi-trash text-sm"></i>
+                  </button>
+                </div>
+              </div>
+              <div
+                class="p-2 text-xs text-error"
+                *ngIf="metadata.errors?.['duplicateKeys']"
+              >
+                Duplicate field names are not allowed.
+              </div>
+            </div>
+          </div>
+
           <div class="pt-2 flex items-center justify-end gap-2">
             <button
               type="button"
@@ -170,6 +246,7 @@ export class CreateMachineModalComponent
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       category_id: ['', Validators.required],
+      metadata: this.fb.array([], [this.uniqueKeysValidator]),
     });
   }
 
@@ -206,6 +283,20 @@ export class CreateMachineModalComponent
     const formData = new FormData();
     formData.append('name', this.form.value.name);
     formData.append('category_id', this.form.value.category_id);
+    const metaObj: Record<string, unknown> = {};
+    for (const group of this.metadataControls) {
+      const key = (group.get('key')?.value || '').trim();
+      if (!key) continue;
+      const type = group.get('type')?.value as 'string' | 'number' | 'boolean';
+      const raw = group.get('value')?.value as string;
+      let parsed: unknown = raw;
+      if (type === 'number') parsed = raw === '' ? null : Number(raw);
+      if (type === 'boolean') parsed = String(raw).toLowerCase() === 'true';
+      metaObj[key] = parsed;
+    }
+    if (Object.keys(metaObj).length > 0) {
+      formData.append('metadata', JSON.stringify(metaObj));
+    }
     for (const f of this.selectedFiles) formData.append('images', f);
 
     this.loading = true;
@@ -246,4 +337,52 @@ export class CreateMachineModalComponent
       },
     });
   }
+
+  // Metadata helpers
+  get metadata(): FormArray {
+    return this.form.get('metadata') as FormArray;
+  }
+
+  get metadataControls(): FormGroup[] {
+    return this.metadata.controls as unknown as FormGroup[];
+  }
+
+  addMetadataField(): void {
+    const group = this.fb.group({
+      key: [
+        '',
+        [Validators.required, Validators.pattern(/^[a-zA-Z0-9_\-\. ]+$/)],
+      ],
+      value: [''],
+      type: ['string', Validators.required],
+    });
+    this.metadata.push(group);
+    this.metadata.updateValueAndValidity();
+  }
+
+  removeMetadataField(index: number): void {
+    if (index < 0 || index >= this.metadata.length) return;
+    this.metadata.removeAt(index);
+    this.metadata.updateValueAndValidity();
+  }
+
+  trackByIndex(_i: number): number {
+    return _i;
+  }
+
+  uniqueKeysValidator = (control: AbstractControl) => {
+    const arr = (control as FormArray).controls as Array<FormGroup>;
+    const seen = new Set<string>();
+    for (const g of arr) {
+      const key = String(g.get('key')?.value || '')
+        .trim()
+        .toLowerCase();
+      if (!key) continue;
+      if (seen.has(key)) {
+        return { duplicateKeys: true };
+      }
+      seen.add(key);
+    }
+    return null;
+  };
 }

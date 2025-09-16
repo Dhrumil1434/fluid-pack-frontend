@@ -14,7 +14,10 @@ import {
   userLoginSchemaDto,
 } from '../../../../assets/schemas/auth.schema';
 import { ValidationService } from '../../../core/services/validation.service';
-import { ErrorHandlerService, FormFieldErrors } from '../../../core/services/error-handler.service';
+import {
+  ErrorHandlerService,
+  FormFieldErrors,
+} from '../../../core/services/error-handler.service';
 import { LoaderService } from '../../../core/services/loader.service';
 import { RoleService } from '../../../core/services/role.service';
 import { AuthService } from '../services/auth.service';
@@ -24,7 +27,12 @@ import { CommonLoaderButtonComponent } from '../../../shared/components/common-l
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, CommonLoaderButtonComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterModule,
+    CommonLoaderButtonComponent,
+  ],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css'],
 })
@@ -67,7 +75,7 @@ export class LoginComponent implements OnInit {
     this.loginForm.valueChanges.subscribe(formValue => {
       // Only validate if form has been touched or submitted to avoid premature validation
       if (this.loginForm.touched || this.isSubmitting) {
-      this.validateFormWithZod(formValue);
+        this.validateFormWithZod(formValue);
       }
     });
   }
@@ -113,7 +121,10 @@ export class LoginComponent implements OnInit {
 
   isFieldInvalid(fieldName: string): boolean {
     const control = this.loginForm.get(fieldName);
-    const hasFieldError = this.errorHandler.hasFieldError(this.fieldErrors, fieldName);
+    const hasFieldError = this.errorHandler.hasFieldError(
+      this.fieldErrors,
+      fieldName
+    );
     return control
       ? (control.invalid && (control.dirty || control.touched)) || hasFieldError
       : hasFieldError;
@@ -121,7 +132,10 @@ export class LoginComponent implements OnInit {
 
   getFieldError(fieldName: string): string {
     // First check for field-specific errors from validation
-    const fieldError = this.errorHandler.getFieldError(this.fieldErrors, fieldName);
+    const fieldError = this.errorHandler.getFieldError(
+      this.fieldErrors,
+      fieldName
+    );
     if (fieldError) {
       return fieldError;
     }
@@ -189,7 +203,8 @@ export class LoginComponent implements OnInit {
 
       // Redirect based on user role
       // Try different possible paths for user data
-      const userData = response.data?.user || response.data || response.user || response;
+      const userData =
+        response.data?.user || response.data || response.user || response;
       console.log('Login response structure:', response);
       console.log('Extracted user data:', userData);
       this.redirectBasedOnRole(userData);
@@ -253,7 +268,9 @@ export class LoginComponent implements OnInit {
 
   // Handle sign up button click
   onSignUp(): void {
-    this.errorHandler.showInfo('Please contact your administrator to create an account.');
+    this.errorHandler.showInfo(
+      'Please contact your administrator to create an account.'
+    );
   }
 
   // TrackBy function for ngFor directive
@@ -270,10 +287,11 @@ export class LoginComponent implements OnInit {
     if (urlParams.get('error') === 'access_denied') {
       this.errorHandler.showApiError({
         success: false,
-        message: 'Access denied. You do not have permission to access this area.',
+        message:
+          'Access denied. You do not have permission to access this area.',
         errorCode: 'ACCESS_DENIED',
         errors: [],
-        data: null
+        data: null,
       });
     }
   }
@@ -301,7 +319,9 @@ export class LoginComponent implements OnInit {
       this.performRedirect(userRole);
     } else {
       // Role is not available or still loading
-      console.warn('Role information not available, checking user approval status');
+      console.warn(
+        'Role information not available, checking user approval status'
+      );
 
       // If user is approved, redirect to admin dashboard as fallback
       if (user.isApproved) {
@@ -317,13 +337,13 @@ export class LoginComponent implements OnInit {
    */
   private checkRoleAndRedirect(roleId: string, user: any): void {
     this.roleService.getRoleById(roleId).subscribe({
-      next: (roleResponse) => {
+      next: roleResponse => {
         console.log('Role details response:', roleResponse);
         if (roleResponse.success && roleResponse.data) {
           // Update user object with complete role information
           const updatedUser = {
             ...user,
-            role: roleResponse.data
+            role: roleResponse.data,
           };
 
           // Update the stored user data with complete role information
@@ -331,14 +351,22 @@ export class LoginComponent implements OnInit {
           const accessToken = this.coreAuthService.getAccessToken();
           const refreshToken = this.coreAuthService.getRefreshToken();
           if (accessToken && refreshToken) {
-            this.coreAuthService.setAuthData(updatedUser, { accessToken, refreshToken });
+            this.coreAuthService.setAuthData(updatedUser, {
+              accessToken,
+              refreshToken,
+            });
           }
 
           // Check if user is admin
           const roleName = roleResponse.data.name.toLowerCase();
           const isAdmin = roleName === 'admin' || roleName === 'manager';
 
-          console.log('Role check result - isAdmin:', isAdmin, 'roleName:', roleName);
+          console.log(
+            'Role check result - isAdmin:',
+            isAdmin,
+            'roleName:',
+            roleName
+          );
           if (isAdmin) {
             this.performRedirect('admin');
           } else {
@@ -354,7 +382,7 @@ export class LoginComponent implements OnInit {
           }
         }
       },
-      error: (error) => {
+      error: error => {
         console.error('Error checking role:', error);
         // Fallback: if user is approved, assume admin role
         if (user.isApproved) {
@@ -362,7 +390,7 @@ export class LoginComponent implements OnInit {
         } else {
           this.performRedirect('user');
         }
-      }
+      },
     });
   }
 
@@ -377,51 +405,63 @@ export class LoginComponent implements OnInit {
     switch (userRole) {
       case 'admin':
         console.log('Navigating to admin dashboard...');
-        this.router.navigate(['/admin/dashboard']).then(success => {
-          console.log('Admin dashboard navigation result:', success);
-          if (!success) {
-            console.log('Navigation failed, trying with delay...');
-            setTimeout(() => {
-              this.router.navigate(['/admin/dashboard']);
-            }, 1000);
-          }
-        }).catch(error => {
-          console.error('Admin dashboard navigation error:', error);
-        });
+        this.router
+          .navigate(['/admin/dashboard'])
+          .then(success => {
+            console.log('Admin dashboard navigation result:', success);
+            if (!success) {
+              console.log('Navigation failed, trying with delay...');
+              setTimeout(() => {
+                this.router.navigate(['/admin/dashboard']);
+              }, 1000);
+            }
+          })
+          .catch(error => {
+            console.error('Admin dashboard navigation error:', error);
+          });
         break;
       case 'manager':
         // For now, redirect managers to admin dashboard
-        // In the future, you might want to create a separate manager dashboard
         console.log('Navigating to admin dashboard (manager)...');
-        this.router.navigate(['/admin/dashboard']).then(success => {
-          console.log('Admin dashboard navigation result (manager):', success);
-          if (!success) {
-            console.log('Navigation failed, trying with delay...');
-            setTimeout(() => {
-              this.router.navigate(['/admin/dashboard']);
-            }, 1000);
-          }
-        }).catch(error => {
-          console.error('Admin dashboard navigation error (manager):', error);
-        });
+        this.router
+          .navigate(['/admin/dashboard'])
+          .then(success => {
+            console.log(
+              'Admin dashboard navigation result (manager):',
+              success
+            );
+            if (!success) {
+              console.log('Navigation failed, trying with delay...');
+              setTimeout(() => {
+                this.router.navigate(['/admin/dashboard']);
+              }, 1000);
+            }
+          })
+          .catch(error => {
+            console.error('Admin dashboard navigation error (manager):', error);
+          });
         break;
       case 'engineer':
       case 'qa specialist':
       case 'user':
+      case 'technician':
       default:
-        // For regular users, redirect to user dashboard
-        console.log('Navigating to user dashboard...');
-        this.router.navigate(['/user/dashboard']).then(success => {
-          console.log('User dashboard navigation result:', success);
-          if (!success) {
-            console.log('Navigation failed, trying with delay...');
-            setTimeout(() => {
-              this.router.navigate(['/user/dashboard']);
-            }, 1000);
-          }
-        }).catch(error => {
-          console.error('User dashboard navigation error:', error);
-        });
+        // Technicians and regular users → dispatch technician dashboard
+        console.log('Navigating to dispatch technician dashboard...');
+        this.router
+          .navigate(['/dispatch/technician'])
+          .then(success => {
+            console.log('User dashboard navigation result:', success);
+            if (!success) {
+              console.log('Navigation failed, trying with delay...');
+              setTimeout(() => {
+                this.router.navigate(['/dispatch/technician']);
+              }, 1000);
+            }
+          })
+          .catch(error => {
+            console.error('User dashboard navigation error:', error);
+          });
         break;
     }
   }
@@ -441,7 +481,11 @@ export class LoginComponent implements OnInit {
       return apiError.data.message;
     }
 
-    if (apiError?.errors && Array.isArray(apiError.errors) && apiError.errors.length > 0) {
+    if (
+      apiError?.errors &&
+      Array.isArray(apiError.errors) &&
+      apiError.errors.length > 0
+    ) {
       // If it's an array of errors, take the first one
       return apiError.errors[0].message || apiError.errors[0];
     }
@@ -467,5 +511,4 @@ export class LoginComponent implements OnInit {
       errors: errors,
     };
   }
-
 }

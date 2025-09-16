@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
-import { 
-  PermissionConfig, 
-  CreatePermissionConfigRequest, 
-  UpdatePermissionConfigRequest, 
+import {
+  PermissionConfig,
+  CreatePermissionConfigRequest,
+  UpdatePermissionConfigRequest,
   PermissionFilters,
-  CheckPermissionRequest
+  CheckPermissionRequest,
 } from '../models/permission.model';
 import { ApiResponse } from '../models/api-response.model';
 
@@ -19,21 +19,26 @@ export class PermissionService {
   /**
    * Get all permission configurations with pagination
    */
-  getAllPermissionConfigs(filters?: PermissionFilters): Observable<ApiResponse<{ configs: PermissionConfig[]; pagination: any }>> {
-    return this.baseApiService.get<{ configs: PermissionConfig[]; pagination: any }>(
-      '/permission',
-      filters
-    );
+  getAllPermissionConfigs(
+    filters?: PermissionFilters
+  ): Observable<ApiResponse<{ configs: PermissionConfig[]; pagination: any }>> {
+    return this.baseApiService.get<{
+      configs: PermissionConfig[];
+      pagination: any;
+    }>('/permission', filters);
   }
 
   /**
    * Get permission configurations by action
    */
-  getPermissionConfigsByAction(action: string, filters?: PermissionFilters): Observable<ApiResponse<{ configs: PermissionConfig[]; pagination: any }>> {
-    return this.baseApiService.get<{ configs: PermissionConfig[]; pagination: any }>(
-      `/permission/action/${action}`,
-      filters
-    );
+  getPermissionConfigsByAction(
+    action: string,
+    filters?: PermissionFilters
+  ): Observable<ApiResponse<{ configs: PermissionConfig[]; pagination: any }>> {
+    return this.baseApiService.get<{
+      configs: PermissionConfig[];
+      pagination: any;
+    }>(`/permission/action/${action}`, filters);
   }
 
   /**
@@ -46,50 +51,78 @@ export class PermissionService {
   /**
    * Check permission for specific action and resource
    */
-  checkPermission(permissionData: CheckPermissionRequest): Observable<ApiResponse<any>> {
+  checkPermission(
+    permissionData: CheckPermissionRequest
+  ): Observable<ApiResponse<any>> {
     return this.baseApiService.post<any>('/permission/check', permissionData);
   }
 
   /**
    * Check resource permission via GET
    */
-  checkResourcePermission(action: string, filters?: any): Observable<ApiResponse<any>> {
+  checkResourcePermission(
+    action: string,
+    filters?: any
+  ): Observable<ApiResponse<any>> {
     return this.baseApiService.get<any>(`/permission/check/${action}`, filters);
   }
 
   /**
    * Validate category IDs
    */
-  validateCategoryIds(categoryIds: string[]): Observable<ApiResponse<{ valid: boolean; invalidIds: string[] }>> {
-    return this.baseApiService.post<{ valid: boolean; invalidIds: string[] }>('/permission/validate-categories', { categoryIds });
+  validateCategoryIds(
+    categoryIds: string[]
+  ): Observable<ApiResponse<{ valid: boolean; invalidIds: string[] }>> {
+    return this.baseApiService.post<{ valid: boolean; invalidIds: string[] }>(
+      '/permission/validate-categories',
+      { categoryIds }
+    );
   }
 
   /**
    * Get permission configuration by ID
    */
-  getPermissionConfigById(id: string): Observable<ApiResponse<PermissionConfig>> {
+  getPermissionConfigById(
+    id: string
+  ): Observable<ApiResponse<PermissionConfig>> {
     return this.baseApiService.get<PermissionConfig>(`/permission/${id}`);
   }
 
   /**
    * Create permission configuration
    */
-  createPermissionConfig(configData: CreatePermissionConfigRequest): Observable<ApiResponse<PermissionConfig>> {
-    return this.baseApiService.post<PermissionConfig>('/permission', configData);
+  createPermissionConfig(
+    configData: CreatePermissionConfigRequest
+  ): Observable<ApiResponse<PermissionConfig>> {
+    return this.baseApiService.post<PermissionConfig>(
+      '/permission',
+      configData
+    );
   }
 
   /**
    * Update permission configuration
    */
-  updatePermissionConfig(id: string, configData: UpdatePermissionConfigRequest): Observable<ApiResponse<PermissionConfig>> {
-    return this.baseApiService.put<PermissionConfig>(`/permission/${id}`, configData);
+  updatePermissionConfig(
+    id: string,
+    configData: UpdatePermissionConfigRequest
+  ): Observable<ApiResponse<PermissionConfig>> {
+    return this.baseApiService.put<PermissionConfig>(
+      `/permission/${id}`,
+      configData
+    );
   }
 
   /**
    * Toggle permission configuration active status
    */
-  togglePermissionConfig(id: string): Observable<ApiResponse<PermissionConfig>> {
-    return this.baseApiService.patch<PermissionConfig>(`/permission/${id}/toggle`, {});
+  togglePermissionConfig(
+    id: string
+  ): Observable<ApiResponse<PermissionConfig>> {
+    return this.baseApiService.patch<PermissionConfig>(
+      `/permission/${id}/toggle`,
+      {}
+    );
   }
 
   /**

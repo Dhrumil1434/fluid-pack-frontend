@@ -17,6 +17,11 @@ export const routes: Routes = [
       import('./modules/user/user.module').then(m => m.UserModule),
   },
   {
+    path: 'dispatch',
+    loadChildren: () =>
+      import('./modules/dispatch/dispatch.module').then(m => m.DispatchModule),
+  },
+  {
     path: '',
     redirectTo: '/auth/login',
     pathMatch: 'full',

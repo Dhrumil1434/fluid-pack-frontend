@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
   MACHINES: '/machines',
   MACHINE_BY_ID: '/machines/:id',
   MACHINE_APPROVED: '/machines/approved',
+  MY_RECENT_MACHINES: '/machines/my/recent',
   MACHINE_APPROVAL: '/machines/:id/approval',
   MACHINE_BY_CATEGORY: '/machines/category/:id',
   MACHINE_VALIDATE_IDS: '/machines/validate-ids',
@@ -49,7 +50,7 @@ export const API_ENDPOINTS = {
   QA_MACHINE_VALIDATE_IDS: '/qa-machines/validate-ids',
   QA_STATISTICS: '/qa-machines/statistics',
 
-  // Permission configuration
+  // Permission configuration (mounted at /api/permission in backend)
   PERMISSIONS: '/permission',
   PERMISSION_BY_ID: '/permission/:id',
   MY_PERMISSIONS: '/permission/my-permissions',

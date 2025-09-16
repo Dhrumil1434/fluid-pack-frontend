@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 
 // Shared Components
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
+import { TechnicianDashboardComponent } from '../../../dispatch/pages/technician-dashboard.component';
 import { StatsCardsComponent } from '../shared/stats-cards/stats-cards.component';
 import { RecentActivityComponent } from '../shared/recent-activity/recent-activity.component';
 import { PendingApprovalsComponent } from '../shared/pending-approvals/pending-approvals.component';
@@ -22,6 +23,7 @@ import { ErrorHandlerService } from '../../../../core/services/error-handler.ser
     CommonModule,
     RouterModule,
     AdminSidebarComponent,
+    TechnicianDashboardComponent,
     StatsCardsComponent,
     RecentActivityComponent,
     PendingApprovalsComponent,

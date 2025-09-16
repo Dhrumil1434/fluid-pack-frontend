@@ -44,15 +44,26 @@ function addAuthToken(
   authService: AuthService
 ): HttpRequest<any> {
   const token = authService.getAccessToken();
-  if (token) {
+  if (!token) return req;
+
+  const isFormData = req.body instanceof FormData;
+  // Always attach Authorization. Do not force Content-Type for FormData.
+  if (isFormData) {
     return req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
       },
     });
   }
-  return req;
+
+  // For non-FormData, set JSON content-type if not already provided
+  const hasContentType = req.headers.has('Content-Type');
+  return req.clone({
+    setHeaders: {
+      Authorization: `Bearer ${token}`,
+      ...(hasContentType ? {} : { 'Content-Type': 'application/json' }),
+    },
+  });
 }
 
 /**

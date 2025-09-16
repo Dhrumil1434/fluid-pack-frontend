@@ -135,11 +135,15 @@ export class TechnicianSidebarComponent {
           icon: 'pi pi-clock',
           route: '/dispatch/technician',
         },
-        { label: 'All Machines', icon: 'pi pi-list', route: '/admin/machines' },
+        {
+          label: 'Technician Machines',
+          icon: 'pi pi-list',
+          route: '/dispatch/machines',
+        },
         {
           label: 'Create Machine',
           icon: 'pi pi-plus',
-          route: '/admin/machines',
+          route: '/dispatch/machines',
         },
       ],
     },

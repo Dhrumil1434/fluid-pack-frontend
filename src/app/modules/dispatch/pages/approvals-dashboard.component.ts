@@ -50,6 +50,7 @@ interface ApprovalRow {
                   <th class="px-3 py-2">Type</th>
                   <th class="px-3 py-2">Requested By</th>
                   <th class="px-3 py-2">Created</th>
+                  <th class="px-3 py-2">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -63,6 +64,20 @@ interface ApprovalRow {
                     {{ a.requestedBy?.username || a.requestedBy?.email || '-' }}
                   </td>
                   <td class="px-3 py-2">{{ a.createdAt | date: 'medium' }}</td>
+                  <td class="px-3 py-2">
+                    <button
+                      class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
+                      (click)="approve(a._id)"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 text-error"
+                      (click)="reject(a._id)"
+                    >
+                      Reject
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -95,6 +110,24 @@ export class ApprovalsDashboardComponent implements OnInit {
         error: () => {
           this.loading = false;
         },
+      });
+  }
+
+  approve(id: string): void {
+    const url = API_ENDPOINTS.PROCESS_APPROVAL.replace(':id', id);
+    this.http.patch(url, { approved: true }).subscribe({
+      next: () => this.fetchPending(),
+      error: () => {},
+    });
+  }
+
+  reject(id: string): void {
+    const url = API_ENDPOINTS.PROCESS_APPROVAL.replace(':id', id);
+    this.http
+      .patch(url, { approved: false, rejectionReason: 'Not suitable' })
+      .subscribe({
+        next: () => this.fetchPending(),
+        error: () => {},
       });
   }
 }

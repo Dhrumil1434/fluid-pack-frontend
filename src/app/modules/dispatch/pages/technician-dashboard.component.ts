@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TechnicianSidebarComponent } from '../components/shared/technician-sidebar/technician-sidebar.component';
+import { CreateMachineModalComponent } from '../components/create-machine-modal/create-machine-modal.component';
 import { HttpClient } from '@angular/common/http';
 import { API_ENDPOINTS } from '../../../core/constants/api.constants';
 import { ToastModule } from 'primeng/toast';
@@ -23,6 +24,7 @@ interface MachineRow {
     CommonModule,
     RouterModule,
     TechnicianSidebarComponent,
+    CreateMachineModalComponent,
     ToastModule,
   ],
   template: `
@@ -68,20 +70,24 @@ interface MachineRow {
               >
                 <i class="pi pi-refresh"></i>
               </button>
-              <a
-                class="px-3 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 cursor-pointer"
+              <button
+                class="px-3 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150"
                 [class.opacity-50]="!canCreate"
-                [class.pointer-events-none]="!canCreate"
-                [routerLink]="canCreate ? ['/admin/machines/create'] : null"
+                [disabled]="!canCreate"
                 (click)="onCreateClicked($event)"
               >
                 <i class="pi pi-plus mr-2"></i>
                 Create Machine
-              </a>
+              </button>
             </div>
           </div>
         </header>
         <div class="p-6 space-y-6">
+          <app-create-machine-modal
+            [visible]="createVisible"
+            (cancel)="createVisible = false"
+            (created)="onMachineCreated()"
+          ></app-create-machine-modal>
           <section
             class="bg-bg border border-neutral-300 rounded-xl shadow-medium"
           >
@@ -219,6 +225,7 @@ export class TechnicianDashboardComponent implements OnInit {
   loading = false;
   sidebarCollapsed = false;
   canCreate = false;
+  createVisible = false;
 
   constructor(
     private http: HttpClient,
@@ -291,7 +298,9 @@ export class TechnicianDashboardComponent implements OnInit {
         summary: 'Action blocked',
         detail: 'Technician is not allowed to create machines.',
       });
+      return;
     }
+    this.createVisible = true;
   }
 
   categoryName(m: MachineRow): string {
@@ -300,5 +309,10 @@ export class TechnicianDashboardComponent implements OnInit {
     if (typeof anyRef?.category === 'string') return anyRef.category;
     if (anyRef?.category_id?.name) return anyRef.category_id.name;
     return '-';
+  }
+
+  onMachineCreated(): void {
+    this.createVisible = false;
+    this.fetchRecent();
   }
 }

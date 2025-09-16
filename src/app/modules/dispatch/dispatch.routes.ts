@@ -1,8 +1,25 @@
 import { Routes } from '@angular/router';
-import { TechnicianDashboardComponent } from './pages/technician-dashboard.component';
-import { ApprovalsDashboardComponent } from './pages/approvals-dashboard.component';
 
 export const DISPATCH_ROUTES: Routes = [
-  { path: 'technician', component: TechnicianDashboardComponent },
-  { path: 'approvals', component: ApprovalsDashboardComponent },
+  {
+    path: 'technician',
+    loadComponent: () =>
+      import('./pages/technician-dashboard.component').then(
+        m => m.TechnicianDashboardComponent
+      ),
+  },
+  {
+    path: 'approvals',
+    loadComponent: () =>
+      import('./pages/approvals-dashboard.component').then(
+        m => m.ApprovalsDashboardComponent
+      ),
+  },
+  {
+    path: 'machines',
+    loadComponent: () =>
+      import('./pages/technician-machines.component').then(
+        m => m.TechnicianMachinesComponent
+      ),
+  },
 ];

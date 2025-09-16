@@ -21,6 +21,7 @@ import { BaseApiService } from '../../../../core/services/base-api.service';
 import { API_ENDPOINTS } from '../../../../core/constants/api.constants';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { ElementRef, ViewChild } from '@angular/core';
 
 @Component({
   selector: 'app-create-machine-modal',
@@ -81,37 +82,65 @@ import { MessageService } from 'primeng/api';
               Category is required
             </div>
           </div>
-          <div class="space-y-1">
+          <div class="space-y-2">
             <label class="text-sm">Images</label>
             <input
+              #fileInput
               type="file"
               multiple
-              (change)="onFilesSelected($event)"
               accept="image/*"
+              class="hidden"
+              (change)="onFilesSelected($event)"
             />
+
+            <div
+              class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
+              [ngClass]="{
+                'border-primary': isDragging,
+                'bg-primary/5': isDragging,
+              }"
+              (click)="openFilePicker()"
+              (dragover)="onDragOver($event)"
+              (dragleave)="onDragLeave($event)"
+              (drop)="onDrop($event)"
+            >
+              <div class="flex flex-col items-center gap-1">
+                <i class="pi pi-image text-2xl text-neutral-500"></i>
+                <div class="text-sm">
+                  <span class="text-primary font-medium">Click to upload</span>
+                  or drag and drop
+                </div>
+                <div class="text-xs text-neutral-500">
+                  PNG, JPG up to 5 files
+                </div>
+              </div>
+            </div>
+
             <div
               class="text-xs text-text-muted"
               *ngIf="selectedFiles.length > 0"
             >
               {{ selectedFiles.length }} file(s) selected (max 5)
             </div>
+
             <div
-              class="flex gap-2 flex-wrap mt-2"
+              class="grid grid-cols-5 gap-2 mt-2"
               *ngIf="selectedPreviews.length > 0"
             >
               <div
-                class="relative"
+                class="relative group"
                 *ngFor="let img of selectedPreviews; let i = index"
               >
                 <img
                   [src]="img"
-                  class="w-16 h-16 object-cover border rounded"
+                  class="w-full h-20 object-cover border rounded"
                   alt="preview"
                 />
                 <button
                   type="button"
-                  class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow"
+                  class="absolute top-1 right-1 bg-white/90 hover:bg-white border rounded-full p-1 shadow"
                   (click)="removeFile(i)"
+                  aria-label="Remove image"
                 >
                   <i class="pi pi-times text-xs"></i>
                 </button>
@@ -131,25 +160,32 @@ import { MessageService } from 'primeng/api';
                 + Add field
               </button>
             </div>
-            <div class="rounded border border-neutral-200 divide-y">
+            <div
+              class="rounded border border-neutral-200 divide-y"
+              formArrayName="metadata"
+            >
               <div
                 class="p-3 grid grid-cols-12 gap-2 items-start"
                 *ngFor="
-                  let ctrl of metadataControls;
+                  let _ of metadata.controls;
                   let i = index;
                   trackBy: trackByIndex
                 "
+                [formGroupName]="i"
               >
                 <div class="col-span-5">
                   <input
                     type="text"
                     class="w-full border rounded px-3 py-2"
                     placeholder="Field name (unique)"
-                    [formControl]="ctrl.get('key')"
+                    formControlName="key"
                   />
                   <div
                     class="text-xs text-error"
-                    *ngIf="ctrl.get('key')?.touched && ctrl.get('key')?.invalid"
+                    *ngIf="
+                      metadata.at(i).get('key')?.touched &&
+                      metadata.at(i).get('key')?.invalid
+                    "
                   >
                     Key is required and must be unique
                   </div>
@@ -159,13 +195,13 @@ import { MessageService } from 'primeng/api';
                     type="text"
                     class="w-full border rounded px-3 py-2"
                     placeholder="Value"
-                    [formControl]="ctrl.get('value')"
+                    formControlName="value"
                   />
                 </div>
                 <div class="col-span-2">
                   <select
                     class="w-full border rounded px-3 py-2"
-                    [formControl]="ctrl.get('type')"
+                    formControlName="type"
                   >
                     <option value="string">Text</option>
                     <option value="number">Number</option>
@@ -217,6 +253,7 @@ import { MessageService } from 'primeng/api';
 export class CreateMachineModalComponent
   implements OnInit, OnDestroy, OnChanges
 {
+  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   private _visible = false;
   @Input() set visible(v: boolean) {
     this._visible = v;
@@ -237,6 +274,7 @@ export class CreateMachineModalComponent
   selectedFiles: File[] = [];
   selectedPreviews: string[] = [];
   loading = false;
+  isDragging = false;
 
   constructor(
     private fb: FormBuilder,
@@ -265,10 +303,7 @@ export class CreateMachineModalComponent
   onFilesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const files = input.files ? Array.from(input.files) : [];
-    const limited = files.slice(0, 5);
-    this.selectedFiles = limited;
-    this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
-    this.selectedPreviews = this.selectedFiles.map(f => URL.createObjectURL(f));
+    this.acceptFiles(files);
   }
 
   removeFile(index: number): void {
@@ -276,6 +311,37 @@ export class CreateMachineModalComponent
     const [removed] = this.selectedPreviews.splice(index, 1);
     if (removed) URL.revokeObjectURL(removed);
     this.selectedFiles.splice(index, 1);
+  }
+
+  openFilePicker(): void {
+    this.fileInput?.nativeElement.click();
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = true;
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+    const files = event.dataTransfer?.files
+      ? Array.from(event.dataTransfer.files)
+      : [];
+    this.acceptFiles(files);
+  }
+
+  private acceptFiles(files: File[]): void {
+    const limited = files.slice(0, Math.max(0, 5 - this.selectedFiles.length));
+    if (limited.length === 0) return;
+    this.selectedFiles = [...this.selectedFiles, ...limited];
+    this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
+    this.selectedPreviews = this.selectedFiles.map(f => URL.createObjectURL(f));
   }
 
   onSubmit(): void {

@@ -25,7 +25,15 @@ import { FormsModule } from '@angular/forms';
   ],
   template: `
     <p-toast></p-toast>
-    <p-confirmDialog></p-confirmDialog>
+    <p-confirmDialog
+      [style]="{ width: '28rem' }"
+      styleClass="rounded-xl shadow-high"
+      [dismissableMask]="true"
+      [closable]="true"
+      [defaultFocus]="'reject'"
+      acceptButtonStyleClass="p-button-danger p-button-sm"
+      rejectButtonStyleClass="p-button-text p-button-sm"
+    ></p-confirmDialog>
     <app-admin-sidebar
       [collapsed]="sidebarCollapsed"
       (collapseChange)="sidebarCollapsed = $event"
@@ -183,12 +191,15 @@ export class RoleManagementComponent {
   onDeleteRole(r: RoleRow): void {
     this.confirm.confirm({
       header: 'Delete Role',
-      message: `Are you sure you want to delete ${r.name}?`,
-      icon: 'pi pi-exclamation-triangle',
+      message: `Are you sure you want to delete "${r.name}"? This action cannot be undone.`,
+      icon: 'pi pi-exclamation-triangle text-red-500',
       acceptIcon: 'pi pi-trash',
+      rejectIcon: 'pi pi-times',
       acceptLabel: 'Delete',
       rejectLabel: 'Cancel',
-      acceptButtonStyleClass: 'p-button-danger',
+      defaultFocus: 'reject',
+      acceptButtonStyleClass: 'p-button-danger p-button-sm',
+      rejectButtonStyleClass: 'p-button-text p-button-sm',
       accept: () => {
         if (!r.id) return;
         this.deptRoleService.deleteRole(r.id).subscribe({

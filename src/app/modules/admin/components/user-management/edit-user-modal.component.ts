@@ -5,6 +5,8 @@ import {
   Input,
   Output,
   OnChanges,
+  OnInit,
+  SimpleChanges,
 } from '@angular/core';
 import {
   FormBuilder,
@@ -32,7 +34,7 @@ import { User } from '../../../../core/models/user.model';
   templateUrl: './edit-user-modal.component.html',
   styleUrls: ['./edit-user-modal.component.css'],
 })
-export class EditUserModalComponent implements OnChanges {
+export class EditUserModalComponent implements OnChanges, OnInit {
   @Input() visible = false;
   @Input() user: User | null = null;
   @Input() roles: Array<{ _id: string; name: string }> = [];
@@ -50,6 +52,7 @@ export class EditUserModalComponent implements OnChanges {
   }>();
 
   form: FormGroup;
+  canSave = false;
   private initialValue: {
     username: string;
     email: string;
@@ -68,23 +71,49 @@ export class EditUserModalComponent implements OnChanges {
     });
   }
 
-  ngOnChanges(): void {
+  ngOnInit(): void {
+    // Recalculate canSave on any value change
+    this.form.valueChanges.subscribe(() => {
+      this.canSave = this.form.valid && (this.form.dirty || this.hasChanges);
+    });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
     if (this.user) {
+      const normalizedRoleId = this.user.role?._id?.toString() || '';
+      const normalizedDepartmentId =
+        this.user.department?._id?.toString() || '';
       this.form.patchValue({
         username: this.user.username,
         email: this.user.email,
-        role: this.user.role?._id || '',
-        department: this.user.department?._id || '',
+        role: normalizedRoleId,
+        department: normalizedDepartmentId,
         isApproved: this.user.isApproved,
       });
       this.initialValue = {
         username: this.user.username,
         email: this.user.email,
-        role: this.user.role?._id || '',
-        department: this.user.department?._id || '',
+        role: normalizedRoleId,
+        department: normalizedDepartmentId,
         isApproved: this.user.isApproved,
       };
       this.form.markAsPristine();
+      // Update validity and recompute canSave after incoming value changes
+      this.form.updateValueAndValidity({ emitEvent: true, onlySelf: false });
+      this.canSave = this.form.valid && (this.form.dirty || this.hasChanges);
+    }
+
+    // If roles or departments arrive after user is set, ensure defaults are applied
+    if ((changes['roles'] || changes['departments']) && this.user) {
+      const roleId = this.user.role?._id?.toString() || '';
+      const deptId = this.user.department?._id?.toString() || '';
+
+      if (roleId && this.form.value.role !== roleId) {
+        this.form.get('role')?.setValue(roleId, { emitEvent: true });
+      }
+      if (deptId && this.form.value.department !== deptId) {
+        this.form.get('department')?.setValue(deptId, { emitEvent: true });
+      }
     }
   }
 
@@ -103,11 +132,34 @@ export class EditUserModalComponent implements OnChanges {
       department: string;
       isApproved: boolean;
     };
-    return JSON.stringify(current) !== JSON.stringify(this.initialValue);
+    // Normalize whitespace and casing where relevant for a stable compare
+    const normalize = (v: unknown) => (typeof v === 'string' ? v.trim() : v);
+    const a = {
+      username: normalize(current.username),
+      email: normalize(current.email),
+      role: normalize(current.role),
+      department: normalize(current.department),
+      isApproved: current.isApproved,
+    };
+    const b = {
+      username: normalize(this.initialValue.username),
+      email: normalize(this.initialValue.email),
+      role: normalize(this.initialValue.role),
+      department: normalize(this.initialValue.department),
+      isApproved: this.initialValue.isApproved,
+    };
+    return JSON.stringify(a) !== JSON.stringify(b);
+  }
+
+  get isSaveEnabled(): boolean {
+    // Enable if form valid and either dirty or detected logical changes
+    return (
+      !!this.form && this.form.valid && (this.form.dirty || this.hasChanges)
+    );
   }
 
   onSubmit(): void {
-    if (this.form.valid && this.user) {
+    if (this.canSave && this.user) {
       this.save.emit({
         userId: this.user._id,
         username: this.form.value.username,

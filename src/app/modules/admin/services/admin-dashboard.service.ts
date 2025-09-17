@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, forkJoin, of, throwError } from 'rxjs';
+import { Observable, forkJoin, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { BaseApiService } from '../../../core/services/base-api.service';
 
@@ -40,7 +40,6 @@ export class AdminDashboardService {
       approvalStats:
         this.approvalStatisticsService.getApprovalStatistics(params),
       qaStats: this.qaStatisticsService.getQAStatistics(params),
-      recentActivity: this.getRecentActivity(params),
       pendingApprovals: this.approvalStatisticsService.getPendingApprovals(
         10,
         params
@@ -90,58 +89,70 @@ export class AdminDashboardService {
   /**
    * Get recent activity from multiple sources
    */
-  private getRecentActivity(
-    _params?: DashboardQueryParams
-  ): Observable<RecentActivity[]> {
-    // This would typically aggregate activity from multiple sources
-    // For now, return mock data that would come from an activity log API
-    return of([
-      {
-        id: '1',
-        type: 'user' as const,
+  private getRecentActivityFromData(data: {
+    recentUsers: any[];
+    recentMachines: any[];
+    pendingApprovals: any[];
+  }): RecentActivity[] {
+    const userActivities: RecentActivity[] = (data.recentUsers || []).map(
+      (u: any) => ({
+        id: `user-${u.id}`,
+        type: 'user',
         title: 'New User Registered',
-        description: 'John Doe registered for the system',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30),
-        user: 'System',
-        userId: 'system',
+        description: `${u.name} joined the system`,
+        timestamp: new Date(u.lastLogin || Date.now()),
+        user: u.name,
+        userId: u.id,
         icon: 'pi pi-user-plus',
         color: 'blue',
-      },
-      {
-        id: '2',
-        type: 'machine' as const,
-        title: 'Machine Created',
-        description:
-          'New machine "Hydraulic Press" added to Engineering category',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-        user: 'Admin User',
-        userId: 'admin-1',
-        icon: 'pi pi-cog',
-        color: 'green',
-      },
-      {
-        id: '3',
-        type: 'approval' as const,
-        title: 'Approval Requested',
-        description: 'Machine update approval requested for "Conveyor Belt"',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
-        user: 'Engineer',
-        userId: 'eng-1',
-        icon: 'pi pi-clock',
-        color: 'orange',
-      },
-    ]).pipe(
-      catchError(error => {
-        console.error('Error fetching recent activity:', error);
-        return of([]);
       })
     );
+
+    const machineActivities: RecentActivity[] = (data.recentMachines || []).map(
+      (m: any) => ({
+        id: `machine-${m.id}`,
+        type: 'machine',
+        title: 'Machine Created',
+        description: `New machine "${m.name}" added to ${m.category}`,
+        timestamp: new Date(m.createdAt),
+        user: m.createdBy || 'Unknown',
+        userId: m.createdById,
+        icon: 'pi pi-cog',
+        color: 'green',
+        metadata: { machineId: m.id },
+      })
+    );
+
+    const approvalActivities: RecentActivity[] = (
+      data.pendingApprovals || []
+    ).map((p: any) => ({
+      id: `approval-${p.id}`,
+      type: 'approval',
+      title: p.title || 'Approval Requested',
+      description: p.description || 'Approval request pending',
+      timestamp: new Date(p.requestedAt),
+      user: p.requestedBy || 'Unknown',
+      userId: p.requestedById,
+      icon: 'pi pi-clock',
+      color: 'orange',
+      metadata: p.metadata,
+    }));
+
+    return [...userActivities, ...machineActivities, ...approvalActivities]
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 15);
   }
 
   /**
    * Build comprehensive dashboard data from individual service responses
    */
   private buildDashboardData(data: any): DashboardData {
+    const recentActivity = this.getRecentActivityFromData({
+      recentUsers: data.recentUsers,
+      recentMachines: data.recentMachines,
+      pendingApprovals: data.pendingApprovals,
+    });
+
     return {
       statistics: {
         totalUsers: data.userStats.totalUsers,
@@ -159,7 +170,7 @@ export class AdminDashboardService {
       machineStatistics: data.machineStats,
       approvalStatistics: data.approvalStats,
       qaStatistics: data.qaStats,
-      recentActivity: data.recentActivity,
+      recentActivity,
       pendingApprovals: data.pendingApprovals,
       userManagement: {
         totalUsers: data.userStats.totalUsers,

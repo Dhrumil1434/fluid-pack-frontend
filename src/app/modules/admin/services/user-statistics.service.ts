@@ -119,7 +119,12 @@ export class UserStatisticsService {
             department: user.department?.name || 'Unknown',
             status: user.isApproved ? 'active' : 'pending',
             lastLogin: new Date(user.updatedAt || user.createdAt),
-            avatar: undefined,
+            avatar:
+              user.avatar ||
+              user.profileImage ||
+              user.photoUrl ||
+              user.image ||
+              undefined,
           }));
         }),
         catchError(error => {

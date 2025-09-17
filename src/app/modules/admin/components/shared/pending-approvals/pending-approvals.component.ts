@@ -3,13 +3,25 @@ import { CommonModule } from '@angular/common';
 
 export interface PendingApproval {
   id: string;
-  type: 'machine_creation' | 'machine_update' | 'machine_deletion' | 'user_approval';
+  type:
+    | 'machine_creation'
+    | 'machine_update'
+    | 'machine_deletion'
+    | 'user_approval';
   title: string;
   description: string;
   requestedBy: string;
+  requestedById?: string;
+  requestedByAvatar?: string;
   requestedAt: Date;
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'in_review' | 'approved' | 'rejected';
+  metadata?: {
+    machineId?: string;
+    machineName?: string;
+    proposedChanges?: Record<string, unknown>;
+  };
+  dueDate?: Date;
 }
 
 @Component({
@@ -17,7 +29,7 @@ export interface PendingApproval {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './pending-approvals.component.html',
-  styleUrls: ['./pending-approvals.component.css']
+  styleUrls: ['./pending-approvals.component.css'],
 })
 export class PendingApprovalsComponent implements OnInit {
   @Input() data: PendingApproval[] = [];
@@ -32,7 +44,7 @@ export class PendingApprovalsComponent implements OnInit {
       requestedBy: 'John Engineer',
       requestedAt: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
       priority: 'high',
-      status: 'pending'
+      status: 'pending',
     },
     {
       id: '2',
@@ -42,7 +54,7 @@ export class PendingApprovalsComponent implements OnInit {
       requestedBy: 'Jane Manager',
       requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
       priority: 'medium',
-      status: 'in_review'
+      status: 'in_review',
     },
     {
       id: '3',
@@ -52,7 +64,7 @@ export class PendingApprovalsComponent implements OnInit {
       requestedBy: 'Mike QA',
       requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
       priority: 'low',
-      status: 'pending'
+      status: 'pending',
     },
     {
       id: '4',
@@ -62,8 +74,8 @@ export class PendingApprovalsComponent implements OnInit {
       requestedBy: 'Bob Supervisor',
       requestedAt: new Date(Date.now() - 1000 * 60 * 60 * 6), // 6 hours ago
       priority: 'medium',
-      status: 'pending'
-    }
+      status: 'pending',
+    },
   ];
 
   ngOnInit() {

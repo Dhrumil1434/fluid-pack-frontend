@@ -52,6 +52,13 @@ export class DashboardComponent implements OnInit {
   // Sidebar state
   sidebarCollapsed = false;
 
+  // Notifications badge count derived from pending approvals
+  get notificationCount(): number {
+    return Array.isArray(this.dashboardData?.pendingApprovals)
+      ? this.dashboardData.pendingApprovals.length
+      : 0;
+  }
+
   constructor(
     private adminDashboardService: AdminDashboardService,
     private loaderService: LoaderService,

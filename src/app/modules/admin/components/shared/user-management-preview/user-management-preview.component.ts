@@ -29,7 +29,7 @@ export interface UserPreview {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './user-management-preview.component.html',
-  styleUrls: ['./user-management-preview.component.css']
+  styleUrls: ['./user-management-preview.component.css'],
 })
 export class UserManagementPreviewComponent implements OnInit {
   @Input() data: UserManagementData | null = null;
@@ -43,8 +43,8 @@ export class UserManagementPreviewComponent implements OnInit {
       activeUsers: 0,
       inactiveUsers: 0,
       adminUsers: 0,
-      regularUsers: 0
-    }
+      regularUsers: 0,
+    },
   };
 
   ngOnInit() {
@@ -113,6 +113,19 @@ export class UserManagementPreviewComponent implements OnInit {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  }
+
+  /**
+   * Build avatar URL using same strategy as User Management table
+   */
+  getAvatarUrl(nameOrEmail: string | undefined | null): string {
+    const base = 'https://ui-avatars.com/api/?background=random&name=';
+    const value = (nameOrEmail || '?').toString();
+    try {
+      return base + encodeURIComponent(value);
+    } catch {
+      return base + value;
+    }
   }
 
   /**

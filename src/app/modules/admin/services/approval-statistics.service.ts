@@ -30,12 +30,8 @@ export class ApprovalStatisticsService {
       )
       .pipe(
         map((response: ApiResponse<ApprovalStatistics>): ApprovalStatistics => {
-          if (!response.success) {
-            throw new Error(
-              response.message || 'Failed to fetch approval statistics'
-            );
-          }
-          return response.data;
+          if (response && 'data' in response) return response.data;
+          return (response as unknown as any) ?? ({} as ApprovalStatistics);
         }),
         catchError(error => {
           console.error('Error fetching approval statistics:', error);
@@ -93,14 +89,12 @@ export class ApprovalStatisticsService {
               pages: number;
             }>
           ): PendingApproval[] => {
-            if (!response.success) {
-              throw new Error(
-                response.message || 'Failed to fetch pending approvals'
-              );
-            }
-            console.log(response);
+            const payload: any = (response as any)?.data ?? response;
+            const approvals: any[] = Array.isArray(payload?.approvals)
+              ? payload.approvals
+              : [];
             // Transform backend approval data to frontend PendingApproval format
-            return response.data.approvals.map((approval: any) => ({
+            return approvals.map((approval: any) => ({
               id: approval._id,
               type: this.mapApprovalType(approval.approvalType),
               title: this.generateApprovalTitle(approval),

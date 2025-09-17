@@ -17,6 +17,7 @@ import { MessageService } from 'primeng/api';
 import { environment } from '../../../../environments/environment';
 import { TechnicianSidebarComponent } from '../components/shared/technician-sidebar/technician-sidebar.component';
 import { TablePaginationComponent } from '../../admin/components/user-management/table-pagination.component';
+import { ApprovalsService } from '../services/approvals.service';
 
 interface MachineRow {
   _id: string;
@@ -25,6 +26,11 @@ interface MachineRow {
   images?: string[];
   is_approved: boolean;
   createdAt: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
+  rejectionReason?: string | null;
+  approverNotes?: string | null;
+  decisionByName?: string | null;
+  decisionDate?: string | null;
 }
 
 @Component({
@@ -130,16 +136,16 @@ interface MachineRow {
               No machines found.
             </div>
             <div *ngIf="!loading && rows.length > 0" class="overflow-x-auto">
-              <table class="min-w-full text-sm">
+              <table class="min-w-full text-sm table-fixed">
                 <thead>
                   <tr class="text-left">
-                    <th class="px-3 py-2">Name</th>
-                    <th class="px-3 py-2">Category</th>
-                    <th class="px-3 py-2">Images</th>
-                    <th class="px-3 py-2">Preview</th>
-                    <th class="px-3 py-2">Created</th>
-                    <th class="px-3 py-2">Status</th>
-                    <th class="px-3 py-2">Actions</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-48">Name</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-72">Category</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-20">Images</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-52">Preview</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-48">Created</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-48">Status</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-56">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -147,12 +153,18 @@ interface MachineRow {
                     *ngFor="let m of rows"
                     class="border-t border-neutral-200"
                   >
-                    <td class="px-3 py-2">{{ m.name }}</td>
-                    <td class="px-3 py-2">{{ categoryName(m) }}</td>
+                    <td class="px-3 py-2">
+                      <div class="ellipsis" [title]="m.name">{{ m.name }}</div>
+                    </td>
+                    <td class="px-3 py-2">
+                      <div class="ellipsis" [title]="categoryName(m)">
+                        {{ categoryName(m) }}
+                      </div>
+                    </td>
                     <td class="px-3 py-2">{{ m.images?.length || 0 }}</td>
                     <td class="px-3 py-2">
                       <div
-                        class="flex gap-2 items-center"
+                        class="flex gap-2 items-center max-w-[200px] overflow-x-auto hide-scrollbar"
                         *ngIf="(m.images?.length || 0) > 0; else noimg"
                       >
                         <img
@@ -161,7 +173,7 @@ interface MachineRow {
                             let i = index
                           "
                           [src]="imageUrl(img)"
-                          class="w-10 h-10 object-cover rounded border cursor-pointer hover:opacity-90"
+                          class="thumb cursor-pointer hover:opacity-90"
                           (click)="openPreview(m.images || [], i)"
                           [alt]="m.name + ' image'"
                         />
@@ -175,27 +187,76 @@ interface MachineRow {
                         <span class="text-xs text-text-muted">No images</span>
                       </ng-template>
                     </td>
-                    <td class="px-3 py-2">
+                    <td class="px-3 py-2 whitespace-nowrap">
                       {{ m.createdAt | date: 'medium' }}
                     </td>
                     <td class="px-3 py-2">
-                      <span
-                        class="px-2 py-1 rounded text-xs"
-                        [ngClass]="{
-                          'bg-green-100 text-green-700': m.is_approved,
-                          'bg-amber-100 text-amber-700': !m.is_approved,
-                        }"
-                        >{{ m.is_approved ? 'Approved' : 'Pending' }}</span
-                      >
+                      <div class="flex flex-col gap-1">
+                        <span
+                          class="px-2 py-1 rounded text-xs w-fit"
+                          [ngClass]="{
+                            'bg-green-100 text-green-700':
+                              (m.approvalStatus ||
+                                (m.is_approved ? 'approved' : 'pending')) ===
+                              'approved',
+                            'bg-red-100 text-red-700':
+                              m.approvalStatus === 'rejected',
+                            'bg-amber-100 text-amber-700':
+                              (!m.approvalStatus && !m.is_approved) ||
+                              m.approvalStatus === 'pending',
+                          }"
+                        >
+                          {{
+                            m.approvalStatus ||
+                              (m.is_approved ? 'approved' : 'pending')
+                              | titlecase
+                          }}
+                        </span>
+                        <div
+                          class="text-xs text-text-muted"
+                          *ngIf="m.approvalStatus === 'approved'"
+                        >
+                          by {{ m.decisionByName || 'approver' }}
+                          <span *ngIf="m.decisionDate"
+                            >• {{ m.decisionDate | date: 'medium' }}</span
+                          >
+                        </div>
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="m.approvalStatus === 'rejected'"
+                        >
+                          by {{ m.decisionByName || 'approver' }}
+                          <span *ngIf="m.decisionDate" class="text-text-muted"
+                            >• {{ m.decisionDate | date: 'medium' }}</span
+                          >
+                        </div>
+                      </div>
                     </td>
-                    <td class="px-3 py-2">
+                    <td class="px-3 py-2 whitespace-nowrap">
                       <button
                         class="px-2 py-1 text-sm rounded border hover:bg-neutral-100"
                         [disabled]="!m.images?.length"
                         (click)="openPreview(m.images || [], 0)"
+                        title="Preview images"
                       >
                         <i class="pi pi-image mr-1"></i> Preview
                       </button>
+                      <ng-container
+                        *ngIf="m.approvalStatus === 'rejected'; else noReason"
+                      >
+                        <button
+                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 ml-2 text-error"
+                          (click)="openRejection(m._id)"
+                          title="View rejection reason"
+                        >
+                          <i class="pi pi-info-circle mr-1"></i> View Reason
+                        </button>
+                      </ng-container>
+                      <ng-template #noReason>
+                        <span class="text-xs text-text-muted ml-2"
+                          >No reason</span
+                        >
+                      </ng-template>
                     </td>
                   </tr>
                 </tbody>
@@ -214,6 +275,102 @@ interface MachineRow {
             ></app-table-pagination>
           </div>
         </section>
+
+        <!-- Rejection Reason Modal -->
+        <div
+          class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+          *ngIf="rejectVisible"
+        >
+          <div
+            class="bg-white w-full max-w-md rounded-xl shadow-xl border border-neutral-300"
+          >
+            <div
+              class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between"
+            >
+              <h3 class="font-medium">Rejection Details</h3>
+              <button
+                class="p-2 hover:bg-neutral-100 rounded"
+                (click)="rejectVisible = false"
+              >
+                <i class="pi pi-times"></i>
+              </button>
+            </div>
+            <div class="p-4 space-y-4">
+              <div *ngIf="rejectLoading" class="text-text-muted">
+                Loading...
+              </div>
+              <div *ngIf="!rejectLoading">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div class="text-xs text-text-muted mb-1">
+                      Rejection Reason
+                    </div>
+                    <div
+                      class="whitespace-pre-wrap text-sm"
+                      *ngIf="rejectionReason; else noreason"
+                    >
+                      {{ rejectionReason }}
+                    </div>
+                    <ng-template #noreason>
+                      <div class="text-text-muted text-sm">
+                        No rejection reason available.
+                      </div>
+                    </ng-template>
+                  </div>
+                  <div *ngIf="approverNotes">
+                    <div class="text-xs text-text-muted mb-1">
+                      Approver Notes
+                    </div>
+                    <div class="whitespace-pre-wrap text-sm">
+                      {{ approverNotes }}
+                    </div>
+                  </div>
+                </div>
+                <div *ngIf="rejectMachine" class="space-y-2">
+                  <div class="text-xs text-text-muted">Machine</div>
+                  <div class="text-sm">
+                    <span class="font-medium">Name:</span>
+                    {{ rejectMachine?.name }}
+                  </div>
+                  <div class="text-sm">
+                    <span class="font-medium">Category:</span>
+                    {{
+                      rejectMachine?.category_id?.name ||
+                        rejectMachine?.category_id ||
+                        '-'
+                    }}
+                  </div>
+                  <div *ngIf="rejectMetadata?.length" class="mt-2">
+                    <div class="text-xs text-text-muted mb-1">
+                      Additional details
+                    </div>
+                    <div class="border rounded divide-y">
+                      <div
+                        class="p-2 grid grid-cols-5 gap-2"
+                        *ngFor="let m of rejectMetadata"
+                      >
+                        <div class="col-span-2 text-xs font-medium">
+                          {{ m.key }}
+                        </div>
+                        <div class="col-span-3 text-xs break-all">
+                          {{ m.value }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="pt-2 flex items-center justify-end">
+                <button
+                  class="px-3 py-2 rounded border"
+                  (click)="rejectVisible = false"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Image Lightbox Modal -->
         <div
@@ -264,6 +421,32 @@ interface MachineRow {
       </div>
     </div>
   `,
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      .ellipsis {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .thumb {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+      }
+      .hide-scrollbar {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+    `,
+  ],
 })
 export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   loading = false;
@@ -295,6 +478,13 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   pages = 0;
   total = 0;
   limit = 10;
+  // rejection modal state
+  rejectVisible = false;
+  rejectLoading = false;
+  rejectionReason = '';
+  approverNotes: string | null = null;
+  rejectMachine: any = null;
+  rejectMetadata: Array<{ key: string; value: any; type?: string }> = [];
 
   constructor(
     private baseApi: BaseApiService,
@@ -302,6 +492,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private permissionService: PermissionService,
     private route: ActivatedRoute,
+    private approvals: ApprovalsService,
     private messageService: MessageService
   ) {
     this.form = this.fb.group({
@@ -369,8 +560,16 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
               ? [m.images]
               : [],
         }));
-        this.rows = this.sortRows(mapped);
-        this.loading = false;
+        // annotate rows with latest approval status for clarity
+        this.annotateApprovalStatuses(mapped)
+          .then(annotated => {
+            this.rows = this.sortRows(annotated);
+            this.loading = false;
+          })
+          .catch(() => {
+            this.rows = this.sortRows(mapped);
+            this.loading = false;
+          });
       },
       error: () => (this.loading = false),
     });
@@ -502,6 +701,68 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     this.previewVisible = true;
   }
 
+  openRejection(machineId: string): void {
+    this.rejectVisible = true;
+    this.rejectLoading = true;
+    this.rejectionReason = '';
+    this.approverNotes = null;
+    this.rejectMachine = null;
+    this.rejectMetadata = [];
+    // Query approvals for this machine and get latest rejection reason
+    this.baseApi
+      .get<any>(API_ENDPOINTS.MY_APPROVAL_REQUESTS, {
+        machineId,
+        status: 'REJECTED',
+        sort: '-updatedAt',
+        limit: 1,
+      })
+      .subscribe({
+        next: res => {
+          const data = (res as any).data || res;
+          const approvals = data.approvals || data?.data?.approvals || [];
+          const rejected = approvals[0];
+          this.rejectionReason =
+            rejected?.rejectionReason || rejected?.approverNotes || '';
+          this.approverNotes = rejected?.approverNotes || null;
+          const mid =
+            typeof rejected?.machineId === 'string'
+              ? rejected?.machineId
+              : rejected?.machineId?._id;
+          if (mid) {
+            this.baseApi
+              .get<any>(`${API_ENDPOINTS.MACHINES}/${mid}`)
+              .subscribe({
+                next: mres => {
+                  const mdata = (mres as any).data || mres;
+                  const machine =
+                    mdata.machine || mdata?.data?.machine || mdata;
+                  this.rejectMachine = machine;
+                  const metaObj =
+                    machine?.metadata && typeof machine.metadata === 'object'
+                      ? machine.metadata
+                      : undefined;
+                  if (metaObj) {
+                    this.rejectMetadata = Object.keys(metaObj).map(k => ({
+                      key: k,
+                      value: (metaObj as any)[k],
+                    }));
+                  }
+                  this.rejectLoading = false;
+                },
+                error: () => {
+                  this.rejectLoading = false;
+                },
+              });
+          } else {
+            this.rejectLoading = false;
+          }
+        },
+        error: () => {
+          this.rejectLoading = false;
+        },
+      });
+  }
+
   closePreview(): void {
     this.previewVisible = false;
     this.previewImages = [];
@@ -546,15 +807,59 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
       case 'status':
-        return rows.sort(
-          (a, b) => Number(!!a.is_approved) - Number(!!b.is_approved)
-        );
+        return rows.sort((a, b) => {
+          const sa =
+            a.approvalStatus || (a.is_approved ? 'approved' : 'pending');
+          const sb =
+            b.approvalStatus || (b.is_approved ? 'approved' : 'pending');
+          const order = { approved: 2, pending: 1, rejected: 0 } as any;
+          return (order[sa] ?? -1) - (order[sb] ?? -1);
+        });
       case 'created_desc':
       default:
         return rows.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
+    }
+  }
+
+  private async annotateApprovalStatuses(
+    rows: MachineRow[]
+  ): Promise<MachineRow[]> {
+    try {
+      const machineIds = rows.map(r => r._id);
+      const lookups = await Promise.all(
+        machineIds.map(id =>
+          this.approvals
+            .getByMachine(id, '-updatedAt')
+            .toPromise()
+            .catch(() => null)
+        )
+      );
+      const byId: Record<string, any> = {};
+      lookups.forEach((res, idx) => {
+        const list =
+          (res as any)?.approvals || (res as any)?.data?.approvals || [];
+        const latest = list[0];
+        byId[machineIds[idx]] = latest || null;
+      });
+
+      return rows.map(r => {
+        const a: any = byId[r._id];
+        if (!a) return r;
+        return {
+          ...r,
+          approvalStatus: (a.status || '').toLowerCase() as any,
+          rejectionReason: a.rejectionReason || null,
+          approverNotes: a.approverNotes || null,
+          decisionByName:
+            a?.approvedBy?.username || a?.rejectedBy?.username || null,
+          decisionDate: a?.approvalDate || a?.updatedAt || null,
+        };
+      });
+    } catch {
+      return rows;
     }
   }
 }

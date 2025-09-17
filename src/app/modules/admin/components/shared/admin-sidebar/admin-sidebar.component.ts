@@ -18,7 +18,7 @@ interface SidebarItem {
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './admin-sidebar.component.html',
-  styleUrls: ['./admin-sidebar.component.css']
+  styleUrls: ['./admin-sidebar.component.css'],
 })
 export class AdminSidebarComponent implements OnInit {
   @Input() collapsed = false;
@@ -32,7 +32,7 @@ export class AdminSidebarComponent implements OnInit {
     {
       label: 'Dashboard',
       icon: 'pi pi-home',
-      route: '/admin/dashboard'
+      route: '/admin/dashboard',
     },
     {
       label: 'User Management',
@@ -40,9 +40,17 @@ export class AdminSidebarComponent implements OnInit {
       route: '/admin/users',
       children: [
         { label: 'All Users', icon: 'pi pi-users', route: '/admin/users' },
-        { label: 'Pending Approvals', icon: 'pi pi-clock', route: '/admin/users/pending' },
-        { label: 'Roles & Permissions', icon: 'pi pi-key', route: '/admin/users/roles' }
-      ]
+        {
+          label: 'Pending Approvals',
+          icon: 'pi pi-clock',
+          route: '/admin/users/pending',
+        },
+        {
+          label: 'Roles & Permissions',
+          icon: 'pi pi-key',
+          route: '/admin/users/roles',
+        },
+      ],
     },
     {
       label: 'Machine Management',
@@ -50,36 +58,62 @@ export class AdminSidebarComponent implements OnInit {
       route: '/admin/machines',
       children: [
         { label: 'All Machines', icon: 'pi pi-cog', route: '/admin/machines' },
+        {
+          label: 'Machine Approvals',
+          icon: 'pi pi-inbox',
+          route: '/admin/machine-approvals',
+        },
         { label: 'Categories', icon: 'pi pi-tags', route: '/admin/categories' },
-        { label: 'QA Entries', icon: 'pi pi-check-circle', route: '/admin/machines/qa' }
-      ]
+        {
+          label: 'QA Entries',
+          icon: 'pi pi-check-circle',
+          route: '/admin/machines/qa',
+        },
+      ],
+    },
+    {
+      label: 'Dispatch',
+      icon: 'pi pi-truck',
+      route: '/admin/dispatch',
+      children: [
+        {
+          label: 'Approvals',
+          icon: 'pi pi-inbox',
+          route: '/dispatch/approvals',
+        },
+        {
+          label: 'Machines CRUD',
+          icon: 'pi pi-sliders-h',
+          route: '/dispatch/machines',
+        },
+      ],
     },
     {
       label: 'Approvals',
       icon: 'pi pi-check-square',
       route: '/admin/approvals',
-      badge: 5 // Will be updated with real data
+      badge: 5, // Will be updated with real data
     },
     {
       label: 'Departments',
       icon: 'pi pi-building',
-      route: '/admin/departments'
+      route: '/admin/departments',
     },
     {
       label: 'Roles',
       icon: 'pi pi-id-card',
-      route: '/admin/roles'
+      route: '/admin/roles',
     },
     {
       label: 'Permissions',
       icon: 'pi pi-shield',
-      route: '/admin/permissions'
+      route: '/admin/permissions',
     },
     {
       label: 'Settings',
       icon: 'pi pi-cog',
-      route: '/admin/settings'
-    }
+      route: '/admin/settings',
+    },
   ];
 
   // User info
@@ -106,7 +140,7 @@ export class AdminSidebarComponent implements OnInit {
           name: user.username || 'Admin User',
           email: user.email || 'admin@fluidpack.com',
           role: user.role?.name || 'Admin',
-          avatar: null
+          avatar: null,
         };
       } else {
         // Fallback data if no user is logged in
@@ -114,7 +148,7 @@ export class AdminSidebarComponent implements OnInit {
           name: 'Admin User',
           email: 'admin@fluidpack.com',
           role: 'Admin',
-          avatar: null
+          avatar: null,
         };
       }
     });
@@ -126,12 +160,13 @@ export class AdminSidebarComponent implements OnInit {
   private loadPendingApprovalsCount() {
     // This would typically come from an API call
     // For now, we'll set a mock value
-    const approvalsItem = this.sidebarItems.find(item => item.label === 'Approvals');
+    const approvalsItem = this.sidebarItems.find(
+      item => item.label === 'Approvals'
+    );
     if (approvalsItem) {
       approvalsItem.badge = 5; // Mock pending count
     }
   }
-
 
   /**
    * Navigate to a route

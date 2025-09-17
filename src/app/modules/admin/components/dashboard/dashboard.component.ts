@@ -38,6 +38,16 @@ export class DashboardComponent implements OnInit {
   dashboardData: any = null;
   isLoading = false;
   error: string | null = null;
+  // Adapted cards for stats component
+  statCards: {
+    title: string;
+    value: number;
+    change: number;
+    changeType: 'increase' | 'decrease' | 'neutral';
+    icon: string;
+    color: string;
+    description?: string;
+  }[] = [];
 
   // Sidebar state
   sidebarCollapsed = false;
@@ -64,6 +74,7 @@ export class DashboardComponent implements OnInit {
     this.adminDashboardService.getDashboardData().subscribe({
       next: data => {
         this.dashboardData = data;
+        this.statCards = this.buildStatCards(data);
         this.isLoading = false;
         this.loaderService.hideCardLoader('dashboard');
       },
@@ -123,5 +134,47 @@ export class DashboardComponent implements OnInit {
    */
   onSidebarCollapseChange(collapsed: boolean) {
     this.sidebarCollapsed = collapsed;
+  }
+
+  private buildStatCards(data: any) {
+    const stats = data?.statistics || {};
+    return [
+      {
+        title: 'Total Users',
+        value: Number(stats.totalUsers) || 0,
+        change: 0,
+        changeType: 'neutral' as const,
+        icon: 'pi pi-users',
+        color: 'blue',
+        description: 'Registered users',
+      },
+      {
+        title: 'Total Machines',
+        value: Number(stats.totalMachines) || 0,
+        change: 0,
+        changeType: 'neutral' as const,
+        icon: 'pi pi-cog',
+        color: 'green',
+        description: 'Active machines',
+      },
+      {
+        title: 'Pending Approvals',
+        value: Number(stats.pendingApprovals) || 0,
+        change: 0,
+        changeType: 'neutral' as const,
+        icon: 'pi pi-clock',
+        color: 'orange',
+        description: 'Awaiting approval',
+      },
+      {
+        title: 'QA Entries',
+        value: Number(stats.qaEntries) || 0,
+        change: 0,
+        changeType: 'neutral' as const,
+        icon: 'pi pi-check-circle',
+        color: 'purple',
+        description: 'Quality assurance entries',
+      },
+    ];
   }
 }

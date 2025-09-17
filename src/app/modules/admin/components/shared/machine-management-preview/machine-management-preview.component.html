@@ -1,10 +1,14 @@
 <!-- Machine Management Preview Card -->
-<div class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20">
+<div
+  class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20"
+>
   <!-- Card Header -->
   <div class="p-6 border-b border-gray-100">
     <div class="flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+        <div
+          class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg"
+        >
           <i class="pi pi-cog text-white text-lg"></i>
         </div>
         <div>
@@ -14,9 +18,12 @@
       </div>
       <button
         class="px-4 py-2 text-primary hover:text-primary-light hover:bg-primary/10 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 group"
-        title="View all machines">
+        title="View all machines"
+      >
         <span>View All</span>
-        <i class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"></i>
+        <i
+          class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"
+        ></i>
       </button>
     </div>
   </div>
@@ -25,15 +32,21 @@
   <div class="p-6" *ngIf="data">
     <div class="grid grid-cols-3 gap-4 mb-6">
       <div class="text-center p-4 bg-bg-soft rounded-xl">
-        <div class="text-2xl font-bold text-primary">{{ data.totalMachines }}</div>
+        <div class="text-2xl font-bold text-primary">
+          {{ data.totalMachines }}
+        </div>
         <div class="text-sm text-text-muted">Total Machines</div>
       </div>
       <div class="text-center p-4 bg-warning/10 rounded-xl">
-        <div class="text-2xl font-bold text-warning">{{ data.pendingApprovals }}</div>
+        <div class="text-2xl font-bold text-warning">
+          {{ data.pendingApprovals }}
+        </div>
         <div class="text-sm text-text-muted">Pending</div>
       </div>
       <div class="text-center p-4 bg-success/10 rounded-xl">
-        <div class="text-2xl font-bold text-success">{{ data.machineStats.activeMachines }}</div>
+        <div class="text-2xl font-bold text-success">
+          {{ data.machineStats.activeMachines }}
+        </div>
         <div class="text-sm text-text-muted">Active</div>
       </div>
     </div>
@@ -43,27 +56,31 @@
       <h4 class="text-lg font-semibold text-text mb-4">Recent Machines</h4>
       <div class="space-y-3">
         <div
-          *ngFor="let machine of data.recentMachines; trackBy: trackByMachineId; let i = index"
+          *ngFor="
+            let machine of data.recentMachines;
+            trackBy: trackByMachineId;
+            let i = index
+          "
           class="flex items-center space-x-3 p-3 rounded-xl hover:bg-bg-soft transition-all duration-200 group"
-          [style.animation-delay]="(i * 100) + 'ms'">
-
-          <!-- Machine Image/Icon -->
+          [style.animation-delay]="i * 100 + 'ms'"
+        >
+          <!-- Machine Icon (text-only, no image to avoid 404s) -->
           <div class="relative">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-r from-emerald-500 to-emerald-600">
-              <img
-                *ngIf="machine.image"
-                [src]="machine.image"
-                [alt]="machine.name"
-                class="w-full h-full rounded-xl object-cover">
-              <div
-                *ngIf="!machine.image"
-                class="text-white font-bold text-sm">
+            <div
+              class="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-r from-emerald-500 to-emerald-600"
+            >
+              <div class="text-white font-bold text-sm">
                 {{ getMachineInitials(machine.name) }}
               </div>
             </div>
             <!-- Status Indicator -->
-            <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-white flex items-center justify-center">
-              <div class="w-2 h-2 rounded-full" [ngClass]="getStatusIndicatorClass(machine.status)"></div>
+            <div
+              class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-white flex items-center justify-center"
+            >
+              <div
+                class="w-2 h-2 rounded-full"
+                [ngClass]="getStatusIndicatorClass(machine.status)"
+              ></div>
             </div>
           </div>
 
@@ -71,7 +88,9 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between">
               <div class="flex-1">
-                <h5 class="text-sm font-semibold text-text group-hover:text-primary transition-colors duration-200">
+                <h5
+                  class="text-sm font-semibold text-text group-hover:text-primary transition-colors duration-200"
+                >
                   {{ machine.name }}
                 </h5>
                 <p class="text-xs text-text-muted">{{ machine.category }}</p>
@@ -81,11 +100,15 @@
                     {{ machine.createdBy }}
                   </span>
                   <span class="text-xs text-text-muted">•</span>
-                  <span class="text-xs text-text-muted">{{ getRelativeTime(machine.lastUpdated) }}</span>
+                  <span class="text-xs text-text-muted">{{
+                    getRelativeTime(machine.lastUpdated)
+                  }}</span>
                 </div>
               </div>
-              <span class="text-xs px-2 py-1 rounded-full font-medium"
-                    [ngClass]="getStatusBadgeClass(machine.status)">
+              <span
+                class="text-xs px-2 py-1 rounded-full font-medium"
+                [ngClass]="getStatusBadgeClass(machine.status)"
+              >
                 {{ machine.status }}
               </span>
             </div>
@@ -95,8 +118,13 @@
     </div>
 
     <!-- Empty State -->
-    <div *ngIf="!data || data.recentMachines.length === 0" class="text-center py-8">
-      <div class="w-16 h-16 bg-bg-soft rounded-full flex items-center justify-center mx-auto mb-4">
+    <div
+      *ngIf="!data || data.recentMachines.length === 0"
+      class="text-center py-8"
+    >
+      <div
+        class="w-16 h-16 bg-bg-soft rounded-full flex items-center justify-center mx-auto mb-4"
+      >
         <i class="pi pi-cog text-2xl text-text-muted"></i>
       </div>
       <h4 class="text-lg font-semibold text-text mb-2">No Recent Machines</h4>
@@ -105,12 +133,20 @@
 
     <!-- Quick Actions -->
     <div class="flex space-x-3 mt-6">
-      <button class="flex-1 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-light transition-all duration-200 flex items-center justify-center space-x-2 group">
-        <i class="pi pi-plus text-sm group-hover:scale-110 transition-transform duration-200"></i>
+      <button
+        class="flex-1 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-light transition-all duration-200 flex items-center justify-center space-x-2 group"
+      >
+        <i
+          class="pi pi-plus text-sm group-hover:scale-110 transition-transform duration-200"
+        ></i>
         <span>Add Machine</span>
       </button>
-      <button class="flex-1 px-4 py-2 bg-bg-soft text-text border border-neutral-300 rounded-xl font-semibold hover:bg-neutral-300 transition-all duration-200 flex items-center justify-center space-x-2 group">
-        <i class="pi pi-cog text-sm group-hover:scale-110 transition-transform duration-200"></i>
+      <button
+        class="flex-1 px-4 py-2 bg-bg-soft text-text border border-neutral-300 rounded-xl font-semibold hover:bg-neutral-300 transition-all duration-200 flex items-center justify-center space-x-2 group"
+      >
+        <i
+          class="pi pi-cog text-sm group-hover:scale-110 transition-transform duration-200"
+        ></i>
         <span>Manage Machines</span>
       </button>
     </div>

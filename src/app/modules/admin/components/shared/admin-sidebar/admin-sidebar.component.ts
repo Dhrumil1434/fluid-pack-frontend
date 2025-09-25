@@ -81,11 +81,6 @@ export class AdminSidebarComponent implements OnInit {
           icon: 'pi pi-inbox',
           route: '/dispatch/approvals',
         },
-        {
-          label: 'Machines CRUD',
-          icon: 'pi pi-sliders-h',
-          route: '/dispatch/machines',
-        },
       ],
     },
     {

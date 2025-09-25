@@ -3,6 +3,24 @@
 @import 'tailwindcss-primeui';
 @import 'primeicons/primeicons.css';
 
+/* Global interaction improvements */
+button,
+[role='button'],
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+.cursor-pointer,
+a.button,
+a[routerLink] {
+  cursor: pointer;
+}
+
+/* Responsive table helper */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
 /* Ensure PrimeNG icons are visible */
 .pi {
   font-family: 'primeicons' !important;

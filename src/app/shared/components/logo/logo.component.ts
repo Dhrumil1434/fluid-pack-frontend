@@ -1,5 +1,9 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import {
+  LOGO_ASSETS,
+  LogoVariant,
+} from '../../../core/constants/brand.constants';
 
 @Component({
   selector: 'app-logo',
@@ -8,16 +12,25 @@ import { CommonModule } from '@angular/common';
   template: `
     <div class="flex items-center justify-center" [class]="containerClass">
       <!-- Logo placeholder - replace with actual logo -->
-      <div *ngIf="!logoSrc" class="flex items-center justify-center" [class]="logoClass">
-        <svg class="text-white" [class]="iconClass" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      <div
+        *ngIf="!logoSrc"
+        class="flex items-center justify-center"
+        [class]="logoClass"
+      >
+        <svg
+          class="text-white"
+          [class]="iconClass"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
       </div>
       <!-- Actual logo image -->
       <img *ngIf="logoSrc" [src]="logoSrc" [alt]="alt" [class]="logoClass" />
     </div>
   `,
-  styles: []
+  styles: [],
 })
 export class LogoComponent {
   @Input() logoSrc: string = '';
@@ -30,7 +43,7 @@ export class LogoComponent {
       sm: 'h-8 w-8',
       md: 'h-12 w-12',
       lg: 'h-16 w-16',
-      xl: 'h-20 w-20'
+      xl: 'h-20 w-20',
     };
     return sizeClasses[this.size];
   }
@@ -40,13 +53,13 @@ export class LogoComponent {
       sm: 'h-6 w-6',
       md: 'h-8 w-8',
       lg: 'h-12 w-12',
-      xl: 'h-16 w-16'
+      xl: 'h-16 w-16',
     };
-    
+
     const variantClasses = {
       default: 'text-primary',
       white: 'text-white',
-      primary: 'text-primary'
+      primary: 'text-primary',
     };
 
     return `${sizeClasses[this.size]} ${variantClasses[this.variant]}`;
@@ -57,8 +70,19 @@ export class LogoComponent {
       sm: 'h-4 w-4',
       md: 'h-6 w-6',
       lg: 'h-8 w-8',
-      xl: 'h-12 w-12'
+      xl: 'h-12 w-12',
     };
     return sizeClasses[this.size];
+  }
+
+  get resolvedLogoSrc(): string {
+    if (this.logoSrc) return this.logoSrc;
+    const map: Record<LogoVariant, string> = {
+      primary: LOGO_ASSETS.primary,
+      white: LOGO_ASSETS.white,
+    };
+    const variantKey: LogoVariant =
+      this.variant === 'white' ? 'white' : 'primary';
+    return map[variantKey];
   }
 }

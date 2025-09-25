@@ -32,7 +32,7 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
     <p-toast></p-toast>
     <p-confirmDialog
       [style]="{ width: '28rem' }"
-      styleClass="rounded-xl shadow-high"
+      styleClass="fp-dialog rounded-xl shadow-high"
       [dismissableMask]="true"
       [closable]="true"
       [defaultFocus]="'reject'"

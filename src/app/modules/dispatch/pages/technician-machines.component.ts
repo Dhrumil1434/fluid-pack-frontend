@@ -639,22 +639,55 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
     this.creating = true;
     this.baseApi.post<any>(API_ENDPOINTS.MACHINES, formData).subscribe({
-      next: () => {
+      next: res => {
         this.creating = false;
         this.createVisible = false;
+        const successMsg =
+          (res && (res.message || (res as any)?.data?.message)) ||
+          'Machine created successfully.';
         this.messageService.add({
           severity: 'success',
           summary: 'Created',
-          detail: 'Machine created and pending approval.',
+          detail: successMsg,
         });
         this.refresh();
       },
       error: err => {
         this.creating = false;
-        const detail = err?.error?.message || 'Failed to create machine';
+        const errorCode = err?.errorCode || err?.error?.errorCode;
+        const statusCode = err?.statusCode || err?.status;
+        let detail =
+          err?.message ||
+          err?.error?.message ||
+          err?.error?.data?.message ||
+          (typeof err === 'string' ? err : '') ||
+          'Failed to create machine';
+        // If backend sends "CODE: message", extract message part for UX
+        if (typeof detail === 'string' && detail.includes(':')) {
+          const idx = detail.indexOf(':');
+          const after = detail.slice(idx + 1).trim();
+          if (after) detail = after;
+        }
+        // Helpful debug log to verify error shape during QA
+
+        console.error('Create machine error payload:', err);
+
+        if (errorCode === 'DUPLICATE_MACHINE_NAME' || statusCode === 409) {
+          // Mark field error for better UX and show precise toast
+          const nameCtrl = this.form.get('name');
+          nameCtrl?.setErrors({ duplicate: true });
+          nameCtrl?.markAsTouched();
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Conflict',
+            detail,
+          });
+          return;
+        }
+
         this.messageService.add({
           severity: 'error',
-          summary: 'Error',
+          summary: 'Failed',
           detail,
         });
       },

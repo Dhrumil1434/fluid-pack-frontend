@@ -8,9 +8,13 @@
   <div class="p-6 border-b border-neutral-300">
     <div class="flex items-center space-x-3">
       <div
-        class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg"
+        class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden bg-bg-soft"
       >
-        <i class="pi pi-shield text-white text-lg"></i>
+        <img
+          src="assets/logo/avtaar.png"
+          alt="Logo"
+          class="h-8 w-8 object-contain"
+        />
       </div>
       <div *ngIf="!collapsed" class="transition-all duration-300">
         <h2 class="text-xl font-bold text-text">Fluid Pack</h2>
@@ -99,11 +103,13 @@
       class="flex items-center space-x-3 p-3 bg-bg-soft rounded-lg hover:bg-neutral-300 transition-all duration-200 group"
     >
       <div
-        class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg user-avatar"
+        class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg overflow-hidden bg-bg-soft"
       >
-        <span class="text-white font-bold text-sm">{{
-          getUserInitials()
-        }}</span>
+        <img
+          src="assets/logo/avtaar.png"
+          alt="Avatar"
+          class="h-8 w-8 object-contain"
+        />
       </div>
       <div class="flex-1 min-w-0">
         <div class="text-sm font-semibold text-text truncate">

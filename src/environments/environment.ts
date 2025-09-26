@@ -7,7 +7,7 @@ export const environment = {
   production: false,
 
   // API Configuration
-  apiUrl: 'http://192.168.3.108:5000/api',
+  apiUrl: 'http://192.168.29.20:5000/api',
   apiVersion: 'v1',
 
   // Application Info

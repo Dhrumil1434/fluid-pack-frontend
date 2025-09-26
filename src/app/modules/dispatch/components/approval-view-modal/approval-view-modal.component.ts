@@ -133,6 +133,14 @@ import { environment } from '../../../../../environments/environment';
               >
             </div>
 
+            <div *ngIf="machine?.metadata !== undefined">
+              <div class="text-xs text-text-muted mb-1">Machine Metadata</div>
+              <pre
+                class="text-xs bg-neutral-50 border rounded p-2 overflow-auto max-h-48"
+                >{{ prettyMetadata(machine?.metadata) }}</pre
+              >
+            </div>
+
             <div *ngIf="approval?.rejectionReason">
               <div class="text-xs text-text-muted mb-1">Rejection Reason</div>
               <div class="text-sm whitespace-pre-wrap">
@@ -184,6 +192,25 @@ export class ApprovalViewModalComponent {
       return JSON.stringify(obj ?? {}, null, 2);
     } catch {
       return String(obj ?? '-');
+    }
+  }
+
+  prettyMetadata(val: any): string {
+    try {
+      if (typeof val === 'string') {
+        // Attempt to parse JSON-like strings; otherwise return raw string for transparency
+        const trimmed = val.trim();
+        if (
+          (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']'))
+        ) {
+          return JSON.stringify(JSON.parse(trimmed), null, 2);
+        }
+        return trimmed;
+      }
+      return JSON.stringify(val ?? {}, null, 2);
+    } catch {
+      return String(val ?? '-');
     }
   }
 

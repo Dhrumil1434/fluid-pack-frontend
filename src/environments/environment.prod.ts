@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: 'http://192.168.3.108:5000/api', // Replace with your actual production API URL
+  apiUrl: 'http://192.168.29.20:5000/api', // Replace with your actual production API URL
   appName: 'Fluid Pack',
   version: '1.0.0',
   defaultLanguage: 'en',

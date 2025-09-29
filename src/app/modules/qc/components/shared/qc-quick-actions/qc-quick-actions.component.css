@@ -1,0 +1,117 @@
+/* QC Quick Actions Component Styles */
+.action-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.action-button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.action-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Ripple effect */
+.action-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition:
+    width 0.6s,
+    height 0.6s;
+}
+
+.action-button:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* Staggered animation */
+.action-item {
+  animation: slideInUp 0.5s ease forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+@keyframes slideInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Color-specific hover effects */
+.action-blue:hover {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.action-green:hover {
+  background: linear-gradient(135deg, #10b981, #047857);
+}
+
+.action-purple:hover {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.action-orange:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.action-red:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.action-teal:hover {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+}
+
+/* Icon animation */
+.action-icon {
+  transition: transform 0.2s ease;
+}
+
+.action-button:hover .action-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+/* Disabled state */
+.action-disabled {
+  position: relative;
+}
+
+.action-disabled::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.1) 2px,
+    rgba(255, 255, 255, 0.1) 4px
+  );
+  pointer-events: none;
+}

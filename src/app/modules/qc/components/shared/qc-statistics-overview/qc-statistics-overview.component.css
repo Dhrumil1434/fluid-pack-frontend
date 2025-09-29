@@ -1,0 +1,136 @@
+/* QC Statistics Overview Component Styles */
+.stat-card {
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trend-bar {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.trend-bar:hover {
+  transform: scaleY(1.1);
+  filter: brightness(1.1);
+}
+
+/* Health score color variations */
+.health-score-90-plus {
+  color: #10b981;
+}
+
+.health-score-70-89 {
+  color: #f59e0b;
+}
+
+.health-score-below-70 {
+  color: #ef4444;
+}
+
+/* Trend indicators */
+.trend-up {
+  color: #10b981;
+}
+
+.trend-down {
+  color: #ef4444;
+}
+
+.trend-stable {
+  color: #6b7280;
+}
+
+/* Animation for chart bars */
+@keyframes growUp {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--bar-height);
+  }
+}
+
+.trend-bar {
+  animation: growUp 0.8s ease-out forwards;
+}
+
+/* Pulse animation for health score */
+.health-indicator {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Metric cards hover effect */
+.metric-card {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.metric-card:hover::before {
+  left: 100%;
+}
+
+/* Status distribution bars */
+.status-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}

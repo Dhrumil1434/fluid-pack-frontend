@@ -1,0 +1,58 @@
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+}
+.content {
+  padding: 16px;
+}
+.page-header {
+  margin-bottom: 12px;
+}
+.subtitle {
+  color: #6b7280;
+  font-size: 12px;
+}
+.card {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+input,
+select {
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+button {
+  padding: 8px 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+button[disabled] {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+.message {
+  color: #111827;
+}

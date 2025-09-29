@@ -1,0 +1,190 @@
+/* QC Alerts Component Styles */
+.alert-item {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.alert-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.alert-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.alert-item:hover::before {
+  width: 6px;
+}
+
+/* Priority-based urgency indicators */
+.alert-critical {
+  border-left-color: #ef4444 !important;
+  background: linear-gradient(
+    90deg,
+    rgba(239, 68, 68, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+.alert-high {
+  border-left-color: #f59e0b !important;
+  background: linear-gradient(
+    90deg,
+    rgba(245, 158, 11, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+.alert-medium {
+  border-left-color: #3b82f6 !important;
+  background: linear-gradient(
+    90deg,
+    rgba(59, 130, 246, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+.alert-low {
+  border-left-color: #6b7280 !important;
+  background: linear-gradient(
+    90deg,
+    rgba(107, 114, 128, 0.05) 0%,
+    transparent 100%
+  );
+}
+
+/* Alert type specific styles */
+.alert-info {
+  border-color: rgba(59, 130, 246, 0.2);
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.alert-warning {
+  border-color: rgba(245, 158, 11, 0.2);
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.alert-error {
+  border-color: rgba(239, 68, 68, 0.2);
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.alert-success {
+  border-color: rgba(16, 185, 129, 0.2);
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+/* Priority badges */
+.priority-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.priority-critical {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  animation: pulse-red 2s infinite;
+}
+
+.priority-high {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.priority-medium {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.priority-low {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: white;
+}
+
+/* Action required indicator */
+.action-required {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid #f59e0b;
+  animation: pulse-orange 2s infinite;
+}
+
+@keyframes pulse-red {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes pulse-orange {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* Staggered animation for alerts */
+.alert-item {
+  animation: slideInRight 0.5s ease forwards;
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+@keyframes slideInRight {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Action buttons */
+.action-button {
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  transform: scale(1.1);
+}
+
+/* Alert dismissal animation */
+.alert-dismissing {
+  animation: slideOutRight 0.3s ease forwards;
+}
+
+@keyframes slideOutRight {
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* Empty state */
+.empty-state {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

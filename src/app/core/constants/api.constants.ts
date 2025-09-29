@@ -42,13 +42,13 @@ export const API_ENDPOINTS = {
   CANCEL_APPROVAL: '/machine-approvals/:id/cancel',
   APPROVAL_STATISTICS: '/machine-approvals/statistics',
 
-  // QA Machine management
-  QA_MACHINES: '/qa-machines',
-  QA_MACHINE_BY_ID: '/qa-machines/:id',
-  QA_MACHINE_BY_MACHINE: '/qa-machines/machine/:machineId',
-  QA_MACHINE_BY_USER: '/qa-machines/user/:userId',
-  QA_MACHINE_VALIDATE_IDS: '/qa-machines/validate-ids',
-  QA_STATISTICS: '/qa-machines/statistics',
+  // QC Machine management (was QA)
+  QA_MACHINES: '/qc-machines',
+  QA_MACHINE_BY_ID: '/qc-machines/:id',
+  QA_MACHINE_BY_MACHINE: '/qc-machines/machine/:machineId',
+  QA_MACHINE_BY_USER: '/qc-machines/user/:userId',
+  QA_MACHINE_VALIDATE_IDS: '/qc-machines/validate-ids',
+  QA_STATISTICS: '/qc-machines/statistics',
 
   // Permission configuration (mounted at /api/permission in backend)
   PERMISSIONS: '/permission',

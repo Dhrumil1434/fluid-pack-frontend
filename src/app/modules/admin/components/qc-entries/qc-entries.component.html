@@ -1,0 +1,797 @@
+<!-- Admin QC Entries Management Page -->
+<div
+  class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
+>
+  <!-- Sidebar -->
+  <app-admin-sidebar
+    [collapsed]="sidebarCollapsed"
+    (collapseChange)="sidebarCollapsed = $event"
+  >
+  </app-admin-sidebar>
+
+  <!-- Main Content Area -->
+  <div
+    class="transition-all duration-300 ease-in-out"
+    [class.ml-16]="sidebarCollapsed"
+    [class.ml-64]="!sidebarCollapsed"
+  >
+    <!-- Header -->
+    <header
+      class="bg-white border-b border-gray-100 px-6 py-3 sticky top-0 z-40"
+    >
+      <div class="flex items-center justify-between">
+        <!-- Left Section: Toggle Button -->
+        <div class="flex items-center">
+          <button
+            class="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all duration-200 group"
+            (click)="sidebarCollapsed = !sidebarCollapsed"
+            title="Toggle sidebar"
+          >
+            <i
+              class="pi pi-bars text-lg group-hover:scale-105 transition-transform duration-200"
+            ></i>
+          </button>
+          <nav class="text-sm text-gray-600 flex items-center gap-2 ml-4">
+            <i class="pi pi-home"></i>
+            <a routerLink="/admin/dashboard" class="hover:underline"
+              >Dashboard</a
+            >
+            <span>/</span>
+            <span class="text-gray-900 font-medium">QC Entries</span>
+          </nav>
+        </div>
+
+        <!-- Right Section: Actions -->
+        <div class="flex items-center space-x-2">
+          <button
+            class="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 group"
+            (click)="loadApprovals()"
+            [disabled]="loading"
+            title="Refresh"
+          >
+            <i
+              class="pi pi-refresh text-lg group-hover:rotate-180 transition-transform duration-500"
+              [class.pi-spin]="loading"
+            ></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="p-6 space-y-6">
+      <!-- Page Header -->
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">
+              QC Entries Management
+            </h1>
+            <p class="text-gray-600">
+              Manage QC approval requests and machine activations
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-bold text-primary">{{ totalCount }}</div>
+            <div class="text-sm text-gray-600">Total Entries</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div class="bg-white rounded-xl p-6 border border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-600">Total</p>
+              <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+            </div>
+            <div class="p-3 bg-blue-100 rounded-lg">
+              <i class="pi pi-list text-blue-600 text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 border border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-600">Pending</p>
+              <p class="text-2xl font-bold text-warning">{{ stats.pending }}</p>
+            </div>
+            <div class="p-3 bg-warning/10 rounded-lg">
+              <i class="pi pi-clock text-warning text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 border border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-600">Approved</p>
+              <p class="text-2xl font-bold text-success">
+                {{ stats.approved }}
+              </p>
+            </div>
+            <div class="p-3 bg-success/10 rounded-lg">
+              <i class="pi pi-check-circle text-success text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 border border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-600">Rejected</p>
+              <p class="text-2xl font-bold text-error">{{ stats.rejected }}</p>
+            </div>
+            <div class="p-3 bg-error/10 rounded-lg">
+              <i class="pi pi-times-circle text-error text-xl"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 border border-gray-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-600">Activated</p>
+              <p class="text-2xl font-bold text-primary">
+                {{ stats.activated }}
+              </p>
+            </div>
+            <div class="p-3 bg-primary/10 rounded-lg">
+              <i class="pi pi-power-off text-primary text-xl"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters Section -->
+      <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Filters & Search
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <!-- Search -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Search</label
+            >
+            <div class="relative">
+              <input
+                type="text"
+                formControlName="search"
+                placeholder="Search by machine name, QC notes, or requester..."
+                class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <i
+                class="pi pi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+              ></i>
+            </div>
+          </div>
+
+          <!-- Status Filter -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Status</label
+            >
+            <select
+              formControlName="status"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          <!-- Approval Type Filter -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Type</label
+            >
+            <select
+              formControlName="approvalType"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Types</option>
+              <option value="MACHINE_QC_ENTRY">Machine QC Entry</option>
+              <option value="QUALITY_INSPECTION">Quality Inspection</option>
+              <option value="MAINTENANCE_CHECK">Maintenance Check</option>
+            </select>
+          </div>
+
+          <!-- Sort By -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Sort By</label
+            >
+            <select
+              formControlName="sortBy"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="createdAt">Created Date</option>
+              <option value="qualityScore">Quality Score</option>
+              <option value="status">Status</option>
+              <option value="approvalType">Type</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Advanced Filters -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <!-- Date From -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >From Date</label
+            >
+            <input
+              type="date"
+              formControlName="dateFrom"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <!-- Date To -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >To Date</label
+            >
+            <input
+              type="date"
+              formControlName="dateTo"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <!-- Quality Score Min -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Min Quality Score</label
+            >
+            <input
+              type="number"
+              formControlName="qualityScoreMin"
+              placeholder="0"
+              min="0"
+              max="100"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <!-- Quality Score Max -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Max Quality Score</label
+            >
+            <input
+              type="number"
+              formControlName="qualityScoreMax"
+              placeholder="100"
+              min="0"
+              max="100"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        <!-- Additional Filters -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <!-- Machine Name -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Machine Name</label
+            >
+            <input
+              type="text"
+              formControlName="machineName"
+              placeholder="Filter by specific machine..."
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <!-- Requested By -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Requested By</label
+            >
+            <input
+              type="text"
+              formControlName="requestedBy"
+              placeholder="Filter by requester..."
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+
+        <!-- Filter Actions -->
+        <div class="flex items-center justify-between">
+          <button
+            (click)="clearFilters()"
+            class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+          >
+            <i class="pi pi-filter-slash mr-2"></i>
+            Clear Filters
+          </button>
+          <div class="text-sm text-gray-600">
+            {{ totalCount }} entries found
+          </div>
+        </div>
+      </div>
+
+      <!-- Selection Summary -->
+      <div
+        *ngIf="selectedApprovals.size > 0"
+        class="bg-blue-50 border border-blue-200 rounded-2xl p-4"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <i class="pi pi-check-circle text-blue-600 text-xl"></i>
+            <div>
+              <div class="font-semibold text-blue-900">
+                {{ getSelectedCount() }} entries selected
+              </div>
+              <div class="text-sm text-blue-700">
+                Ready for batch operations
+              </div>
+            </div>
+          </div>
+          <button
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200"
+          >
+            <i class="pi pi-cog mr-2"></i>
+            Batch Actions
+          </button>
+        </div>
+      </div>
+
+      <!-- QC Entries Table -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200">
+        <div class="p-6 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">QC Entries</h2>
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  [(ngModel)]="selectAll"
+                  (ngModelChange)="toggleSelectAll()"
+                  class="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                Select All
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div *ngIf="loading" class="p-8 text-center">
+          <i class="pi pi-spin pi-spinner text-4xl text-gray-400 mb-4"></i>
+          <div class="text-gray-600">Loading QC entries...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div
+          *ngIf="!loading && filteredApprovals.length === 0"
+          class="p-8 text-center"
+        >
+          <i class="pi pi-search text-4xl text-gray-400 mb-4"></i>
+          <div class="text-gray-600 mb-2">No QC entries found</div>
+          <div class="text-sm text-gray-500">
+            Try adjusting your filters or search terms
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div
+          *ngIf="!loading && filteredApprovals.length > 0"
+          class="overflow-x-auto"
+        >
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="selectAll"
+                    (ngModelChange)="toggleSelectAll()"
+                    class="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Machine
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Requested By
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Type
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Status
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Quality Score
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Created
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr
+                *ngFor="
+                  let approval of filteredApprovals;
+                  trackBy: trackByApprovalId
+                "
+                class="hover:bg-gray-50"
+              >
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    [checked]="isApprovalSelected(approval._id)"
+                    (change)="toggleApprovalSelection(approval._id)"
+                    class="rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10">
+                      <img
+                        *ngIf="
+                          approval.machineId.images &&
+                          approval.machineId.images.length > 0
+                        "
+                        [src]="getMachineImageUrl(approval.machineId.images[0])"
+                        [alt]="approval.machineId.name"
+                        class="h-10 w-10 rounded-lg object-cover"
+                      />
+                      <div
+                        *ngIf="
+                          !approval.machineId.images ||
+                          approval.machineId.images.length === 0
+                        "
+                        class="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center"
+                      >
+                        <i class="pi pi-image text-gray-400"></i>
+                      </div>
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ approval.machineId.name }}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                        {{ approval.machineId.category_id.name }}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">
+                    {{ approval.requestedBy.name }}
+                  </div>
+                  <div class="text-sm text-gray-500">
+                    {{ approval.requestedBy.username }}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="text-sm text-gray-900">{{
+                    getApprovalTypeText(approval.approvalType)
+                  }}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span
+                    class="px-2 py-1 text-xs font-medium rounded-full"
+                    [ngClass]="getStatusClass(approval.status)"
+                  >
+                    {{ getStatusText(approval.status) }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span
+                    *ngIf="approval.qualityScore"
+                    class="text-sm font-medium"
+                    [ngClass]="getQualityScoreClass(approval.qualityScore)"
+                  >
+                    {{ approval.qualityScore }}%
+                  </span>
+                  <span
+                    *ngIf="!approval.qualityScore"
+                    class="text-sm text-gray-500"
+                    >-</span
+                  >
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ formatDate(approval.createdAt) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <div class="flex items-center gap-2">
+                    <!-- View Details -->
+                    <button
+                      (click)="onViewApprovalDetails(approval)"
+                      class="text-blue-600 hover:text-blue-900"
+                      title="View Details"
+                    >
+                      <i class="pi pi-eye"></i>
+                    </button>
+
+                    <!-- Approve/Reject Actions -->
+                    <button
+                      *ngIf="approval.status === 'PENDING'"
+                      (click)="onApproveApproval(approval)"
+                      class="text-green-600 hover:text-green-900"
+                      title="Approve"
+                    >
+                      <i class="pi pi-check"></i>
+                    </button>
+                    <button
+                      *ngIf="approval.status === 'PENDING'"
+                      (click)="onRejectApproval(approval)"
+                      class="text-red-600 hover:text-red-900"
+                      title="Reject"
+                    >
+                      <i class="pi pi-times"></i>
+                    </button>
+
+                    <!-- Activate Machine -->
+                    <button
+                      *ngIf="
+                        approval.status === 'APPROVED' &&
+                        !approval.machineActivated
+                      "
+                      (click)="onActivateMachine(approval)"
+                      class="text-purple-600 hover:text-purple-900"
+                      title="Activate Machine"
+                    >
+                      <i class="pi pi-power-off"></i>
+                    </button>
+
+                    <!-- View Documents -->
+                    <button
+                      *ngIf="
+                        approval.documents && approval.documents.length > 0
+                      "
+                      (click)="onViewDocuments(approval)"
+                      class="text-indigo-600 hover:text-indigo-900"
+                      title="View Documents ({{ approval.documents.length }})"
+                    >
+                      <i class="pi pi-file"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div
+          *ngIf="!loading && totalPages > 1"
+          class="px-6 py-4 border-t border-gray-200"
+        >
+          <div class="flex items-center justify-between">
+            <div class="text-sm text-gray-600">
+              Showing {{ (currentPage - 1) * pageSize + 1 }} to
+              {{ Math.min(currentPage * pageSize, totalCount) }} of
+              {{ totalCount }} results
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                (click)="onPageChange(currentPage - 1)"
+                [disabled]="currentPage === 1"
+                class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i class="pi pi-chevron-left"></i>
+              </button>
+              <span class="px-3 py-2 text-sm text-gray-700">
+                Page {{ currentPage }} of {{ totalPages }}
+              </span>
+              <button
+                (click)="onPageChange(currentPage + 1)"
+                [disabled]="currentPage === totalPages"
+                class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i class="pi pi-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Approval Dialog -->
+  <div
+    *ngIf="showApprovalDialog"
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+  >
+    <div
+      class="bg-white w-full max-w-md rounded-xl shadow-xl border border-gray-300"
+    >
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Approve QC Entry</h3>
+        <p class="text-sm text-gray-600">
+          Add approval notes for this QC entry
+        </p>
+      </div>
+      <div class="p-6">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Approval Notes</label
+          >
+          <textarea
+            [(ngModel)]="approvalNotes"
+            placeholder="Enter approval notes..."
+            rows="3"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          ></textarea>
+        </div>
+        <div class="flex items-center justify-end gap-3">
+          <button
+            (click)="onCancelApproval()"
+            [disabled]="actionLoading"
+            class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            (click)="onConfirmApproval()"
+            [disabled]="actionLoading"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200"
+          >
+            <i *ngIf="actionLoading" class="pi pi-spin pi-spinner mr-2"></i>
+            Approve
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rejection Dialog -->
+  <div
+    *ngIf="showRejectionDialog"
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+  >
+    <div
+      class="bg-white w-full max-w-md rounded-xl shadow-xl border border-gray-300"
+    >
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Reject QC Entry</h3>
+        <p class="text-sm text-gray-600">Provide reason for rejection</p>
+      </div>
+      <div class="p-6">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Rejection Reason</label
+          >
+          <textarea
+            [(ngModel)]="rejectionReason"
+            placeholder="Enter rejection reason..."
+            rows="3"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          ></textarea>
+        </div>
+        <div class="flex items-center justify-end gap-3">
+          <button
+            (click)="onCancelApproval()"
+            [disabled]="actionLoading"
+            class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            (click)="onConfirmApproval()"
+            [disabled]="actionLoading || !rejectionReason.trim()"
+            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors duration-200"
+          >
+            <i *ngIf="actionLoading" class="pi pi-spin pi-spinner mr-2"></i>
+            Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document View Dialog -->
+  <div
+    *ngIf="showDocumentDialog"
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+  >
+    <div
+      class="bg-white w-full max-w-2xl rounded-xl shadow-xl border border-gray-300"
+    >
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Documents</h3>
+        <p class="text-sm text-gray-600">
+          Supporting documents for {{ selectedApproval?.machineId?.name }}
+        </p>
+      </div>
+      <div class="p-6">
+        <div
+          *ngIf="
+            selectedApproval?.documents &&
+            (selectedApproval?.documents?.length || 0) > 0
+          "
+          class="space-y-3"
+        >
+          <div
+            *ngFor="
+              let doc of selectedApproval?.documents || [];
+              let i = index;
+              trackBy: i
+            "
+            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+          >
+            <div class="flex items-center gap-3">
+              <i class="pi pi-file text-gray-500"></i>
+              <div>
+                <div class="text-sm font-medium text-gray-700">
+                  {{ doc.originalName }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ (doc.size / 1024 / 1024).toFixed(2) }} MB •
+                  {{ formatDate(doc.uploadedAt) }}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                (click)="onDownloadDocument(selectedApproval!, doc)"
+                class="text-blue-600 hover:text-blue-800"
+                title="Download"
+              >
+                <i class="pi pi-download"></i>
+              </button>
+              <button
+                (click)="onDeleteDocument(selectedApproval!, doc._id || '')"
+                class="text-red-600 hover:text-red-800"
+                title="Delete"
+              >
+                <i class="pi pi-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          *ngIf="
+            !selectedApproval?.documents ||
+            (selectedApproval?.documents?.length || 0) === 0
+          "
+          class="text-center py-8"
+        >
+          <i class="pi pi-file text-4xl text-gray-400 mb-4"></i>
+          <div class="text-gray-600">No documents available</div>
+        </div>
+        <div class="flex items-center justify-end gap-3 mt-6">
+          <button
+            (click)="showDocumentDialog = false"
+            class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

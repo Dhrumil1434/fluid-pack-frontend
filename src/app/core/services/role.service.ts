@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 export interface RoleDetails {
   _id: string;
@@ -26,7 +27,7 @@ export interface RolesListResponse {
   providedIn: 'root',
 })
 export class RoleService {
-  private readonly baseUrl = 'http://localhost:5000/api';
+  private readonly baseUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 

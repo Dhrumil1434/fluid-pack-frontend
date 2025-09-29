@@ -1,0 +1,184 @@
+<!-- QC Machine Status Card -->
+<div
+  class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20"
+>
+  <!-- Card Header -->
+  <div class="p-6 border-b border-gray-100">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg"
+        >
+          <i class="pi pi-cog text-white text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-gray-900">Machine Status</h3>
+          <p class="text-sm text-gray-500">
+            Current machine health and inspection status
+          </p>
+        </div>
+      </div>
+      <button
+        class="px-4 py-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 group"
+        title="View all machines"
+      >
+        <span>View All</span>
+        <i
+          class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"
+        ></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Machine List -->
+  <div class="p-6">
+    <div class="space-y-4">
+      <div
+        *ngFor="let machine of data; trackBy: trackByMachineId; let i = index"
+        class="flex items-center space-x-4 p-4 rounded-xl hover:bg-gray-50 transition-all duration-200 group"
+        [style.animation-delay]="i * 100 + 'ms'"
+      >
+        <!-- Machine Status Icon -->
+        <div class="relative">
+          <div
+            class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
+            [ngClass]="
+              machine.status === 'active'
+                ? 'bg-success/10'
+                : machine.status === 'maintenance'
+                  ? 'bg-warning/10'
+                  : 'bg-gray-100'
+            "
+          >
+            <i
+              [class]="getStatusIcon(machine.status)"
+              [ngClass]="
+                machine.status === 'active'
+                  ? 'text-success'
+                  : machine.status === 'maintenance'
+                    ? 'text-warning'
+                    : 'text-gray-500'
+              "
+              class="text-lg"
+            ></i>
+          </div>
+          <!-- Health Score Indicator -->
+          <div
+            class="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full border-2 border-white flex items-center justify-center"
+          >
+            <span
+              class="text-xs font-bold"
+              [ngClass]="getHealthScoreClass(machine.healthScore)"
+            >
+              {{ machine.healthScore }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Machine Content -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center space-x-2 mb-1">
+                <h4
+                  class="text-sm font-semibold text-gray-900 group-hover:text-green-600 transition-colors duration-200"
+                >
+                  {{ machine.name }}
+                </h4>
+                <span
+                  class="px-2 py-1 rounded-full text-xs font-medium"
+                  [ngClass]="getStatusClass(machine.status)"
+                >
+                  {{ machine.status | titlecase }}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4 mt-2">
+                <div class="text-xs text-gray-600">
+                  <div class="flex items-center space-x-1">
+                    <i class="pi pi-calendar text-gray-400"></i>
+                    <span
+                      >Last: {{ getRelativeTime(machine.lastInspection) }}</span
+                    >
+                  </div>
+                </div>
+                <div class="text-xs text-gray-600">
+                  <div class="flex items-center space-x-1">
+                    <i class="pi pi-file text-gray-400"></i>
+                    <span>{{ machine.qcEntries }} entries</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-2">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-gray-500">Next Inspection:</span>
+                  <span
+                    [ngClass]="
+                      getNextInspectionClass(
+                        getNextInspectionDays(machine.nextInspection)
+                      )
+                    "
+                  >
+                    {{ getNextInspectionDays(machine.nextInspection) }} days
+                  </span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                  <div
+                    class="h-1.5 rounded-full transition-all duration-300"
+                    [ngClass]="
+                      getHealthScoreClass(machine.healthScore).replace(
+                        'text-',
+                        'bg-'
+                      )
+                    "
+                    [style.width.%]="machine.healthScore"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Machine Actions -->
+        <div
+          class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+        >
+          <button
+            class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group/btn"
+            (click)="viewMachineDetails(machine)"
+            title="View Details"
+          >
+            <i
+              class="pi pi-eye text-sm group-hover/btn:scale-110 transition-transform duration-200"
+            ></i>
+          </button>
+          <button
+            class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 group/btn"
+            (click)="scheduleInspection(machine)"
+            title="Schedule Inspection"
+          >
+            <i
+              class="pi pi-calendar-plus text-sm group-hover/btn:scale-110 transition-transform duration-200"
+            ></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="data.length === 0" class="text-center py-12">
+      <div
+        class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"
+      >
+        <i class="pi pi-cog text-3xl text-gray-400"></i>
+      </div>
+      <h4 class="text-lg font-semibold text-gray-900 mb-2">
+        No Machines Found
+      </h4>
+      <p class="text-gray-500">
+        Machine status will appear here once data is available
+      </p>
+    </div>
+  </div>
+</div>

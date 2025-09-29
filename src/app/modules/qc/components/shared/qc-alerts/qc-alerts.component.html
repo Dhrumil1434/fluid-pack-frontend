@@ -1,0 +1,177 @@
+<!-- QC Alerts Card -->
+<div
+  class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20"
+>
+  <!-- Card Header -->
+  <div class="p-6 border-b border-gray-100">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg"
+        >
+          <i class="pi pi-bell text-white text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-gray-900">
+            Alerts & Notifications
+          </h3>
+          <p class="text-sm text-gray-500">
+            QC alerts and system notifications
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span
+          class="px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full"
+        >
+          {{ data.length }}
+        </span>
+        <button
+          class="px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 group"
+        >
+          <span>View All</span>
+          <i
+            class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"
+          ></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts List -->
+  <div class="p-6">
+    <div class="space-y-3">
+      <div
+        *ngFor="
+          let alert of getFilteredAlerts();
+          trackBy: trackByAlertId;
+          let i = index
+        "
+        class="relative p-4 rounded-xl border-l-4 transition-all duration-200 hover:shadow-md group"
+        [ngClass]="[
+          getAlertTypeClass(alert.type),
+          getAlertUrgencyClass(alert.priority),
+        ]"
+        [style.animation-delay]="i * 100 + 'ms'"
+      >
+        <!-- Alert Content -->
+        <div class="flex items-start space-x-3">
+          <!-- Alert Icon -->
+          <div class="flex-shrink-0 mt-0.5">
+            <i [class]="getAlertTypeIcon(alert.type)" class="text-lg"></i>
+          </div>
+
+          <!-- Alert Details -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-1">
+                  <h4 class="text-sm font-semibold text-gray-900">
+                    {{ alert.title }}
+                  </h4>
+                  <span
+                    class="px-2 py-1 rounded-full text-xs font-medium"
+                    [ngClass]="getPriorityClass(alert.priority)"
+                  >
+                    <i
+                      [class]="getPriorityIcon(alert.priority)"
+                      class="mr-1"
+                    ></i>
+                    {{ alert.priority | titlecase }}
+                  </span>
+                </div>
+
+                <p class="text-sm text-gray-600 mb-2">{{ alert.message }}</p>
+
+                <div class="flex items-center space-x-3 text-xs text-gray-500">
+                  <span class="flex items-center">
+                    <i class="pi pi-clock mr-1"></i>
+                    {{ getRelativeTime(alert.timestamp) }}
+                  </span>
+                  <span *ngIf="alert.machineName" class="flex items-center">
+                    <i class="pi pi-cog mr-1"></i>
+                    {{ alert.machineName }}
+                  </span>
+                  <span
+                    *ngIf="alert.actionRequired"
+                    class="flex items-center text-orange-600 font-medium"
+                  >
+                    <i class="pi pi-exclamation-triangle mr-1"></i>
+                    Action Required
+                  </span>
+                </div>
+              </div>
+
+              <!-- Alert Actions -->
+              <div
+                class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              >
+                <button
+                  *ngIf="alert.actionRequired && alert.actionUrl"
+                  class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group/btn"
+                  (click)="handleAlertAction(alert)"
+                  title="Take Action"
+                >
+                  <i
+                    class="pi pi-external-link text-sm group-hover/btn:scale-110 transition-transform duration-200"
+                  ></i>
+                </button>
+
+                <button
+                  class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200 group/btn"
+                  (click)="markAsRead(alert)"
+                  title="Mark as Read"
+                >
+                  <i
+                    class="pi pi-check text-sm group-hover/btn:scale-110 transition-transform duration-200"
+                  ></i>
+                </button>
+
+                <button
+                  class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 group/btn"
+                  (click)="dismissAlert(alert)"
+                  title="Dismiss"
+                >
+                  <i
+                    class="pi pi-times text-sm group-hover/btn:scale-110 transition-transform duration-200"
+                  ></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Required Indicator -->
+        <div
+          *ngIf="alert.actionRequired"
+          class="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-lg"
+        >
+          <div class="flex items-center space-x-2">
+            <i class="pi pi-exclamation-triangle text-orange-600 text-sm"></i>
+            <span class="text-sm text-orange-800 font-medium"
+              >Action Required</span
+            >
+            <button
+              *ngIf="alert.actionUrl"
+              class="ml-auto px-3 py-1 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700 transition-colors duration-200"
+              (click)="handleAlertAction(alert)"
+            >
+              Take Action
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="data.length === 0" class="text-center py-12">
+      <div
+        class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
+      >
+        <i class="pi pi-check-circle text-3xl text-green-600"></i>
+      </div>
+      <h4 class="text-lg font-semibold text-gray-900 mb-2">All Clear!</h4>
+      <p class="text-gray-500">No alerts or notifications at this time</p>
+    </div>
+  </div>
+</div>

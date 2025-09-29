@@ -174,13 +174,13 @@ export class DashboardComponent implements OnInit {
         description: 'Awaiting approval',
       },
       {
-        title: 'QA Entries',
+        title: 'QC Entries',
         value: Number(stats.qaEntries) || 0,
         change: 0,
         changeType: 'neutral' as const,
         icon: 'pi pi-check-circle',
         color: 'purple',
-        description: 'Quality assurance entries',
+        description: 'Quality control entries',
       },
     ];
   }

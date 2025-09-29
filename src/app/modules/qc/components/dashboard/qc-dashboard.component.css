@@ -1,0 +1,39 @@
+.content {
+  padding: 16px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 12px 0;
+}
+.card {
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+}
+.card .title {
+  color: #6b7280;
+  font-size: 12px;
+}
+.card .value {
+  font-size: 20px;
+  font-weight: 600;
+}
+.list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.list .meta {
+  color: #6b7280;
+  font-size: 12px;
+}

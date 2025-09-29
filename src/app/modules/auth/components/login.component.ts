@@ -358,7 +358,7 @@ export class LoginComponent implements OnInit {
           }
 
           // Check if user is admin
-          const roleName = roleResponse.data.name.toLowerCase();
+          const roleName = roleResponse.data.name.toLowerCase().trim();
           const isAdmin = roleName === 'admin' || roleName === 'manager';
 
           console.log(
@@ -370,7 +370,7 @@ export class LoginComponent implements OnInit {
           if (isAdmin) {
             this.performRedirect('admin');
           } else {
-            this.performRedirect('user');
+            this.performRedirect(roleName);
           }
         } else {
           console.error('Failed to get role details:', roleResponse.message);
@@ -400,9 +400,12 @@ export class LoginComponent implements OnInit {
   private performRedirect(userRole: string): void {
     console.log('Performing redirect for role:', userRole);
 
+    // Normalize role name
+    const normalizedRole = userRole.toLowerCase().trim();
+
     // Try immediate navigation first
-    console.log('About to navigate for role:', userRole);
-    switch (userRole) {
+    console.log('About to navigate for role:', normalizedRole);
+    switch (normalizedRole) {
       case 'admin':
         console.log('Navigating to admin dashboard...');
         this.router
@@ -441,8 +444,30 @@ export class LoginComponent implements OnInit {
             console.error('Admin dashboard navigation error (manager):', error);
           });
         break;
+      case 'qc':
+      case 'quality controller':
+      case 'quality control':
+      case 'qa':
+      case 'quality assurance':
+      case 'quality':
+        // QC/QA role → QC dashboard
+        console.log('Navigating to QC dashboard...');
+        this.router
+          .navigate(['/qc/dashboard'])
+          .then(success => {
+            console.log('QC dashboard navigation result:', success);
+            if (!success) {
+              console.log('Navigation failed, trying with delay...');
+              setTimeout(() => {
+                this.router.navigate(['/qc/dashboard']);
+              }, 1000);
+            }
+          })
+          .catch(error => {
+            console.error('QC dashboard navigation error:', error);
+          });
+        break;
       case 'engineer':
-      case 'qa specialist':
       case 'user':
       case 'technician':
       default:

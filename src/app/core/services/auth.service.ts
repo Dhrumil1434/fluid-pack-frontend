@@ -108,6 +108,13 @@ export class AuthService {
   }
 
   /**
+   * Logout user
+   */
+  logout(): void {
+    this.clearAuthData();
+  }
+
+  /**
    * Get access token for API calls
    */
   getAccessToken(): string | null {

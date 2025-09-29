@@ -8,6 +8,7 @@ export const environment = {
 
   // API Configuration
   apiUrl: 'http://localhost:5000/api',
+  baseUrl: 'http://localhost:5000',
   apiVersion: 'v1',
 
   // Application Info

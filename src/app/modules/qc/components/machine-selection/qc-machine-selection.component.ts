@@ -664,6 +664,14 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     return Math;
   }
 
+  // trackBy helpers used in template
+  trackById(_index: number, item: { _id?: string }): string {
+    return item?._id || '';
+  }
+  trackByIndex(index: number): number {
+    return index;
+  }
+
   getMachineInitials(name?: string): string {
     if (!name) return 'NA';
     const parts = name.trim().split(/\s+/).filter(Boolean);

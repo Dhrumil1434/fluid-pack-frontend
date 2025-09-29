@@ -117,4 +117,9 @@ export class QcStatisticsOverviewComponent {
     const percentage = (value / maxValue) * 100;
     return `${Math.max(percentage, 5)}%`;
   }
+
+  // trackBy helpers used in template
+  trackByIndex(index: number): number {
+    return index;
+  }
 }

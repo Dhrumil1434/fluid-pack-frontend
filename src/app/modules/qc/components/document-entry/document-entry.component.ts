@@ -81,4 +81,9 @@ export class QcDocumentEntryComponent implements OnInit {
       },
     });
   }
+
+  // trackBy helpers used in template
+  trackById(_index: number, item: { _id: string }): string {
+    return item._id;
+  }
 }

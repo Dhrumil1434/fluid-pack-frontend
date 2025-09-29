@@ -473,4 +473,9 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   get Math() {
     return Math;
   }
+
+  // trackBy helpers used in template
+  trackByIndex(index: number): number {
+    return index;
+  }
 }

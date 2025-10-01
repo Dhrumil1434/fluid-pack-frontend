@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { API_ENDPOINTS } from '../constants/api.constants';
 
 export interface RoleDetails {
   _id: string;
@@ -65,9 +66,7 @@ export class RoleService {
    * Get all roles
    */
   getAllRoles(): Observable<RolesListResponse> {
-    return this.baseApi.get<RolesListResponse>(
-      API_ENDPOINTS.ROLES
-    ) as unknown as Observable<RolesListResponse>;
+    return this.http.get<RolesListResponse>(API_ENDPOINTS.ROLES);
   }
 
   /**

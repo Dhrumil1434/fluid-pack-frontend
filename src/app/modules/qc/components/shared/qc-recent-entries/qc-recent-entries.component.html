@@ -1,0 +1,128 @@
+<!-- QC Recent Entries Card -->
+<div
+  class="relative overflow-hidden rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg border border-white/20"
+>
+  <!-- Card Header -->
+  <div class="p-6 border-b border-gray-100">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg"
+        >
+          <i class="pi pi-history text-white text-lg"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-gray-900">Recent QC Entries</h3>
+          <p class="text-sm text-gray-500">Latest quality control activities</p>
+        </div>
+      </div>
+      <button
+        class="px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-xl font-semibold transition-all duration-200 flex items-center space-x-2 group"
+        title="View all entries"
+      >
+        <span>View All</span>
+        <i
+          class="pi pi-external-link text-sm group-hover:translate-x-1 transition-transform duration-200"
+        ></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Entries List -->
+  <div class="p-6">
+    <div class="space-y-4">
+      <div
+        *ngFor="let entry of data; trackBy: trackByEntryId; let i = index"
+        class="flex items-start space-x-4 p-4 rounded-xl hover:bg-gray-50 transition-all duration-200 group"
+        [style.animation-delay]="i * 100 + 'ms'"
+      >
+        <!-- Entry Avatar -->
+        <div class="relative">
+          <div
+            class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
+            [ngClass]="getEntryTypeClass(entry.type)"
+          >
+            <i [class]="getTypeIcon(entry.type)" class="text-sm"></i>
+          </div>
+          <!-- Status Indicator -->
+          <div
+            class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-white flex items-center justify-center"
+          >
+            <div
+              class="w-2 h-2 rounded-full"
+              [ngClass]="getStatusClass(entry.status)"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Entry Content -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <h4
+                class="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200"
+              >
+                {{ entry.machineName }}
+              </h4>
+              <p class="text-sm text-gray-600 mt-1">
+                {{ entry.type | titlecase }} - {{ entry.status | titlecase }}
+              </p>
+              <div class="flex items-center space-x-2 mt-2">
+                <span class="text-xs text-gray-500 flex items-center">
+                  <i class="pi pi-user mr-1"></i>
+                  {{ entry.addedBy }}
+                </span>
+                <span class="text-xs text-gray-400">•</span>
+                <span class="text-xs text-gray-500">{{
+                  getRelativeTime(entry.addedAt)
+                }}</span>
+                <span
+                  class="text-xs px-2 py-1 rounded-full font-medium border"
+                  [ngClass]="getEntryTypeClass(entry.type)"
+                >
+                  {{ entry.type | titlecase }}
+                </span>
+              </div>
+            </div>
+            <div
+              class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            >
+              <button
+                class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group/btn"
+                (click)="viewEntry(entry)"
+                title="View Details"
+              >
+                <i
+                  class="pi pi-eye text-sm group-hover/btn:scale-110 transition-transform duration-200"
+                ></i>
+              </button>
+              <button
+                *ngIf="entry.reportLink"
+                class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 group/btn"
+                (click)="downloadReport(entry)"
+                title="Download Report"
+              >
+                <i
+                  class="pi pi-download text-sm group-hover/btn:scale-110 transition-transform duration-200"
+                ></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="data.length === 0" class="text-center py-12">
+      <div
+        class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"
+      >
+        <i class="pi pi-inbox text-3xl text-gray-400"></i>
+      </div>
+      <h4 class="text-lg font-semibold text-gray-900 mb-2">
+        No Recent Entries
+      </h4>
+      <p class="text-gray-500">QC entries will appear here as they are added</p>
+    </div>
+  </div>
+</div>

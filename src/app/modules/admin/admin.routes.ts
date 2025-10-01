@@ -79,4 +79,12 @@ export const adminRoutes: Routes = [
       ).then(m => m.PermissionManagementComponent),
     canActivate: [AdminGuard],
   },
+  {
+    path: 'qc-entries',
+    loadComponent: () =>
+      import('./components/qc-entries/qc-entries.component').then(
+        m => m.QcEntriesComponent
+      ),
+    canActivate: [AdminGuard],
+  },
 ];

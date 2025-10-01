@@ -1,0 +1,140 @@
+<!-- QC Sidebar -->
+<aside
+  class="fixed left-0 top-0 h-full bg-white shadow-xl border-r border-neutral-300 transition-all duration-300 ease-in-out z-50 flex flex-col"
+  [class.w-16]="collapsed"
+  [class.w-64]="!collapsed"
+>
+  <!-- Sidebar Header -->
+  <div class="p-6 border-b border-neutral-300">
+    <div class="flex items-center space-x-3">
+      <div
+        class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg"
+      >
+        <i class="pi pi-check-circle text-white text-lg"></i>
+      </div>
+      <div *ngIf="!collapsed" class="transition-all duration-300">
+        <h2 class="text-xl font-bold text-text">Fluid Pack</h2>
+        <span class="text-sm text-text-muted">QC Panel</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Menu -->
+  <nav class="flex-1 p-4 space-y-2 overflow-y-auto min-h-0 sidebar-nav">
+    <ul class="space-y-1">
+      <li
+        *ngFor="let item of sidebarItems; trackBy: trackBySidebarItem"
+        class="relative nav-item"
+      >
+        <button
+          class="w-full flex items-center justify-between px-4 py-3 text-text hover:text-primary hover:bg-bg-soft rounded-lg transition-all duration-200 group nav-button"
+          [class.bg-bg-soft]="isActiveRoute(item.route)"
+          [class.text-primary]="isActiveRoute(item.route)"
+          [class.active]="isActiveRoute(item.route)"
+          (click)="onMenuItemClick(item)"
+          [title]="collapsed ? item.label : ''"
+        >
+          <div class="flex items-center space-x-3">
+            <i
+              [class]="item.icon"
+              class="text-lg group-hover:scale-110 transition-transform duration-200 flex-shrink-0 nav-icon"
+            ></i>
+            <span *ngIf="!collapsed" class="font-medium nav-label">{{
+              item.label
+            }}</span>
+          </div>
+          <div *ngIf="!collapsed" class="flex items-center space-x-2">
+            <span
+              *ngIf="item.badge && item.badge > 0"
+              class="px-2 py-1 bg-accent-amber text-white text-xs font-bold rounded-full badge-pulse"
+            >
+              {{ item.badge }}
+            </span>
+            <i
+              *ngIf="item.children && item.children.length > 0"
+              [class]="
+                isExpanded(item) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'
+              "
+              class="text-xs transition-transform duration-200 nav-arrow"
+            ></i>
+          </div>
+        </button>
+
+        <!-- Sub Navigation Items -->
+        <ul
+          *ngIf="
+            item.children &&
+            item.children.length > 0 &&
+            !collapsed &&
+            isExpanded(item)
+          "
+          class="ml-6 mt-2 space-y-1 border-l-2 border-neutral-300 pl-4 submenu-enter-active"
+        >
+          <li
+            *ngFor="let child of item.children; trackBy: trackBySidebarChild"
+            class="submenu-item"
+          >
+            <a
+              class="w-full flex items-center space-x-3 px-3 py-2 text-sm text-text-muted hover:text-primary hover:bg-bg-soft rounded-lg transition-all duration-200 group nav-button"
+              [class.text-primary]="isActiveRoute(child.route)"
+              [class.bg-bg-soft]="isActiveRoute(child.route)"
+              [routerLink]="[child.route]"
+              routerLinkActive="active"
+            >
+              <i
+                [class]="child.icon"
+                class="text-sm group-hover:scale-110 transition-transform duration-200 flex-shrink-0 nav-icon"
+              ></i>
+              <span class="nav-label">{{ child.label }}</span>
+            </a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Sidebar Footer -->
+  <div class="p-4 border-t border-neutral-300 flex-shrink-0" *ngIf="!collapsed">
+    <div
+      class="flex items-center space-x-3 p-3 bg-bg-soft rounded-lg hover:bg-neutral-300 transition-all duration-200 group"
+    >
+      <div
+        class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg user-avatar"
+      >
+        <span class="text-white font-bold text-sm">{{
+          getUserInitials()
+        }}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-text truncate">
+          {{ currentUser?.name || 'QC User' }}
+        </div>
+        <div class="text-xs text-text-muted truncate">
+          {{ currentUser?.role || 'Quality Control' }}
+        </div>
+      </div>
+      <button
+        class="p-2 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-all duration-200 group"
+        (click)="logout()"
+        title="Logout"
+      >
+        <i
+          class="pi pi-sign-out text-lg group-hover:scale-110 transition-transform duration-200"
+        ></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Collapsed Footer - Only Logout Button -->
+  <div class="collapsed-footer flex-shrink-0" *ngIf="collapsed">
+    <button
+      class="collapsed-logout-btn text-text-muted hover:text-white hover:bg-error rounded-lg transition-all duration-200 group"
+      (click)="logout()"
+      title="Logout"
+    >
+      <i
+        class="pi pi-sign-out text-lg group-hover:scale-110 transition-transform duration-200"
+      ></i>
+    </button>
+  </div>
+</aside>

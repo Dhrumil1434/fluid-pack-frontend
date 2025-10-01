@@ -2,8 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { BaseApiService } from './base-api.service';
-import { API_ENDPOINTS } from '../constants/api.constants';
 
 export interface RoleDetails {
   _id: string;
@@ -28,10 +26,9 @@ export interface RolesListResponse {
   providedIn: 'root',
 })
 export class RoleService {
-  constructor(
-    private http: HttpClient,
-    private baseApi: BaseApiService
-  ) {}
+  private readonly baseUrl = 'http://localhost:5000/api';
+
+  constructor(private http: HttpClient) {}
 
   /**
    * Get role details by ID from the roles list

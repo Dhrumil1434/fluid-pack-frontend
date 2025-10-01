@@ -22,6 +22,10 @@ export const routes: Routes = [
       import('./modules/dispatch/dispatch.module').then(m => m.DispatchModule),
   },
   {
+    path: 'qc',
+    loadChildren: () => import('./modules/qc/qc.module').then(m => m.QcModule),
+  },
+  {
     path: '',
     redirectTo: '/auth/login',
     pathMatch: 'full',

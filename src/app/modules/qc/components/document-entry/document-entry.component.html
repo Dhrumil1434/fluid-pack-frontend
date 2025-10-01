@@ -1,0 +1,57 @@
+<div class="layout">
+  <app-qc-sidebar class="sidebar"></app-qc-sidebar>
+  <main class="content">
+    <header class="page-header">
+      <h2>QC Document Entry</h2>
+      <p class="subtitle">Attach QC documents to an approved machine</p>
+    </header>
+
+    <section class="card">
+      <div class="grid">
+        <div class="field">
+          <label>Search Machine</label>
+          <input
+            type="text"
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)"
+            placeholder="Type to filter machines"
+          />
+        </div>
+
+        <div class="field">
+          <label>Select Machine</label>
+          <select [(ngModel)]="selectedMachineId">
+            <option [ngValue]="null">-- Select --</option>
+            <option
+              *ngFor="let m of filteredMachines(); trackBy: trackById"
+              [value]="m._id"
+            >
+              {{ m.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Report Link (optional)</label>
+          <input
+            type="url"
+            [(ngModel)]="reportLink"
+            placeholder="https://..."
+          />
+        </div>
+
+        <div class="field">
+          <label>Attach Files (max 10)</label>
+          <input type="file" multiple (change)="onFileChange($event)" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button (click)="submit()" [disabled]="isSubmitting">
+          Submit QC Entry
+        </button>
+        <p *ngIf="message" class="message">{{ message }}</p>
+      </div>
+    </section>
+  </main>
+</div>

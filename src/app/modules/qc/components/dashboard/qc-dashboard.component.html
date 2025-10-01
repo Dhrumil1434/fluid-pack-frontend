@@ -1,0 +1,219 @@
+<!-- QC Dashboard Layout -->
+<div
+  class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
+>
+  <!-- Sidebar -->
+  <app-qc-sidebar
+    [collapsed]="sidebarCollapsed"
+    (collapseChange)="onSidebarCollapseChange($event)"
+  >
+  </app-qc-sidebar>
+
+  <!-- Main Content Area -->
+  <div
+    class="transition-all duration-300 ease-in-out"
+    [class.ml-16]="sidebarCollapsed"
+    [class.ml-64]="!sidebarCollapsed"
+  >
+    <!-- Header -->
+    <header
+      class="bg-white border-b border-gray-100 px-6 py-3 sticky top-0 z-40"
+    >
+      <div class="flex items-center justify-between">
+        <!-- Left Section: Toggle Button -->
+        <div class="flex items-center">
+          <button
+            class="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all duration-200 group"
+            (click)="toggleSidebar()"
+            [attr.aria-label]="
+              sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
+            "
+            title="Toggle sidebar"
+          >
+            <i
+              class="pi pi-bars text-lg group-hover:scale-105 transition-transform duration-200"
+            ></i>
+          </button>
+        </div>
+
+        <!-- Center Section: Search -->
+        <div class="flex-1 max-w-md mx-8">
+          <div class="relative">
+            <input
+              type="text"
+              placeholder="Search QC entries..."
+              class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 text-sm"
+            />
+            <i
+              class="pi pi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"
+            ></i>
+          </div>
+        </div>
+
+        <!-- Right Section: Actions -->
+        <div class="flex items-center space-x-2">
+          <!-- Refresh Button -->
+          <button
+            class="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 group"
+            (click)="refreshDashboard()"
+            [disabled]="isLoading"
+            title="Refresh dashboard"
+          >
+            <i
+              class="pi pi-refresh text-lg group-hover:rotate-180 transition-transform duration-500"
+              [class.pi-spin]="isLoading"
+            ></i>
+          </button>
+
+          <!-- Notifications -->
+          <button
+            class="relative p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 group"
+            title="Notifications"
+          >
+            <i class="pi pi-bell text-lg"></i>
+            <span
+              *ngIf="notificationCount > 0"
+              class="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-red-500 text-white text-xs rounded-full flex items-center justify-center text-[10px] font-medium"
+              >{{ notificationCount }}</span
+            >
+          </button>
+
+          <!-- Settings -->
+          <button
+            class="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 group"
+          >
+            <i
+              class="pi pi-cog text-lg group-hover:rotate-90 transition-transform duration-300"
+            ></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <main class="p-6 space-y-8">
+      <!-- Welcome Section -->
+      <div
+        class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 text-white shadow-2xl"
+      >
+        <div class="relative z-10">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-4xl font-bold mb-2">Welcome to QC Dashboard!</h2>
+              <p class="text-blue-100 text-lg">
+                Monitor quality control entries, track machine inspections, and
+                manage QC documentation.
+              </p>
+            </div>
+            <div class="hidden lg:block">
+              <div
+                class="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center"
+              >
+                <i class="pi pi-check-circle text-6xl text-white/80"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Background Pattern -->
+        <div class="absolute inset-0 opacity-10">
+          <div
+            class="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-48 translate-x-48"
+          ></div>
+          <div
+            class="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full translate-y-32 -translate-x-32"
+          ></div>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div
+        *ngIf="error"
+        class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-500 to-pink-500 p-8 text-white shadow-2xl"
+      >
+        <div class="relative z-10 text-center">
+          <div
+            class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4"
+          >
+            <i class="pi pi-exclamation-triangle text-4xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-2">Error Loading Dashboard</h3>
+          <p class="text-red-100 mb-6">{{ error }}</p>
+          <button
+            class="px-6 py-3 bg-white/20 hover:bg-white/30 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm"
+            (click)="refreshDashboard()"
+            [disabled]="isLoading"
+          >
+            <i class="pi pi-refresh mr-2" [class.pi-spin]="isLoading"></i>
+            Try Again
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div
+        *ngIf="isLoading && !error"
+        class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 p-8 text-white shadow-2xl"
+      >
+        <div class="relative z-10 text-center">
+          <div
+            class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4"
+          >
+            <i class="pi pi-spin pi-spinner text-4xl"></i>
+          </div>
+          <h3 class="text-2xl font-bold mb-2">Loading Dashboard</h3>
+          <p class="text-blue-100">
+            Please wait while we load your QC dashboard data...
+          </p>
+        </div>
+      </div>
+
+      <!-- Dashboard Content -->
+      <div *ngIf="!isLoading && !error && dashboardData" class="space-y-8">
+        <!-- Statistics Cards -->
+        <section>
+          <app-stats-cards [data]="statCards"></app-stats-cards>
+        </section>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left Column -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Recent QC Entries -->
+            <section>
+              <app-qc-recent-entries
+                [data]="dashboardData.recentEntries"
+              ></app-qc-recent-entries>
+            </section>
+
+            <!-- QC Machine Status -->
+            <section>
+              <app-qc-machine-status
+                [data]="dashboardData.machineStatus"
+              ></app-qc-machine-status>
+            </section>
+          </div>
+
+          <!-- Right Column -->
+          <div class="space-y-6">
+            <!-- QC Quick Actions -->
+            <section>
+              <app-qc-quick-actions></app-qc-quick-actions>
+            </section>
+
+            <!-- QC Statistics Overview -->
+            <section>
+              <app-qc-statistics-overview
+                [data]="dashboardData.statistics"
+              ></app-qc-statistics-overview>
+            </section>
+
+            <!-- QC Alerts & Notifications -->
+            <section>
+              <app-qc-alerts [data]="dashboardData.alerts"></app-qc-alerts>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

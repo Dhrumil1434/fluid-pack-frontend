@@ -65,9 +65,9 @@ export class AdminSidebarComponent implements OnInit {
         },
         { label: 'Categories', icon: 'pi pi-tags', route: '/admin/categories' },
         {
-          label: 'QA Entries',
+          label: 'QC Entries',
           icon: 'pi pi-check-circle',
-          route: '/admin/machines/qa',
+          route: '/admin/qc-entries',
         },
       ],
     },

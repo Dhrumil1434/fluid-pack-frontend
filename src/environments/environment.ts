@@ -6,8 +6,9 @@
 export const environment = {
   production: false,
 
-  // API Configuration
-  apiUrl: 'http://192.168.29.20:5000/api',
+  // API Configuratio
+  apiUrl: 'http://localhost:5000/api',
+  baseUrl: 'http://localhost:5000',
   apiVersion: 'v1',
 
   // Application Info

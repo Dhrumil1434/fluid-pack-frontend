@@ -103,7 +103,11 @@
       <!-- Simple Bar Chart -->
       <div class="flex items-end space-x-1 h-16">
         <div
-          *ngFor="let value of data.monthlyTrend; let i = index; trackBy: i"
+          *ngFor="
+            let value of data.monthlyTrend;
+            let i = index;
+            trackBy: trackByIndex
+          "
           class="flex-1 bg-blue-500 rounded-t transition-all duration-500 hover:bg-blue-600"
           [style.height]="getTrendBarHeight(value)"
           [title]="'Month ' + (i + 1) + ': ' + value + '%'"
@@ -115,7 +119,7 @@
         <span
           *ngFor="
             let label of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-            trackBy: i
+            trackBy: trackByIndex
           "
           >{{ label }}</span
         >

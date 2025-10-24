@@ -24,7 +24,15 @@ interface MachineRow {
   name: string;
   category_id?: { name?: string } | string;
   images?: string[];
+  documents?: Array<{
+    name: string;
+    file_path: string;
+    document_type?: string;
+  }>;
   is_approved: boolean;
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
   createdAt: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
   rejectionReason?: string | null;
@@ -141,7 +149,11 @@ interface MachineRow {
                   <tr class="text-left">
                     <th class="px-3 py-2 whitespace-nowrap w-48">Name</th>
                     <th class="px-3 py-2 whitespace-nowrap w-72">Category</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-48">Party</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-48">Location</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-32">Mobile</th>
                     <th class="px-3 py-2 whitespace-nowrap w-20">Images</th>
+                    <th class="px-3 py-2 whitespace-nowrap w-20">Docs</th>
                     <th class="px-3 py-2 whitespace-nowrap w-52">Preview</th>
                     <th class="px-3 py-2 whitespace-nowrap w-48">Created</th>
                     <th class="px-3 py-2 whitespace-nowrap w-48">Status</th>
@@ -161,7 +173,23 @@ interface MachineRow {
                         {{ categoryName(m) }}
                       </div>
                     </td>
+                    <td class="px-3 py-2">
+                      <div class="ellipsis" [title]="m.party_name">
+                        {{ m.party_name || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-3 py-2">
+                      <div class="ellipsis" [title]="m.location">
+                        {{ m.location || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-3 py-2">
+                      <div class="ellipsis" [title]="m.mobile_number">
+                        {{ m.mobile_number || '-' }}
+                      </div>
+                    </td>
                     <td class="px-3 py-2">{{ m.images?.length || 0 }}</td>
+                    <td class="px-3 py-2">{{ m.documents?.length || 0 }}</td>
                     <td class="px-3 py-2">
                       <div
                         class="flex gap-2 items-center max-w-[200px] overflow-x-auto hide-scrollbar"

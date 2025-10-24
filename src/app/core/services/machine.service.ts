@@ -60,17 +60,33 @@ export class MachineService {
   createMachineForm(data: {
     name: string;
     category_id: string;
+    party_name?: string;
+    location?: string;
+    mobile_number?: string;
     images?: File[];
+    documents?: File[];
     metadata?: Record<string, unknown>;
   }): Observable<ApiResponse<Machine>> {
     const form = new FormData();
     form.append('name', data.name);
     form.append('category_id', data.category_id);
+    if (data.party_name) {
+      form.append('party_name', data.party_name);
+    }
+    if (data.location) {
+      form.append('location', data.location);
+    }
+    if (data.mobile_number) {
+      form.append('mobile_number', data.mobile_number);
+    }
     if (data.metadata) {
       form.append('metadata', JSON.stringify(data.metadata));
     }
     if (data.images && data.images.length) {
       data.images.forEach(file => form.append('images', file));
+    }
+    if (data.documents && data.documents.length) {
+      data.documents.forEach(file => form.append('documents', file));
     }
     return this.baseApiService.post<Machine>('/machines', form);
   }
@@ -93,16 +109,26 @@ export class MachineService {
     data: {
       name?: string;
       category_id?: string;
+      party_name?: string;
+      location?: string;
+      mobile_number?: string;
       images?: File[];
+      documents?: File[];
       metadata?: Record<string, unknown>;
     }
   ): Observable<ApiResponse<Machine>> {
     const form = new FormData();
     if (data.name) form.append('name', data.name);
     if (data.category_id) form.append('category_id', data.category_id);
+    if (data.party_name) form.append('party_name', data.party_name);
+    if (data.location) form.append('location', data.location);
+    if (data.mobile_number) form.append('mobile_number', data.mobile_number);
     if (data.metadata) form.append('metadata', JSON.stringify(data.metadata));
     if (data.images && data.images.length) {
       data.images.forEach(file => form.append('images', file));
+    }
+    if (data.documents && data.documents.length) {
+      data.documents.forEach(file => form.append('documents', file));
     }
     return this.baseApiService.put<Machine>(`/machines/${id}`, form);
   }

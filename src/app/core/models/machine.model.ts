@@ -1,3 +1,10 @@
+export interface MachineDocument {
+  name: string;
+  file_path: string;
+  document_type?: string;
+  uploaded_at: Date;
+}
+
 export interface Machine {
   _id: string;
   name: string;
@@ -13,6 +20,10 @@ export interface Machine {
   };
   is_approved: boolean;
   images: string[];
+  documents: MachineDocument[];
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
   updatedBy?: {
     _id: string;
     username: string;
@@ -27,14 +38,22 @@ export interface Machine {
 export interface CreateMachineRequest {
   name: string;
   category_id: string;
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
   images?: string[];
+  documents?: MachineDocument[];
   metadata?: Record<string, unknown>;
 }
 
 export interface UpdateMachineRequest {
   name?: string;
   category_id?: string;
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
   images?: string[];
+  documents?: MachineDocument[];
   metadata?: Record<string, unknown>;
 }
 

@@ -1,4 +1,10 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormsModule,
@@ -138,7 +144,11 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                 <tr class="bg-neutral-50 text-left">
                   <th class="px-4 py-2">Name</th>
                   <th class="px-4 py-2">Category</th>
+                  <th class="px-4 py-2">Party</th>
+                  <th class="px-4 py-2">Location</th>
+                  <th class="px-4 py-2">Mobile</th>
                   <th class="px-4 py-2">Created By</th>
+                  <th class="px-4 py-2">Docs</th>
                   <th class="px-4 py-2">Approved</th>
                   <th class="px-4 py-2 w-40">Actions</th>
                 </tr>
@@ -147,7 +157,13 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                 <tr *ngFor="let m of machines" class="border-t">
                   <td class="px-4 py-2">{{ m.name }}</td>
                   <td class="px-4 py-2">{{ m.category_id.name }}</td>
+                  <td class="px-4 py-2">{{ m.party_name || '-' }}</td>
+                  <td class="px-4 py-2">{{ m.location || '-' }}</td>
+                  <td class="px-4 py-2">{{ m.mobile_number || '-' }}</td>
                   <td class="px-4 py-2">{{ m.created_by.username }}</td>
+                  <td class="px-4 py-2">
+                    <span class="text-sm">{{ m.documents.length || 0 }}</span>
+                  </td>
                   <td class="px-4 py-2">
                     <span
                       class="px-2 py-1 rounded text-xs"
@@ -182,7 +198,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                 </tr>
                 <tr *ngIf="machines.length === 0">
                   <td
-                    colspan="5"
+                    colspan="9"
                     class="px-4 py-6 text-center text-neutral-500"
                   >
                     No machines found
@@ -216,9 +232,11 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
               (keydown.space)="closeForm()"
             ></div>
             <div
-              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-lg p-5"
+              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
             >
-              <div class="flex items-center justify-between mb-3">
+              <div
+                class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+              >
                 <h3 class="text-lg font-semibold text-text">
                   {{ editing ? 'Edit Machine' : 'Add Machine' }}
                 </h3>
@@ -229,182 +247,416 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                   <i class="pi pi-times"></i>
                 </button>
               </div>
-              <form
-                [formGroup]="form"
-                class="grid grid-cols-1 md:grid-cols-2 gap-4"
-                (ngSubmit)="submitForm()"
-              >
-                <div class="md:col-span-2" *ngIf="formLoading">
-                  <div class="flex items-center gap-2 text-text-muted text-sm">
-                    <i class="pi pi-spinner pi-spin"></i>
-                    Loading machine details...
-                  </div>
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-xs text-text-muted mb-1">Name</label>
-                  <input
-                    class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
-                    formControlName="name"
-                  />
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-xs text-text-muted mb-1"
-                    >Category</label
-                  >
-                  <div class="relative">
-                    <input
-                      class="w-full border border-neutral-300 rounded-md px-3 py-2 bg-bg text-text"
-                      placeholder="Search categories"
-                      [value]="formCategoryInput"
-                      (focus)="
-                        formCategoryOpen = true;
-                        onCategoryInput(formCategoryInput, 'form')
-                      "
-                      (input)="
-                        onCategoryInput($any($event.target).value, 'form')
-                      "
-                    />
+              <div class="flex-1 overflow-y-auto">
+                <form
+                  [formGroup]="form"
+                  class="p-4 space-y-4"
+                  (ngSubmit)="submitForm()"
+                >
+                  <div *ngIf="formLoading">
                     <div
-                      class="absolute z-50 mt-1 w-full bg-white border border-neutral-300 rounded-md shadow"
-                      *ngIf="formCategoryOpen"
+                      class="flex items-center gap-2 text-text-muted text-sm"
                     >
-                      <div
-                        class="p-2 text-sm text-text-muted"
-                        *ngIf="categorySuggestLoading"
-                      >
-                        Searching...
-                      </div>
-                      <button
-                        type="button"
-                        class="w-full text-left px-3 py-2 hover:bg-neutral-100 text-sm"
-                        *ngFor="let opt of categorySuggest; trackBy: trackById"
-                        (click)="selectCategory(opt, 'form')"
-                      >
-                        {{ opt.name }}
-                      </button>
+                      <i class="pi pi-spinner pi-spin"></i>
+                      Loading machine details...
                     </div>
                   </div>
-                </div>
-                <div class="md:col-span-2">
-                  <div class="flex items-center justify-between mb-1">
-                    <label class="block text-xs text-text-muted"
-                      >Metadata</label
-                    >
-                    <button
-                      type="button"
-                      class="px-2 py-1 text-sm border rounded"
-                      (click)="addMetadataRow()"
-                    >
-                      Add Field
-                    </button>
-                  </div>
-                  <div class="space-y-2">
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Name</label>
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="name"
+                      placeholder="Enter machine name"
+                    />
                     <div
-                      class="grid grid-cols-5 gap-2"
-                      *ngFor="
-                        let m of metadataEntries;
-                        let i = index;
-                        trackBy: trackByIndex
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['name'].touched &&
+                        form.controls['name'].invalid
                       "
                     >
-                      <input
-                        class="col-span-2 border border-neutral-300 rounded px-2 py-1 text-sm"
-                        placeholder="Key"
-                        [(ngModel)]="metadataEntries[i].key"
-                        [ngModelOptions]="{ standalone: true }"
-                        name="meta_key_{{ i }}"
-                      />
-                      <input
-                        class="col-span-3 border border-neutral-300 rounded px-2 py-1 text-sm"
-                        placeholder="Value"
-                        [(ngModel)]="metadataEntries[i].value"
-                        [ngModelOptions]="{ standalone: true }"
-                        name="meta_val_{{ i }}"
-                      />
-                      <div class="col-span-5 flex justify-end">
+                      Name is required (min 2 characters)
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Category</label>
+                    <select
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="category_id"
+                    >
+                      <option value="" disabled>Select category</option>
+                      <option *ngFor="let c of categories" [value]="c._id">
+                        {{ c.name }}
+                      </option>
+                    </select>
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['category_id'].touched &&
+                        form.controls['category_id'].invalid
+                      "
+                    >
+                      Category is required
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Party Name</label>
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="party_name"
+                      placeholder="Enter party/company name"
+                    />
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['party_name'].touched &&
+                        form.controls['party_name'].invalid
+                      "
+                    >
+                      Party name is required (2-100 characters)
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Location</label>
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="location"
+                      placeholder="Enter city-country or location"
+                    />
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['location'].touched &&
+                        form.controls['location'].invalid
+                      "
+                    >
+                      Location is required (2-100 characters)
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Mobile Number</label>
+                    <input
+                      type="tel"
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="mobile_number"
+                      placeholder="Enter mobile number"
+                    />
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['mobile_number'].touched &&
+                        form.controls['mobile_number'].invalid
+                      "
+                    >
+                      Mobile number is required (10-20 characters)
+                    </div>
+                  </div>
+                  <!-- Metadata section -->
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <label class="text-sm">Additional Fields</label>
+                      <button
+                        type="button"
+                        class="px-2 py-1 text-sm border rounded hover:bg-neutral-50"
+                        (click)="addMetadataRow()"
+                      >
+                        Add Field
+                      </button>
+                    </div>
+                    <div class="space-y-2">
+                      <div
+                        class="grid grid-cols-5 gap-2"
+                        *ngFor="
+                          let m of metadataEntries;
+                          let i = index;
+                          trackBy: trackByIndex
+                        "
+                      >
+                        <input
+                          class="col-span-2 border rounded px-2 py-1 text-sm"
+                          placeholder="Key"
+                          [(ngModel)]="metadataEntries[i].key"
+                          [ngModelOptions]="{ standalone: true }"
+                          name="meta_key_{{ i }}"
+                        />
+                        <input
+                          class="col-span-3 border rounded px-2 py-1 text-sm"
+                          placeholder="Value"
+                          [(ngModel)]="metadataEntries[i].value"
+                          [ngModelOptions]="{ standalone: true }"
+                          name="meta_val_{{ i }}"
+                        />
+                        <div class="col-span-5 flex justify-end">
+                          <button
+                            type="button"
+                            class="px-2 py-1 text-xs border rounded hover:bg-neutral-50"
+                            (click)="removeMetadataRow(i)"
+                            *ngIf="metadataEntries.length > 1"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Images section -->
+                  <div class="space-y-2">
+                    <label class="text-sm">Images</label>
+                    <input
+                      #fileInput
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      class="hidden"
+                      (change)="onFiles($event)"
+                    />
+                    <div
+                      class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
+                      [ngClass]="{
+                        'border-primary': isDragging,
+                        'bg-primary/5': isDragging,
+                      }"
+                      (click)="fileInput.click()"
+                      (dragover)="onDragOver($event)"
+                      (dragleave)="onDragLeave($event)"
+                      (drop)="onDrop($event)"
+                    >
+                      <div class="flex flex-col items-center gap-1">
+                        <i class="pi pi-image text-2xl text-neutral-500"></i>
+                        <div class="text-sm">
+                          <span class="text-primary font-medium"
+                            >Click to upload</span
+                          >
+                          or drag and drop
+                        </div>
+                        <div class="text-xs text-neutral-500">
+                          PNG, JPG, GIF up to 5 files
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="text-xs text-text-muted"
+                      *ngIf="previewImages.length > 0"
+                    >
+                      {{ previewImages.length }} image(s) selected (max 5)
+                    </div>
+                    <div
+                      class="grid grid-cols-5 gap-2 mt-2"
+                      *ngIf="previewImages.length > 0"
+                    >
+                      <div
+                        class="relative group"
+                        *ngFor="let img of previewImages; let i = index"
+                      >
+                        <img
+                          [src]="img"
+                          class="w-full h-16 object-cover rounded border"
+                        />
                         <button
                           type="button"
-                          class="px-2 py-1 text-xs border rounded"
-                          (click)="removeMetadataRow(i)"
-                          *ngIf="metadataEntries.length > 1"
+                          class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          (click)="removeFile(i)"
                         >
-                          Remove
+                          <i class="pi pi-times text-xs"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Existing Images (Edit Mode) -->
+                    <div
+                      *ngIf="editing && existingImages.length > 0"
+                      class="mt-4"
+                    >
+                      <div class="flex items-center justify-between mb-2">
+                        <label class="text-sm font-medium"
+                          >Existing Images</label
+                        >
+                        <span class="text-xs text-text-muted"
+                          >{{ existingImages.length }} image(s)</span
+                        >
+                      </div>
+                      <div class="grid grid-cols-5 gap-2">
+                        <div
+                          class="relative group"
+                          *ngFor="let img of existingImages; let i = index"
+                        >
+                          <img
+                            [src]="imageUrl(img)"
+                            class="w-full h-16 object-cover rounded border"
+                            (click)="openPreview(existingImages, i)"
+                          />
+                          <button
+                            type="button"
+                            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            (click)="removeExistingImage(i)"
+                          >
+                            <i class="pi pi-times text-xs"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Documents section -->
+                  <div class="space-y-2">
+                    <label class="text-sm">Documents</label>
+                    <input
+                      #documentInput
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+                      class="hidden"
+                      (change)="onDocumentsSelected($event)"
+                    />
+                    <div
+                      class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
+                      [ngClass]="{
+                        'border-primary': isDocumentDragging,
+                        'bg-primary/5': isDocumentDragging,
+                      }"
+                      (click)="openDocumentPicker()"
+                      (dragover)="onDocumentDragOver($event)"
+                      (dragleave)="onDocumentDragLeave($event)"
+                      (drop)="onDocumentDrop($event)"
+                    >
+                      <div class="flex flex-col items-center gap-1">
+                        <i class="pi pi-file text-2xl text-neutral-500"></i>
+                        <div class="text-sm">
+                          <span class="text-primary font-medium"
+                            >Click to upload</span
+                          >
+                          or drag and drop
+                        </div>
+                        <div class="text-xs text-neutral-500">
+                          PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR up to 10
+                          files
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="text-xs text-text-muted"
+                      *ngIf="selectedDocuments.length > 0"
+                    >
+                      {{ selectedDocuments.length }} document(s) selected (max
+                      10)
+                    </div>
+                    <div
+                      class="space-y-2 mt-2"
+                      *ngIf="selectedDocuments.length > 0"
+                    >
+                      <div
+                        class="flex items-center justify-between p-2 bg-neutral-50 rounded border"
+                        *ngFor="let doc of selectedDocuments; let i = index"
+                      >
+                        <div class="flex items-center gap-2">
+                          <i class="pi pi-file text-neutral-500"></i>
+                          <span class="text-sm">{{ doc.name }}</span>
+                          <span class="text-xs text-neutral-500"
+                            >({{ doc.size | number }} bytes)</span
+                          >
+                        </div>
+                        <button
+                          type="button"
+                          class="p-1 text-red-500 hover:bg-red-50 rounded"
+                          (click)="removeDocument(i)"
+                        >
+                          <i class="pi pi-times text-xs"></i>
                         </button>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-xs text-text-muted mb-1"
-                    >Images</label
-                  >
-                  <input type="file" multiple (change)="onFiles($event)" />
+
+                  <!-- Existing Documents (Edit Mode) -->
                   <div
-                    class="mt-2 flex gap-2 flex-wrap"
-                    *ngIf="previewImages.length"
+                    *ngIf="editing && existingDocuments.length > 0"
+                    class="mt-4"
                   >
-                    <div
-                      *ngFor="
-                        let p of previewImages;
-                        let i = index;
-                        trackBy: trackByIndex
-                      "
-                      class="relative"
-                    >
-                      <img
-                        [src]="p"
-                        class="w-16 h-16 object-cover rounded border"
-                      />
-                      <button
-                        type="button"
-                        class="absolute -top-2 -right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center"
-                        (click)="removeFile(i)"
+                    <div class="flex items-center justify-between mb-2">
+                      <label class="text-sm font-medium"
+                        >Existing Documents</label
                       >
-                        <i class="pi pi-times text-xs"></i>
-                      </button>
+                      <span class="text-xs text-text-muted"
+                        >{{ existingDocuments.length }} document(s)</span
+                      >
+                    </div>
+                    <div class="space-y-2">
+                      <div
+                        class="flex items-center justify-between p-2 bg-neutral-50 rounded border"
+                        *ngFor="let doc of existingDocuments; let i = index"
+                      >
+                        <div class="flex items-center gap-2">
+                          <i class="pi pi-file text-neutral-500"></i>
+                          <span class="text-sm">{{ doc.name }}</span>
+                          <span class="text-xs text-neutral-500">{{
+                            doc.document_type || 'Document'
+                          }}</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            class="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                            (click)="downloadDocument(doc)"
+                            title="Download"
+                          >
+                            <i class="pi pi-download text-xs"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="p-1 text-green-500 hover:bg-green-50 rounded"
+                            (click)="previewDocument(doc)"
+                            title="Preview"
+                          >
+                            <i class="pi pi-eye text-xs"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="p-1 text-red-500 hover:bg-red-50 rounded"
+                            (click)="removeExistingDocument(i)"
+                            title="Remove"
+                          >
+                            <i class="pi pi-times text-xs"></i>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div
-                    class="mt-2 flex gap-2 flex-wrap"
-                    *ngIf="editing && selected?.images?.length"
-                  >
-                    <img
-                      *ngFor="
-                        let img of selected?.images;
-                        trackBy: trackByIndex
-                      "
-                      [src]="imageUrl(img)"
-                      class="w-16 h-16 object-cover rounded border"
-                    />
+
+                  <div *ngIf="editing" class="space-y-1">
+                    <label class="inline-flex items-center gap-2 text-sm">
+                      <input type="checkbox" formControlName="is_approved" />
+                      <span>Approved</span>
+                    </label>
                   </div>
-                </div>
-                <div class="md:col-span-2" *ngIf="editing">
-                  <label class="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" formControlName="is_approved" />
-                    <span>Approved</span>
-                  </label>
-                </div>
-                <div
-                  class="md:col-span-2 flex items-center justify-end gap-2 mt-2"
+                </form>
+              </div>
+              <div
+                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+              >
+                <button
+                  type="button"
+                  class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+                  (click)="closeForm()"
                 >
-                  <button
-                    type="button"
-                    class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
-                    (click)="closeForm()"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                    [disabled]="form.invalid || submitting"
-                  >
-                    <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
-                    <i *ngIf="!submitting" class="pi pi-save"></i>
-                    <span>{{ editing ? 'Save Changes' : 'Create' }}</span>
-                  </button>
-                </div>
-              </form>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  [disabled]="form.invalid || submitting"
+                  (click)="submitForm()"
+                >
+                  <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
+                  <i *ngIf="!submitting" class="pi pi-save"></i>
+                  <span>{{ editing ? 'Save Changes' : 'Create' }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -422,9 +674,11 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
               (keydown.space)="viewVisible = false"
             ></div>
             <div
-              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-lg p-5"
+              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
             >
-              <div class="flex items-center justify-between mb-3">
+              <div
+                class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+              >
                 <h3 class="text-lg font-semibold text-text">Machine Details</h3>
                 <button
                   class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
@@ -433,93 +687,172 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                   <i class="pi pi-times"></i>
                 </button>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="md:col-span-2">
-                  <span class="block text-xs text-text-muted mb-1">Name</span>
-                  {{ selected?.name }}
-                </div>
-                <div class="md:col-span-1">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Category</span
-                  >
-                  {{ selected?.category_id?.name || selected?.category_id }}
-                </div>
-                <div class="md:col-span-1">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Approved</span
-                  >
-                  {{ selected?.is_approved ? 'Yes' : 'No' }}
-                </div>
-                <div class="md:col-span-1">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Created By</span
-                  >
-                  {{ selected?.created_by?.username }} ({{
-                    selected?.created_by?.email
-                  }})
-                </div>
-                <div class="md:col-span-1">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Updated By</span
-                  >
-                  {{ selected?.updatedBy?.username || '—' }}
-                </div>
-                <div class="md:col-span-1">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Created</span
-                  >
-                  {{ selected?.createdAt | date: 'medium' }}
-                </div>
-                <div class="md:col-span-1">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Updated</span
-                  >
-                  {{ selected?.updatedAt | date: 'medium' }}
-                </div>
-                <div class="md:col-span-2">
-                  <span class="block text-xs text-text-muted mb-1">Images</span>
-                  <div
-                    class="mt-1 flex gap-2 flex-wrap"
-                    *ngIf="selected?.images?.length; else noimg"
-                  >
-                    <img
-                      *ngFor="
-                        let img of selected?.images;
-                        let i = index;
-                        trackBy: trackByIndex
-                      "
-                      [src]="imageUrl(img)"
-                      class="w-16 h-16 object-cover rounded border cursor-pointer"
-                      (click)="openPreview(selected?.images || [], i)"
-                    />
+              <div class="flex-1 overflow-y-auto p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="md:col-span-2">
+                    <span class="block text-xs text-text-muted mb-1">Name</span>
+                    {{ selected?.name }}
                   </div>
-                  <ng-template #noimg>
-                    <span class="text-xs text-text-muted">No images</span>
-                  </ng-template>
-                </div>
-                <div class="md:col-span-2" *ngIf="selected?.metadata">
-                  <span class="block text-xs text-text-muted mb-1"
-                    >Metadata</span
-                  >
-                  <div class="border rounded divide-y">
-                    <div
-                      class="p-2 grid grid-cols-5 gap-2"
-                      *ngFor="
-                        let kv of selected?.metadata | keyvalue;
-                        trackBy: trackByKey
-                      "
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Party Name</span
                     >
-                      <div class="col-span-2 text-xs font-medium">
-                        {{ kv.key }}
+                    {{ selected?.party_name || '-' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Location</span
+                    >
+                    {{ selected?.location || '-' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Mobile Number</span
+                    >
+                    {{ selected?.mobile_number || '-' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Category</span
+                    >
+                    {{ selected?.category_id?.name || selected?.category_id }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Approved</span
+                    >
+                    {{ selected?.is_approved ? 'Yes' : 'No' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Created By</span
+                    >
+                    {{ selected?.created_by?.username }} ({{
+                      selected?.created_by?.email
+                    }})
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Updated By</span
+                    >
+                    {{ selected?.updatedBy?.username || '—' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Created</span
+                    >
+                    {{ selected?.createdAt | date: 'medium' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Updated</span
+                    >
+                    {{ selected?.updatedAt | date: 'medium' }}
+                  </div>
+                  <div class="md:col-span-2">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Images</span
+                    >
+                    <div
+                      class="mt-1 flex gap-2 flex-wrap"
+                      *ngIf="selected?.images?.length; else noimg"
+                    >
+                      <img
+                        *ngFor="
+                          let img of selected?.images;
+                          let i = index;
+                          trackBy: trackByIndex
+                        "
+                        [src]="imageUrl(img)"
+                        class="w-16 h-16 object-cover rounded border cursor-pointer"
+                        (click)="openPreview(selected?.images || [], i)"
+                      />
+                    </div>
+                    <ng-template #noimg>
+                      <span class="text-xs text-text-muted">No images</span>
+                    </ng-template>
+                  </div>
+                  <div class="md:col-span-2">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="block text-xs text-text-muted"
+                        >Documents</span
+                      >
+                      <button
+                        *ngIf="selected?.documents?.length"
+                        class="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-light transition-colors"
+                        (click)="openDocumentsModal()"
+                      >
+                        <i class="pi pi-file mr-1"></i>
+                        View All Documents ({{
+                          selected?.documents?.length || 0
+                        }})
+                      </button>
+                    </div>
+                    <div
+                      class="mt-1 flex gap-2 flex-wrap"
+                      *ngIf="selected?.documents?.length; else nodocs"
+                    >
+                      <div
+                        *ngFor="
+                          let doc of selected?.documents | slice: 0 : 3;
+                          let i = index;
+                          trackBy: trackByIndex
+                        "
+                        class="flex items-center gap-2 px-3 py-2 bg-neutral-100 rounded-md border text-sm hover:bg-neutral-200 transition-colors"
+                      >
+                        <i class="pi pi-file text-primary"></i>
+                        <span class="truncate max-w-40 font-medium">{{
+                          doc.name
+                        }}</span>
                       </div>
-                      <div class="col-span-3 text-xs break-all">
-                        {{ kv.value }}
+                      <div
+                        *ngIf="(selected?.documents?.length || 0) > 3"
+                        class="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 text-sm text-primary font-medium"
+                      >
+                        <i class="pi pi-plus"></i>
+                        <span
+                          >+{{
+                            (selected?.documents?.length || 0) - 3
+                          }}
+                          more</span
+                        >
+                      </div>
+                    </div>
+                    <ng-template #nodocs>
+                      <div
+                        class="flex items-center gap-2 text-sm text-text-muted"
+                      >
+                        <i class="pi pi-file"></i>
+                        <span>No documents attached</span>
+                      </div>
+                    </ng-template>
+                  </div>
+                  <div class="md:col-span-2" *ngIf="selected?.metadata">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Metadata</span
+                    >
+                    <div class="border rounded divide-y">
+                      <div
+                        class="p-2 grid grid-cols-5 gap-2"
+                        *ngFor="
+                          let kv of selected?.metadata | keyvalue;
+                          trackBy: trackByKey
+                        "
+                      >
+                        <div class="col-span-2 text-xs font-medium">
+                          {{ kv.key }}
+                        </div>
+                        <div class="col-span-3 text-xs break-all">
+                          {{ kv.value }}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="flex items-center justify-end gap-2 mt-4">
+              <div
+                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+              >
                 <button
                   class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
                   (click)="viewVisible = false"
@@ -621,6 +954,112 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
               </div>
             </div>
           </div>
+
+          <!-- Documents Modal -->
+          <div
+            *ngIf="documentsVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+          >
+            <div
+              class="absolute inset-0 bg-black/40"
+              (click)="documentsVisible = false"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="documentsVisible = false"
+              (keydown.space)="documentsVisible = false"
+            ></div>
+            <div
+              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
+            >
+              <div
+                class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+              >
+                <h3 class="text-lg font-semibold text-text">
+                  Machine Documents - {{ selected?.name }}
+                </h3>
+                <button
+                  class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+                  (click)="documentsVisible = false"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="flex-1 overflow-y-auto p-4">
+                <div *ngIf="selected?.documents?.length; else noDocuments">
+                  <div
+                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                  >
+                    <div
+                      *ngFor="
+                        let doc of selected?.documents;
+                        let i = index;
+                        trackBy: trackByIndex
+                      "
+                      class="border border-neutral-300 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0">
+                          <div
+                            class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center"
+                          >
+                            <i class="pi pi-file text-primary text-xl"></i>
+                          </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <h4
+                            class="font-medium text-sm text-text truncate"
+                            [title]="doc.name"
+                          >
+                            {{ doc.name }}
+                          </h4>
+                          <p class="text-xs text-text-muted mt-1">
+                            {{ doc.document_type || 'Document' }}
+                          </p>
+                          <div class="flex gap-2 mt-3">
+                            <button
+                              class="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary-light"
+                              (click)="downloadDocument(doc)"
+                            >
+                              <i class="pi pi-download mr-1"></i>
+                              Download
+                            </button>
+                            <button
+                              class="px-3 py-1 text-xs border border-neutral-300 rounded hover:bg-neutral-50"
+                              (click)="previewDocument(doc)"
+                            >
+                              <i class="pi pi-eye mr-1"></i>
+                              Preview
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <ng-template #noDocuments>
+                  <div class="text-center py-12">
+                    <i class="pi pi-file text-4xl text-neutral-400 mb-4"></i>
+                    <h3 class="text-lg font-medium text-text mb-2">
+                      No Documents
+                    </h3>
+                    <p class="text-text-muted">
+                      This machine doesn't have any documents attached.
+                    </p>
+                  </div>
+                </ng-template>
+              </div>
+              <div
+                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+              >
+                <button
+                  class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+                  (click)="documentsVisible = false"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     </div>
@@ -639,6 +1078,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   formVisible = false;
   viewVisible = false;
   confirmVisible = false;
+  documentsVisible = false;
   editing = false;
   submitting = false;
   formLoading = false;
@@ -647,6 +1087,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   categories: Array<{ _id: string; name: string }> = [];
   previewImages: string[] = [];
   selectedFiles: File[] = [];
+  selectedDocuments: File[] = [];
+  existingImages: string[] = [];
+  existingDocuments: any[] = [];
+  isDragging = false;
+  isDocumentDragging = false;
   metadataText = '';
   metadataError: string | null = null;
   metadataEntries: Array<{ key: string; value: string }> = [];
@@ -666,6 +1111,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   lightboxImages: string[] = [];
   lightboxIndex = 0;
 
+  // ViewChild for document input
+  @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
+
   constructor(
     private machineService: MachineService,
     private fb: FormBuilder,
@@ -674,6 +1122,30 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       category_id: ['', [Validators.required]],
+      party_name: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+        ],
+      ],
+      location: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+        ],
+      ],
+      mobile_number: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(10),
+          Validators.maxLength(20),
+        ],
+      ],
       images: [null],
       is_approved: [false],
     });
@@ -743,6 +1215,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.formVisible = true;
     this.previewImages = [];
     this.selectedFiles = [];
+    this.selectedDocuments = [];
+    this.existingImages = [];
+    this.existingDocuments = [];
+    this.isDragging = false;
+    this.isDocumentDragging = false;
     this.metadataText = '';
     this.metadataError = null;
     this.metadataEntries = [{ key: '', value: '' }];
@@ -768,11 +1245,21 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           typeof m.category_id === 'string'
             ? (m.category_id as unknown as string)
             : (m.category_id as any)?._id,
+        party_name: m.party_name || '',
+        location: m.location || '',
+        mobile_number: m.mobile_number || '',
         is_approved: !!m.is_approved,
       });
       // Reset client-side selections
       this.previewImages = [];
       this.selectedFiles = [];
+      this.selectedDocuments = [];
+      this.isDragging = false;
+      this.isDocumentDragging = false;
+
+      // Load existing files
+      this.existingImages = m.images || [];
+      this.existingDocuments = m.documents || [];
       // Pre-fill metadata entries
       try {
         const meta =
@@ -860,9 +1347,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   submitForm(): void {
     if (this.submitting || this.form.invalid) return;
     this.submitting = true;
-    const { name, category_id } = this.form.value as {
+    const { name, category_id, party_name, location, mobile_number } = this.form
+      .value as {
       name: string;
       category_id: string;
+      party_name: string;
+      location: string;
+      mobile_number: string;
     };
     // Build metadata object from dynamic rows
     const metadata: Record<string, unknown> | undefined = this.metadataEntries
@@ -875,11 +1366,18 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     if (this.editing && this.selected) {
       const currentApproved = !!this.selected.is_approved;
       const nextApproved = !!this.form.value.is_approved;
+      // Note: existing files are handled separately from new uploads
+      // The backend will merge existing files with new uploads
+
       this.machineService
         .updateMachineForm(this.selected._id, {
           name,
           category_id,
-          images: this.selectedFiles,
+          party_name,
+          location,
+          mobile_number,
+          images: this.selectedFiles, // Only new files for upload
+          documents: this.selectedDocuments, // Only new files for upload
           metadata: hasMetadata ? metadata : undefined,
         })
         .subscribe({
@@ -908,7 +1406,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         .createMachineForm({
           name,
           category_id,
+          party_name,
+          location,
+          mobile_number,
           images: this.selectedFiles,
+          documents: this.selectedDocuments,
           metadata: hasMetadata ? metadata : undefined,
         })
         .subscribe({
@@ -942,6 +1444,66 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.categoryService.getActiveCategories().subscribe(res => {
       this.categories = res.data || [];
     });
+  }
+
+  // Document handling methods
+  onDocumentsSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+      this.acceptDocuments(Array.from(input.files));
+    }
+  }
+
+  removeDocument(index: number): void {
+    this.selectedDocuments.splice(index, 1);
+  }
+
+  openDocumentPicker(): void {
+    if (this.documentInput) {
+      this.documentInput.nativeElement.click();
+    }
+  }
+
+  onDocumentDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDocumentDragging = true;
+  }
+
+  onDocumentDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isDocumentDragging = false;
+  }
+
+  onDocumentDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDocumentDragging = false;
+    if (event.dataTransfer?.files) {
+      this.acceptDocuments(Array.from(event.dataTransfer.files));
+    }
+  }
+
+  acceptDocuments(files: File[]): void {
+    const validFiles = files.filter(file => {
+      const validTypes = [
+        '.pdf',
+        '.doc',
+        '.docx',
+        '.xls',
+        '.xlsx',
+        '.txt',
+        '.zip',
+        '.rar',
+      ];
+      const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+      return validTypes.includes(extension);
+    });
+
+    if (validFiles.length !== files.length) {
+      // Show error for invalid files
+      console.warn('Some files were rejected due to invalid file type');
+    }
+
+    this.selectedDocuments.push(...validFiles);
   }
 
   // Category search helpers
@@ -1058,5 +1620,63 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
   onSidebarCollapseChange(collapsed: boolean): void {
     this.sidebarCollapsed = collapsed;
+  }
+
+  // Documents modal methods
+  openDocumentsModal(): void {
+    this.documentsVisible = true;
+  }
+
+  downloadDocument(doc: any): void {
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a');
+    link.href = this.documentUrl(doc.file_path);
+    link.download = doc.name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  previewDocument(doc: any): void {
+    // Open document in new tab for preview
+    const url = this.documentUrl(doc.file_path);
+    window.open(url, '_blank');
+  }
+
+  documentUrl(filePath: string): string {
+    // Construct the full URL for the document using environment baseUrl
+    const baseUrl = environment.baseUrl;
+    // Ensure filePath starts with / if it doesn't already
+    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `${baseUrl}${normalizedPath}`;
+  }
+
+  // Missing drag and drop methods
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = true;
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+    if (event.dataTransfer?.files) {
+      this.onFiles(event);
+    }
+  }
+
+  // Methods for handling existing files
+  removeExistingImage(index: number): void {
+    this.existingImages.splice(index, 1);
+  }
+
+  removeExistingDocument(index: number): void {
+    this.existingDocuments.splice(index, 1);
   }
 }

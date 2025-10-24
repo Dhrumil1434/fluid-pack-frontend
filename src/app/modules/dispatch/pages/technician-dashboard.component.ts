@@ -14,6 +14,14 @@ interface MachineRow {
   name: string;
   category?: { name: string } | string;
   is_approved: boolean;
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
+  documents?: Array<{
+    name: string;
+    file_path: string;
+    document_type?: string;
+  }>;
   createdAt: string;
 }
 
@@ -118,6 +126,9 @@ interface MachineRow {
                     <tr class="text-left">
                       <th class="px-3 py-2">Name</th>
                       <th class="px-3 py-2">Category</th>
+                      <th class="px-3 py-2">Party</th>
+                      <th class="px-3 py-2">Location</th>
+                      <th class="px-3 py-2">Mobile</th>
                       <th class="px-3 py-2">Created</th>
                       <th class="px-3 py-2">Status</th>
                     </tr>
@@ -129,6 +140,9 @@ interface MachineRow {
                     >
                       <td class="px-3 py-2">{{ m.name }}</td>
                       <td class="px-3 py-2">{{ categoryName(m) }}</td>
+                      <td class="px-3 py-2">{{ m.party_name || '-' }}</td>
+                      <td class="px-3 py-2">{{ m.location || '-' }}</td>
+                      <td class="px-3 py-2">{{ m.mobile_number || '-' }}</td>
                       <td class="px-3 py-2">
                         {{ m.createdAt | date: 'medium' }}
                       </td>
@@ -185,6 +199,9 @@ interface MachineRow {
                   <tr class="text-left">
                     <th class="px-3 py-2">Name</th>
                     <th class="px-3 py-2">Category</th>
+                    <th class="px-3 py-2">Party</th>
+                    <th class="px-3 py-2">Location</th>
+                    <th class="px-3 py-2">Mobile</th>
                     <th class="px-3 py-2">Created</th>
                     <th class="px-3 py-2">Status</th>
                   </tr>
@@ -196,6 +213,9 @@ interface MachineRow {
                   >
                     <td class="px-3 py-2">{{ m.name }}</td>
                     <td class="px-3 py-2">{{ categoryName(m) }}</td>
+                    <td class="px-3 py-2">{{ m.party_name || '-' }}</td>
+                    <td class="px-3 py-2">{{ m.location || '-' }}</td>
+                    <td class="px-3 py-2">{{ m.mobile_number || '-' }}</td>
                     <td class="px-3 py-2">
                       {{ m.createdAt | date: 'medium' }}
                     </td>

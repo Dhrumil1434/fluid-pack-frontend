@@ -34,218 +34,348 @@ import { ElementRef, ViewChild } from '@angular/core';
       *ngIf="visible"
     >
       <div
-        class="bg-white w-full max-w-lg rounded-xl shadow-xl border border-neutral-300"
+        class="bg-white w-full max-w-4xl max-h-[90vh] rounded-xl shadow-xl border border-neutral-300 flex flex-col"
       >
         <div
-          class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between"
+          class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between flex-shrink-0"
         >
           <h3 class="font-medium">Create Machine</h3>
           <button class="p-2 hover:bg-neutral-100 rounded" (click)="onCancel()">
             <i class="pi pi-times"></i>
           </button>
         </div>
-        <form class="p-4 space-y-4" [formGroup]="form" (ngSubmit)="onSubmit()">
-          <div class="space-y-1">
-            <label class="text-sm">Name</label>
-            <input
-              type="text"
-              class="w-full border rounded px-3 py-2"
-              formControlName="name"
-            />
-            <div
-              class="text-xs text-error"
-              *ngIf="
-                form.controls['name'].touched && form.controls['name'].invalid
-              "
-            >
-              Name is required (min 2 characters)
-            </div>
-          </div>
-          <div class="space-y-1">
-            <label class="text-sm">Category</label>
-            <select
-              class="w-full border rounded px-3 py-2"
-              formControlName="category_id"
-            >
-              <option value="" disabled>Select category</option>
-              <option *ngFor="let c of categories" [value]="c._id">
-                {{ c.name }}
-              </option>
-            </select>
-            <div
-              class="text-xs text-error"
-              *ngIf="
-                form.controls['category_id'].touched &&
-                form.controls['category_id'].invalid
-              "
-            >
-              Category is required
-            </div>
-          </div>
-          <div class="space-y-2">
-            <label class="text-sm">Images</label>
-            <input
-              #fileInput
-              type="file"
-              multiple
-              accept="image/*"
-              class="hidden"
-              (change)="onFilesSelected($event)"
-            />
-
-            <div
-              class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
-              [ngClass]="{
-                'border-primary': isDragging,
-                'bg-primary/5': isDragging,
-              }"
-              (click)="openFilePicker()"
-              (dragover)="onDragOver($event)"
-              (dragleave)="onDragLeave($event)"
-              (drop)="onDrop($event)"
-            >
-              <div class="flex flex-col items-center gap-1">
-                <i class="pi pi-image text-2xl text-neutral-500"></i>
-                <div class="text-sm">
-                  <span class="text-primary font-medium">Click to upload</span>
-                  or drag and drop
-                </div>
-                <div class="text-xs text-neutral-500">
-                  PNG, JPG up to 5 files
-                </div>
-              </div>
-            </div>
-
-            <div
-              class="text-xs text-text-muted"
-              *ngIf="selectedFiles.length > 0"
-            >
-              {{ selectedFiles.length }} file(s) selected (max 5)
-            </div>
-
-            <div
-              class="grid grid-cols-5 gap-2 mt-2"
-              *ngIf="selectedPreviews.length > 0"
-            >
+        <div class="flex-1 overflow-y-auto">
+          <form
+            class="p-4 space-y-4"
+            [formGroup]="form"
+            (ngSubmit)="onSubmit()"
+          >
+            <div class="space-y-1">
+              <label class="text-sm">Name</label>
+              <input
+                type="text"
+                class="w-full border rounded px-3 py-2"
+                formControlName="name"
+              />
               <div
-                class="relative group"
-                *ngFor="let img of selectedPreviews; let i = index"
-              >
-                <img
-                  [src]="img"
-                  class="w-full h-20 object-cover border rounded"
-                  alt="preview"
-                />
-                <button
-                  type="button"
-                  class="absolute top-1 right-1 bg-white/90 hover:bg-white border rounded-full p-1 shadow"
-                  (click)="removeFile(i)"
-                  aria-label="Remove image"
-                >
-                  <i class="pi pi-times text-xs"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Metadata dynamic fields -->
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <label class="text-sm font-medium">Additional details</label>
-              <button
-                type="button"
-                class="text-primary text-sm"
-                (click)="addMetadataField()"
-              >
-                + Add field
-              </button>
-            </div>
-            <div
-              class="rounded border border-neutral-200 divide-y"
-              formArrayName="metadata"
-            >
-              <div
-                class="p-3 grid grid-cols-12 gap-2 items-start"
-                *ngFor="
-                  let _ of metadata.controls;
-                  let i = index;
-                  trackBy: trackByIndex
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['name'].touched && form.controls['name'].invalid
                 "
-                [formGroupName]="i"
               >
-                <div class="col-span-5">
-                  <input
-                    type="text"
-                    class="w-full border rounded px-3 py-2"
-                    placeholder="Field name (unique)"
-                    formControlName="key"
-                  />
-                  <div
-                    class="text-xs text-error"
-                    *ngIf="
-                      metadata.at(i).get('key')?.touched &&
-                      metadata.at(i).get('key')?.invalid
-                    "
-                  >
-                    Key is required and must be unique
+                Name is required (min 2 characters)
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm">Category</label>
+              <select
+                class="w-full border rounded px-3 py-2"
+                formControlName="category_id"
+              >
+                <option value="" disabled>Select category</option>
+                <option *ngFor="let c of categories" [value]="c._id">
+                  {{ c.name }}
+                </option>
+              </select>
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['category_id'].touched &&
+                  form.controls['category_id'].invalid
+                "
+              >
+                Category is required
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm">Party Name</label>
+              <input
+                type="text"
+                class="w-full border rounded px-3 py-2"
+                formControlName="party_name"
+                placeholder="Enter party/company name"
+              />
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['party_name'].touched &&
+                  form.controls['party_name'].invalid
+                "
+              >
+                Party name is required (2-100 characters)
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm">Location</label>
+              <input
+                type="text"
+                class="w-full border rounded px-3 py-2"
+                formControlName="location"
+                placeholder="Enter city-country or location"
+              />
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['location'].touched &&
+                  form.controls['location'].invalid
+                "
+              >
+                Location is required (2-100 characters)
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="text-sm">Mobile Number</label>
+              <input
+                type="tel"
+                class="w-full border rounded px-3 py-2"
+                formControlName="mobile_number"
+                placeholder="Enter mobile number"
+              />
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['mobile_number'].touched &&
+                  form.controls['mobile_number'].invalid
+                "
+              >
+                Mobile number is required (10-20 characters)
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm">Images</label>
+              <input
+                #fileInput
+                type="file"
+                multiple
+                accept="image/*"
+                class="hidden"
+                (change)="onFilesSelected($event)"
+              />
+
+              <div
+                class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
+                [ngClass]="{
+                  'border-primary': isDragging,
+                  'bg-primary/5': isDragging,
+                }"
+                (click)="openFilePicker()"
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave($event)"
+                (drop)="onDrop($event)"
+              >
+                <div class="flex flex-col items-center gap-1">
+                  <i class="pi pi-image text-2xl text-neutral-500"></i>
+                  <div class="text-sm">
+                    <span class="text-primary font-medium"
+                      >Click to upload</span
+                    >
+                    or drag and drop
+                  </div>
+                  <div class="text-xs text-neutral-500">
+                    PNG, JPG up to 5 files
                   </div>
                 </div>
-                <div class="col-span-4">
-                  <input
-                    type="text"
-                    class="w-full border rounded px-3 py-2"
-                    placeholder="Value"
-                    formControlName="value"
+              </div>
+
+              <div
+                class="text-xs text-text-muted"
+                *ngIf="selectedFiles.length > 0"
+              >
+                {{ selectedFiles.length }} file(s) selected (max 5)
+              </div>
+
+              <div
+                class="grid grid-cols-5 gap-2 mt-2"
+                *ngIf="selectedPreviews.length > 0"
+              >
+                <div
+                  class="relative group"
+                  *ngFor="let img of selectedPreviews; let i = index"
+                >
+                  <img
+                    [src]="img"
+                    class="w-full h-20 object-cover border rounded"
+                    alt="preview"
                   />
-                </div>
-                <div class="col-span-2">
-                  <select
-                    class="w-full border rounded px-3 py-2"
-                    formControlName="type"
-                  >
-                    <option value="string">Text</option>
-                    <option value="number">Number</option>
-                    <option value="boolean">Boolean</option>
-                  </select>
-                </div>
-                <div class="col-span-1 flex justify-end">
                   <button
                     type="button"
-                    class="p-2 hover:bg-neutral-100 rounded"
-                    (click)="removeMetadataField(i)"
-                    aria-label="Remove field"
+                    class="absolute top-1 right-1 bg-white/90 hover:bg-white border rounded-full p-1 shadow"
+                    (click)="removeFile(i)"
+                    aria-label="Remove image"
                   >
-                    <i class="pi pi-trash text-sm"></i>
+                    <i class="pi pi-times text-xs"></i>
                   </button>
                 </div>
               </div>
+            </div>
+
+            <!-- Document upload section -->
+            <div class="space-y-2">
+              <label class="text-sm">Documents</label>
+              <input
+                #documentInput
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx"
+                class="hidden"
+                (change)="onDocumentsSelected($event)"
+              />
+
               <div
-                class="p-2 text-xs text-error"
-                *ngIf="metadata.errors?.['duplicateKeys']"
+                class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
+                [ngClass]="{
+                  'border-primary': isDocumentDragging,
+                  'bg-primary/5': isDocumentDragging,
+                }"
+                (click)="openDocumentPicker()"
+                (dragover)="onDocumentDragOver($event)"
+                (dragleave)="onDocumentDragLeave($event)"
+                (drop)="onDocumentDrop($event)"
               >
-                Duplicate field names are not allowed.
+                <div class="flex flex-col items-center gap-1">
+                  <i class="pi pi-file text-2xl text-neutral-500"></i>
+                  <div class="text-sm">
+                    <span class="text-primary font-medium"
+                      >Click to upload</span
+                    >
+                    or drag and drop
+                  </div>
+                  <div class="text-xs text-neutral-500">
+                    PDF, DOC, DOCX, TXT, XLS, XLSX up to 10 files
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="text-xs text-text-muted"
+                *ngIf="selectedDocuments.length > 0"
+              >
+                {{ selectedDocuments.length }} document(s) selected (max 10)
+              </div>
+
+              <div
+                class="grid grid-cols-2 gap-2 mt-2"
+                *ngIf="selectedDocuments.length > 0"
+              >
+                <div
+                  class="relative group flex items-center justify-between p-2 border rounded"
+                  *ngFor="let doc of selectedDocuments; let i = index"
+                >
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-file text-sm text-neutral-500"></i>
+                    <span class="text-sm truncate">{{ doc.name }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="p-1 hover:bg-neutral-100 rounded"
+                    (click)="removeDocument(i)"
+                    aria-label="Remove document"
+                  >
+                    <i class="pi pi-times text-xs"></i>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="pt-2 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              class="px-3 py-2 rounded border"
-              (click)="onCancel()"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="px-3 py-2 rounded bg-primary text-white"
-              [disabled]="loading || form.invalid"
-            >
-              <span *ngIf="!loading">Create</span>
-              <span *ngIf="loading">Creating...</span>
-            </button>
-          </div>
-        </form>
+            <!-- Metadata dynamic fields -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-sm font-medium">Additional details</label>
+                <button
+                  type="button"
+                  class="text-primary text-sm"
+                  (click)="addMetadataField()"
+                >
+                  + Add field
+                </button>
+              </div>
+              <div
+                class="rounded border border-neutral-200 divide-y"
+                formArrayName="metadata"
+              >
+                <div
+                  class="p-3 grid grid-cols-12 gap-2 items-start"
+                  *ngFor="
+                    let _ of metadata.controls;
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  [formGroupName]="i"
+                >
+                  <div class="col-span-5">
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      placeholder="Field name (unique)"
+                      formControlName="key"
+                    />
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        metadata.at(i).get('key')?.touched &&
+                        metadata.at(i).get('key')?.invalid
+                      "
+                    >
+                      Key is required and must be unique
+                    </div>
+                  </div>
+                  <div class="col-span-4">
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      placeholder="Value"
+                      formControlName="value"
+                    />
+                  </div>
+                  <div class="col-span-2">
+                    <select
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="type"
+                    >
+                      <option value="string">Text</option>
+                      <option value="number">Number</option>
+                      <option value="boolean">Boolean</option>
+                    </select>
+                  </div>
+                  <div class="col-span-1 flex justify-end">
+                    <button
+                      type="button"
+                      class="p-2 hover:bg-neutral-100 rounded"
+                      (click)="removeMetadataField(i)"
+                      aria-label="Remove field"
+                    >
+                      <i class="pi pi-trash text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="p-2 text-xs text-error"
+                  *ngIf="metadata.errors?.['duplicateKeys']"
+                >
+                  Duplicate field names are not allowed.
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                class="px-3 py-2 rounded border"
+                (click)="onCancel()"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-3 py-2 rounded bg-primary text-white"
+                [disabled]="loading || form.invalid"
+              >
+                <span *ngIf="!loading">Create</span>
+                <span *ngIf="loading">Creating...</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   `,
@@ -254,6 +384,7 @@ export class CreateMachineModalComponent
   implements OnInit, OnDestroy, OnChanges
 {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
   private _visible = false;
   @Input() set visible(v: boolean) {
     this._visible = v;
@@ -273,8 +404,10 @@ export class CreateMachineModalComponent
   categoriesLoading = false;
   selectedFiles: File[] = [];
   selectedPreviews: string[] = [];
+  selectedDocuments: File[] = [];
   loading = false;
   isDragging = false;
+  isDocumentDragging = false;
 
   constructor(
     private fb: FormBuilder,
@@ -284,6 +417,30 @@ export class CreateMachineModalComponent
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       category_id: ['', Validators.required],
+      party_name: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+        ],
+      ],
+      location: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+        ],
+      ],
+      mobile_number: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(10),
+          Validators.maxLength(20),
+        ],
+      ],
       metadata: this.fb.array([], [this.uniqueKeysValidator]),
     });
   }
@@ -344,11 +501,59 @@ export class CreateMachineModalComponent
     this.selectedPreviews = this.selectedFiles.map(f => URL.createObjectURL(f));
   }
 
+  // Document handling methods
+  onDocumentsSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+    this.acceptDocuments(files);
+  }
+
+  removeDocument(index: number): void {
+    if (index < 0 || index >= this.selectedDocuments.length) return;
+    this.selectedDocuments.splice(index, 1);
+  }
+
+  openDocumentPicker(): void {
+    this.documentInput?.nativeElement.click();
+  }
+
+  onDocumentDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDocumentDragging = true;
+  }
+
+  onDocumentDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isDocumentDragging = false;
+  }
+
+  onDocumentDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDocumentDragging = false;
+    const files = event.dataTransfer?.files
+      ? Array.from(event.dataTransfer.files)
+      : [];
+    this.acceptDocuments(files);
+  }
+
+  private acceptDocuments(files: File[]): void {
+    const limited = files.slice(
+      0,
+      Math.max(0, 10 - this.selectedDocuments.length)
+    );
+    if (limited.length === 0) return;
+    this.selectedDocuments = [...this.selectedDocuments, ...limited];
+  }
+
   onSubmit(): void {
     if (this.form.invalid || this.loading) return;
     const formData = new FormData();
     formData.append('name', this.form.value.name);
     formData.append('category_id', this.form.value.category_id);
+    formData.append('party_name', this.form.value.party_name);
+    formData.append('location', this.form.value.location);
+    formData.append('mobile_number', this.form.value.mobile_number);
+
     const metaObj: Record<string, unknown> = {};
     for (const group of this.metadataControls) {
       const key = (group.get('key')?.value || '').trim();
@@ -363,7 +568,12 @@ export class CreateMachineModalComponent
     if (Object.keys(metaObj).length > 0) {
       formData.append('metadata', JSON.stringify(metaObj));
     }
+
+    // Add image files
     for (const f of this.selectedFiles) formData.append('images', f);
+
+    // Add document files
+    for (const f of this.selectedDocuments) formData.append('documents', f);
 
     this.loading = true;
     this.baseApi.post<any>(API_ENDPOINTS.MACHINES, formData).subscribe({

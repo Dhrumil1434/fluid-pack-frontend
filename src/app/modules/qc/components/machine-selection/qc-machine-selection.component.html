@@ -599,6 +599,18 @@
           {{ detailsMachine?.name }}
         </div>
         <div>
+          <span class="block text-xs text-gray-500 mb-1">Party Name</span>
+          {{ detailsMachine?.party_name || '-' }}
+        </div>
+        <div>
+          <span class="block text-xs text-gray-500 mb-1">Location</span>
+          {{ detailsMachine?.location || '-' }}
+        </div>
+        <div>
+          <span class="block text-xs text-gray-500 mb-1">Mobile Number</span>
+          {{ detailsMachine?.mobile_number || '-' }}
+        </div>
+        <div>
           <span class="block text-xs text-gray-500 mb-1">Category</span>
           {{
             detailsMachine?.category_id?.name ||

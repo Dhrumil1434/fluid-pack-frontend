@@ -40,6 +40,9 @@ interface Machine {
   is_approved: boolean;
   approvalStatus?: string;
   is_active: boolean;
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
 }
 
 interface Category {

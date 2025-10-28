@@ -1090,6 +1090,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   selectedDocuments: File[] = [];
   existingImages: string[] = [];
   existingDocuments: any[] = [];
+  removedDocuments: any[] = []; // Track documents to be removed
   isDragging = false;
   isDocumentDragging = false;
   metadataText = '';
@@ -1218,6 +1219,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.selectedDocuments = [];
     this.existingImages = [];
     this.existingDocuments = [];
+    this.removedDocuments = [];
     this.isDragging = false;
     this.isDocumentDragging = false;
     this.metadataText = '';
@@ -1356,30 +1358,36 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       mobile_number: string;
     };
     // Build metadata object from dynamic rows
-    const metadata: Record<string, unknown> | undefined = this.metadataEntries
-      .filter(e => (e.key || '').trim().length > 0)
-      .reduce<Record<string, unknown>>((acc, e) => {
-        acc[e.key.trim()] = e.value;
-        return acc;
-      }, {});
-    const hasMetadata = metadata && Object.keys(metadata!).length > 0;
+    const metadataEntries = this.metadataEntries.filter(
+      e => (e.key || '').trim().length > 0
+    );
+    const metadata: Record<string, unknown> = metadataEntries.reduce<
+      Record<string, unknown>
+    >((acc, e) => {
+      acc[e.key.trim()] = e.value;
+      return acc;
+    }, {});
     if (this.editing && this.selected) {
       const currentApproved = !!this.selected.is_approved;
       const nextApproved = !!this.form.value.is_approved;
       // Note: existing files are handled separately from new uploads
       // The backend will merge existing files with new uploads
 
+      // Prepare the update payload
+      const updatePayload: any = {
+        name,
+        category_id,
+        party_name,
+        location,
+        mobile_number,
+        images: this.selectedFiles, // Only new files for upload
+        documents: this.selectedDocuments, // Only new files for upload
+        metadata: metadata, // Always include metadata (empty object clears existing metadata)
+        removedDocuments: this.removedDocuments, // Documents to be removed
+      };
+
       this.machineService
-        .updateMachineForm(this.selected._id, {
-          name,
-          category_id,
-          party_name,
-          location,
-          mobile_number,
-          images: this.selectedFiles, // Only new files for upload
-          documents: this.selectedDocuments, // Only new files for upload
-          metadata: hasMetadata ? metadata : undefined,
-        })
+        .updateMachineForm(this.selected._id, updatePayload)
         .subscribe({
           next: () => {
             const finalize = () => {
@@ -1402,27 +1410,28 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           },
         });
     } else {
-      this.machineService
-        .createMachineForm({
-          name,
-          category_id,
-          party_name,
-          location,
-          mobile_number,
-          images: this.selectedFiles,
-          documents: this.selectedDocuments,
-          metadata: hasMetadata ? metadata : undefined,
-        })
-        .subscribe({
-          next: () => {
-            this.submitting = false;
-            this.formVisible = false;
-            this.reload();
-          },
-          error: () => {
-            this.submitting = false;
-          },
-        });
+      // Prepare the create payload
+      const createPayload: any = {
+        name,
+        category_id,
+        party_name,
+        location,
+        mobile_number,
+        images: this.selectedFiles,
+        documents: this.selectedDocuments,
+        metadata: metadata, // Always include metadata (empty object is valid for new machines)
+      };
+
+      this.machineService.createMachineForm(createPayload).subscribe({
+        next: () => {
+          this.submitting = false;
+          this.formVisible = false;
+          this.reload();
+        },
+        error: () => {
+          this.submitting = false;
+        },
+      });
     }
   }
 
@@ -1677,6 +1686,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   removeExistingDocument(index: number): void {
+    const removedDoc = this.existingDocuments[index];
+    this.removedDocuments.push(removedDoc); // Track for backend removal
     this.existingDocuments.splice(index, 1);
   }
 }

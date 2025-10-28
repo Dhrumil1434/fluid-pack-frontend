@@ -39,6 +39,7 @@ interface MachineRow {
   approverNotes?: string | null;
   decisionByName?: string | null;
   decisionDate?: string | null;
+  created_by?: { username: string };
 }
 
 @Component({
@@ -123,113 +124,245 @@ interface MachineRow {
 
         <!-- Table -->
         <section
-          class="bg-bg border border-neutral-300 rounded-xl shadow-medium"
+          class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden"
         >
           <div
-            class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between"
+            class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50"
           >
-            <h3 class="font-medium">
-              {{ filter() === 'own' ? 'My Machines' : 'All Machines' }}
-            </h3>
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-gray-900">
+                {{ filter() === 'own' ? 'My Machines' : 'All Machines' }}
+              </h3>
+              <span
+                class="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-200 rounded-full"
+              >
+                {{ total }} machines
+              </span>
+            </div>
             <button
-              class="text-sm text-primary hover:underline"
+              class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               (click)="refresh()"
             >
-              <i class="pi pi-refresh mr-1"></i>Refresh
+              <i class="pi pi-refresh mr-2"></i>Refresh
             </button>
           </div>
-          <div class="p-4">
-            <div *ngIf="loading" class="text-text-muted">Loading...</div>
-            <div *ngIf="!loading && rows.length === 0" class="text-text-muted">
-              No machines found.
+          <div class="overflow-x-auto">
+            <div *ngIf="loading" class="flex items-center justify-center py-12">
+              <div class="flex items-center gap-3 text-gray-500">
+                <i class="pi pi-spinner pi-spin text-lg"></i>
+                <span>Loading machines...</span>
+              </div>
             </div>
-            <div *ngIf="!loading && rows.length > 0" class="overflow-x-auto">
-              <table class="min-w-full text-sm table-fixed">
-                <thead>
-                  <tr class="text-left">
-                    <th class="px-3 py-2 whitespace-nowrap w-48">Name</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-72">Category</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-48">Party</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-48">Location</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-32">Mobile</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-20">Images</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-20">Docs</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-52">Preview</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-48">Created</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-48">Status</th>
-                    <th class="px-3 py-2 whitespace-nowrap w-56">Actions</th>
+            <div
+              *ngIf="!loading && rows.length === 0"
+              class="text-center py-12"
+            >
+              <i class="pi pi-inbox text-4xl text-gray-300 mb-4"></i>
+              <h3 class="text-lg font-medium text-gray-900 mb-2">
+                No machines found
+              </h3>
+              <p class="text-gray-500">
+                Try adjusting your search or filter criteria.
+              </p>
+            </div>
+            <div *ngIf="!loading && rows.length > 0">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Machine
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Category
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Party
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Location
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Contact
+                    </th>
+                    <th
+                      class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Media
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Created
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Status
+                    </th>
+                    <th
+                      class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody class="bg-white divide-y divide-gray-200">
                   <tr
-                    *ngFor="let m of rows"
-                    class="border-t border-neutral-200"
+                    *ngFor="let m of rows; let i = index"
+                    class="hover:bg-gray-50 transition-colors"
+                    [class.bg-gray-50]="i % 2 === 0"
                   >
-                    <td class="px-3 py-2">
-                      <div class="ellipsis" [title]="m.name">{{ m.name }}</div>
+                    <!-- Machine Name -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10">
+                          <div
+                            class="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center"
+                          >
+                            <i class="pi pi-cog text-blue-600"></i>
+                          </div>
+                        </div>
+                        <div class="ml-4">
+                          <div
+                            class="text-sm font-medium text-gray-900 truncate max-w-48"
+                            [title]="m.name"
+                          >
+                            {{ m.name }}
+                          </div>
+                          <div
+                            class="text-sm text-gray-500"
+                            *ngIf="m.created_by?.username"
+                          >
+                            by {{ m.created_by?.username }}
+                          </div>
+                        </div>
+                      </div>
                     </td>
-                    <td class="px-3 py-2">
-                      <div class="ellipsis" [title]="categoryName(m)">
+
+                    <!-- Category -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div
+                        class="text-sm text-gray-900 truncate max-w-32"
+                        [title]="categoryName(m)"
+                      >
                         {{ categoryName(m) }}
                       </div>
                     </td>
-                    <td class="px-3 py-2">
-                      <div class="ellipsis" [title]="m.party_name">
+
+                    <!-- Party -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div
+                        class="text-sm text-gray-900 truncate max-w-32"
+                        [title]="m.party_name"
+                      >
                         {{ m.party_name || '-' }}
                       </div>
                     </td>
-                    <td class="px-3 py-2">
-                      <div class="ellipsis" [title]="m.location">
+
+                    <!-- Location -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div
+                        class="text-sm text-gray-900 truncate max-w-32"
+                        [title]="m.location"
+                      >
                         {{ m.location || '-' }}
                       </div>
                     </td>
-                    <td class="px-3 py-2">
-                      <div class="ellipsis" [title]="m.mobile_number">
-                        {{ m.mobile_number || '-' }}
-                      </div>
-                    </td>
-                    <td class="px-3 py-2">{{ m.images?.length || 0 }}</td>
-                    <td class="px-3 py-2">{{ m.documents?.length || 0 }}</td>
-                    <td class="px-3 py-2">
+
+                    <!-- Contact -->
+                    <td class="px-6 py-4 whitespace-nowrap">
                       <div
-                        class="flex gap-2 items-center max-w-[200px] overflow-x-auto hide-scrollbar"
-                        *ngIf="(m.images?.length || 0) > 0; else noimg"
+                        class="text-sm text-gray-900"
+                        *ngIf="m.mobile_number; else noContact"
                       >
-                        <img
-                          *ngFor="
-                            let img of m.images || [] | slice: 0 : 3;
-                            let i = index
-                          "
-                          [src]="imageUrl(img)"
-                          class="thumb cursor-pointer hover:opacity-90"
-                          (click)="openPreview(m.images || [], i)"
-                          [alt]="m.name + ' image'"
-                        />
-                        <span
-                          *ngIf="(m.images?.length || 0) > 3"
-                          class="text-xs text-text-muted"
-                          >+{{ (m.images?.length || 0) - 3 }}</span
-                        >
+                        <i class="pi pi-phone text-gray-400 mr-1"></i>
+                        {{ m.mobile_number }}
                       </div>
-                      <ng-template #noimg>
-                        <span class="text-xs text-text-muted">No images</span>
+                      <ng-template #noContact>
+                        <span class="text-sm text-gray-400">-</span>
                       </ng-template>
                     </td>
-                    <td class="px-3 py-2 whitespace-nowrap">
-                      {{ m.createdAt | date: 'medium' }}
+
+                    <!-- Media -->
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                      <div class="flex items-center justify-center gap-3">
+                        <!-- Images -->
+                        <div
+                          class="flex items-center gap-1"
+                          *ngIf="(m.images?.length || 0) > 0; else noImages"
+                        >
+                          <i class="pi pi-image text-blue-500"></i>
+                          <span class="text-sm font-medium text-gray-900">{{
+                            m.images?.length || 0
+                          }}</span>
+                          <button
+                            class="ml-1 p-1 text-gray-400 hover:text-blue-600 rounded"
+                            (click)="openPreview(m.images || [], 0)"
+                            title="Preview images"
+                          >
+                            <i class="pi pi-eye text-xs"></i>
+                          </button>
+                        </div>
+                        <ng-template #noImages>
+                          <span class="text-sm text-gray-400">-</span>
+                        </ng-template>
+
+                        <!-- Documents -->
+                        <div
+                          class="flex items-center gap-1"
+                          *ngIf="(m.documents?.length || 0) > 0; else noDocs"
+                        >
+                          <i class="pi pi-file text-green-500"></i>
+                          <span class="text-sm font-medium text-gray-900">{{
+                            m.documents?.length || 0
+                          }}</span>
+                          <button
+                            class="ml-1 p-1 text-gray-400 hover:text-green-600 rounded"
+                            (click)="openDocumentsModal(m)"
+                            title="View documents"
+                          >
+                            <i class="pi pi-eye text-xs"></i>
+                          </button>
+                        </div>
+                        <ng-template #noDocs>
+                          <span class="text-sm text-gray-400">-</span>
+                        </ng-template>
+                      </div>
                     </td>
-                    <td class="px-3 py-2">
-                      <div class="flex flex-col gap-1">
+
+                    <!-- Created -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{ m.createdAt | date: 'MMM d, y' }}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                        {{ m.createdAt | date: 'h:mm a' }}
+                      </div>
+                    </td>
+
+                    <!-- Status -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex flex-col gap-2">
                         <span
-                          class="px-2 py-1 rounded text-xs w-fit"
+                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full w-fit"
                           [ngClass]="{
-                            'bg-green-100 text-green-700':
+                            'bg-green-100 text-green-800':
                               (m.approvalStatus ||
                                 (m.is_approved ? 'approved' : 'pending')) ===
                               'approved',
-                            'bg-red-100 text-red-700':
+                            'bg-red-100 text-red-800':
                               m.approvalStatus === 'rejected',
-                            'bg-amber-100 text-amber-700':
+                            'bg-yellow-100 text-yellow-800':
                               (!m.approvalStatus && !m.is_approved) ||
                               m.approvalStatus === 'pending',
                           }"
@@ -240,51 +373,59 @@ interface MachineRow {
                               | titlecase
                           }}
                         </span>
+
+                        <!-- Approval Details -->
                         <div
-                          class="text-xs text-text-muted"
+                          class="text-xs text-gray-500"
                           *ngIf="m.approvalStatus === 'approved'"
                         >
-                          by {{ m.decisionByName || 'approver' }}
-                          <span *ngIf="m.decisionDate"
-                            >• {{ m.decisionDate | date: 'medium' }}</span
-                          >
+                          <div class="flex items-center gap-1">
+                            <i class="pi pi-check-circle text-green-500"></i>
+                            <span>by {{ m.decisionByName || 'approver' }}</span>
+                          </div>
+                          <div *ngIf="m.decisionDate" class="text-gray-400">
+                            {{ m.decisionDate | date: 'MMM d, h:mm a' }}
+                          </div>
                         </div>
+
                         <div
-                          class="text-xs text-error"
+                          class="text-xs text-gray-500"
                           *ngIf="m.approvalStatus === 'rejected'"
                         >
-                          by {{ m.decisionByName || 'approver' }}
-                          <span *ngIf="m.decisionDate" class="text-text-muted"
-                            >• {{ m.decisionDate | date: 'medium' }}</span
-                          >
+                          <div class="flex items-center gap-1">
+                            <i class="pi pi-times-circle text-red-500"></i>
+                            <span>by {{ m.decisionByName || 'approver' }}</span>
+                          </div>
+                          <div *ngIf="m.decisionDate" class="text-gray-400">
+                            {{ m.decisionDate | date: 'MMM d, h:mm a' }}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td class="px-3 py-2 whitespace-nowrap">
-                      <button
-                        class="px-2 py-1 text-sm rounded border hover:bg-neutral-100"
-                        [disabled]="!m.images?.length"
-                        (click)="openPreview(m.images || [], 0)"
-                        title="Preview images"
-                      >
-                        <i class="pi pi-image mr-1"></i> Preview
-                      </button>
-                      <ng-container
-                        *ngIf="m.approvalStatus === 'rejected'; else noReason"
-                      >
+
+                    <!-- Actions -->
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                      <div class="flex items-center justify-center gap-2">
                         <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 ml-2 text-error"
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                          [disabled]="!m.images?.length"
+                          (click)="openPreview(m.images || [], 0)"
+                          title="Preview images"
+                        >
+                          <i class="pi pi-image mr-1"></i>
+                          Images
+                        </button>
+
+                        <button
+                          *ngIf="m.approvalStatus === 'rejected'"
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
                           (click)="openRejection(m._id)"
                           title="View rejection reason"
                         >
-                          <i class="pi pi-info-circle mr-1"></i> View Reason
+                          <i class="pi pi-info-circle mr-1"></i>
+                          Reason
                         </button>
-                      </ng-container>
-                      <ng-template #noReason>
-                        <span class="text-xs text-text-muted ml-2"
-                          >No reason</span
-                        >
-                      </ng-template>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -304,145 +445,374 @@ interface MachineRow {
           </div>
         </section>
 
-        <!-- Rejection Reason Modal -->
+        <!-- Enhanced Rejection Reason Modal -->
         <div
-          class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+          class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
           *ngIf="rejectVisible"
         >
           <div
-            class="bg-white w-full max-w-md rounded-xl shadow-xl border border-neutral-300"
+            class="bg-white w-full max-w-2xl max-h-[90vh] rounded-xl shadow-2xl border border-gray-200 flex flex-col"
           >
             <div
-              class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between"
+              class="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-red-50"
             >
-              <h3 class="font-medium">Rejection Details</h3>
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center"
+                >
+                  <i class="pi pi-times-circle text-red-600"></i>
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">
+                    Rejection Details
+                  </h3>
+                  <p class="text-sm text-gray-500">
+                    Machine approval was rejected
+                  </p>
+                </div>
+              </div>
               <button
-                class="p-2 hover:bg-neutral-100 rounded"
+                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 (click)="rejectVisible = false"
               >
-                <i class="pi pi-times"></i>
+                <i class="pi pi-times text-lg"></i>
               </button>
             </div>
-            <div class="p-4 space-y-4">
-              <div *ngIf="rejectLoading" class="text-text-muted">
-                Loading...
+
+            <div class="flex-1 overflow-y-auto p-6">
+              <div
+                *ngIf="rejectLoading"
+                class="flex items-center justify-center py-12"
+              >
+                <div class="flex items-center gap-3 text-gray-500">
+                  <i class="pi pi-spinner pi-spin text-lg"></i>
+                  <span>Loading rejection details...</span>
+                </div>
               </div>
-              <div *ngIf="!rejectLoading">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div class="text-xs text-text-muted mb-1">
-                      Rejection Reason
-                    </div>
-                    <div
-                      class="whitespace-pre-wrap text-sm"
-                      *ngIf="rejectionReason; else noreason"
-                    >
-                      {{ rejectionReason }}
-                    </div>
-                    <ng-template #noreason>
-                      <div class="text-text-muted text-sm">
-                        No rejection reason available.
-                      </div>
-                    </ng-template>
+
+              <div *ngIf="!rejectLoading" class="space-y-6">
+                <!-- Rejection Reason -->
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4
+                    class="text-sm font-semibold text-red-900 mb-3 flex items-center gap-2"
+                  >
+                    <i class="pi pi-exclamation-triangle"></i>
+                    Rejection Reason
+                  </h4>
+                  <div
+                    class="whitespace-pre-wrap text-sm text-red-800 bg-white border border-red-200 rounded p-3"
+                    *ngIf="rejectionReason; else noreason"
+                  >
+                    {{ rejectionReason }}
                   </div>
-                  <div *ngIf="approverNotes">
-                    <div class="text-xs text-text-muted mb-1">
-                      Approver Notes
+                  <ng-template #noreason>
+                    <div
+                      class="text-red-600 text-sm bg-white border border-red-200 rounded p-3"
+                    >
+                      No rejection reason provided.
                     </div>
-                    <div class="whitespace-pre-wrap text-sm">
-                      {{ approverNotes }}
-                    </div>
+                  </ng-template>
+                </div>
+
+                <!-- Approver Notes -->
+                <div
+                  *ngIf="approverNotes"
+                  class="bg-blue-50 border border-blue-200 rounded-lg p-4"
+                >
+                  <h4
+                    class="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2"
+                  >
+                    <i class="pi pi-info-circle"></i>
+                    Approver Notes
+                  </h4>
+                  <div
+                    class="whitespace-pre-wrap text-sm text-blue-800 bg-white border border-blue-200 rounded p-3"
+                  >
+                    {{ approverNotes }}
                   </div>
                 </div>
-                <div *ngIf="rejectMachine" class="space-y-2">
-                  <div class="text-xs text-text-muted">Machine</div>
-                  <div class="text-sm">
-                    <span class="font-medium">Name:</span>
-                    {{ rejectMachine?.name }}
-                  </div>
-                  <div class="text-sm">
-                    <span class="font-medium">Category:</span>
-                    {{
-                      rejectMachine?.category_id?.name ||
-                        rejectMachine?.category_id ||
-                        '-'
-                    }}
-                  </div>
-                  <div *ngIf="rejectMetadata?.length" class="mt-2">
-                    <div class="text-xs text-text-muted mb-1">
-                      Additional details
+
+                <!-- Machine Details -->
+                <div
+                  *ngIf="rejectMachine"
+                  class="bg-gray-50 border border-gray-200 rounded-lg p-4"
+                >
+                  <h4
+                    class="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"
+                  >
+                    <i class="pi pi-cog"></i>
+                    Machine Information
+                  </h4>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label
+                        class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                        >Name</label
+                      >
+                      <p class="text-sm text-gray-900 mt-1">
+                        {{ rejectMachine?.name }}
+                      </p>
                     </div>
-                    <div class="border rounded divide-y">
+                    <div>
+                      <label
+                        class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                        >Category</label
+                      >
+                      <p class="text-sm text-gray-900 mt-1">
+                        {{
+                          rejectMachine?.category_id?.name ||
+                            rejectMachine?.category_id ||
+                            '-'
+                        }}
+                      </p>
+                    </div>
+                    <div *ngIf="rejectMachine?.party_name">
+                      <label
+                        class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                        >Party</label
+                      >
+                      <p class="text-sm text-gray-900 mt-1">
+                        {{ rejectMachine.party_name }}
+                      </p>
+                    </div>
+                    <div *ngIf="rejectMachine?.location">
+                      <label
+                        class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                        >Location</label
+                      >
+                      <p class="text-sm text-gray-900 mt-1">
+                        {{ rejectMachine.location }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Additional Metadata -->
+                  <div *ngIf="rejectMetadata?.length" class="mt-4">
+                    <h5 class="text-sm font-medium text-gray-900 mb-2">
+                      Additional Details
+                    </h5>
+                    <div
+                      class="bg-white border border-gray-200 rounded divide-y"
+                    >
                       <div
-                        class="p-2 grid grid-cols-5 gap-2"
+                        class="px-3 py-2 flex justify-between items-start"
                         *ngFor="let m of rejectMetadata"
                       >
-                        <div class="col-span-2 text-xs font-medium">
-                          {{ m.key }}
-                        </div>
-                        <div class="col-span-3 text-xs break-all">
-                          {{ m.value }}
-                        </div>
+                        <span
+                          class="text-sm font-medium text-gray-600 flex-shrink-0 w-1/3"
+                          >{{ m.key }}</span
+                        >
+                        <span
+                          class="text-sm text-gray-900 text-right break-all w-2/3"
+                          >{{ m.value }}</span
+                        >
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="pt-2 flex items-center justify-end">
+            </div>
+
+            <div
+              class="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3"
+            >
+              <button
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                (click)="rejectVisible = false"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Enhanced Image Lightbox Modal -->
+        <div
+          class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+          *ngIf="previewVisible"
+        >
+          <div class="relative w-full max-w-6xl mx-4">
+            <!-- Close Button -->
+            <button
+              class="absolute -top-12 right-0 text-white p-2 hover:bg-white/20 rounded-full transition-colors z-10"
+              (click)="closePreview()"
+            >
+              <i class="pi pi-times text-2xl"></i>
+            </button>
+
+            <!-- Main Image Container -->
+            <div class="bg-black rounded-lg overflow-hidden shadow-2xl">
+              <div
+                class="relative flex items-center justify-center"
+                style="min-height: 70vh;"
+              >
+                <!-- Previous Button -->
                 <button
-                  class="px-3 py-2 rounded border"
-                  (click)="rejectVisible = false"
+                  *ngIf="previewImages.length > 1"
+                  class="absolute left-4 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
+                  (click)="prevImage()"
                 >
-                  Close
+                  <i class="pi pi-chevron-left text-xl"></i>
                 </button>
+
+                <!-- Main Image -->
+                <img
+                  *ngIf="previewImages.length > 0"
+                  [src]="imageUrl(previewImages[previewIndex])"
+                  class="max-h-[70vh] w-auto object-contain"
+                  [alt]="'Image ' + (previewIndex + 1)"
+                />
+
+                <!-- Next Button -->
+                <button
+                  *ngIf="previewImages.length > 1"
+                  class="absolute right-4 text-white bg-black/40 hover:bg-black/60 rounded-full p-3 transition-colors z-10"
+                  (click)="nextImage()"
+                >
+                  <i class="pi pi-chevron-right text-xl"></i>
+                </button>
+              </div>
+
+              <!-- Thumbnail Strip -->
+              <div
+                *ngIf="previewImages.length > 1"
+                class="p-4 bg-gray-900 flex gap-2 overflow-x-auto"
+              >
+                <img
+                  *ngFor="let img of previewImages; let i = index"
+                  [src]="imageUrl(img)"
+                  class="w-16 h-16 object-cover rounded border-2 cursor-pointer transition-all"
+                  [class.border-blue-500]="i === previewIndex"
+                  [class.border-gray-600]="i !== previewIndex"
+                  (click)="goToImage(i)"
+                  [alt]="'Thumbnail ' + (i + 1)"
+                />
+              </div>
+
+              <!-- Image Counter -->
+              <div
+                *ngIf="previewImages.length > 1"
+                class="absolute top-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm"
+              >
+                {{ previewIndex + 1 }} / {{ previewImages.length }}
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Image Lightbox Modal -->
+        <!-- Documents Modal -->
         <div
-          class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-          *ngIf="previewVisible"
+          *ngIf="documentsVisible"
+          class="fixed inset-0 z-50 flex items-center justify-center"
         >
-          <div class="relative w-full max-w-4xl mx-4">
-            <button
-              class="absolute -top-10 right-0 text-white p-2"
-              (click)="closePreview()"
+          <div
+            class="absolute inset-0 bg-black/40"
+            (click)="documentsVisible = false"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="documentsVisible = false"
+            (keydown.space)="documentsVisible = false"
+          ></div>
+          <div
+            class="relative bg-white border border-gray-200 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+          >
+            <div
+              class="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0"
             >
-              <i class="pi pi-times text-2xl"></i>
-            </button>
-            <div class="bg-black rounded-lg overflow-hidden">
-              <div
-                class="relative flex items-center justify-center"
-                style="min-height: 300px;"
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center"
+                >
+                  <i class="pi pi-file text-green-600"></i>
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">
+                    Machine Documents
+                  </h3>
+                  <p class="text-sm text-gray-500">
+                    {{ selectedMachine?.name }}
+                  </p>
+                </div>
+              </div>
+              <button
+                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                (click)="documentsVisible = false"
               >
-                <button
-                  class="absolute left-2 text-white bg-black/40 rounded-full p-2"
-                  (click)="prevImage()"
+                <i class="pi pi-times text-lg"></i>
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6">
+              <div *ngIf="selectedMachine?.documents?.length; else noDocuments">
+                <div
+                  class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                 >
-                  <i class="pi pi-chevron-left"></i>
-                </button>
-                <img
-                  [src]="imageUrl(previewImages[previewIndex])"
-                  class="max-h-[70vh] w-auto object-contain"
-                />
-                <button
-                  class="absolute right-2 text-white bg-black/40 rounded-full p-2"
-                  (click)="nextImage()"
-                >
-                  <i class="pi pi-chevron-right"></i>
-                </button>
+                  <div
+                    *ngFor="
+                      let doc of selectedMachine?.documents;
+                      let i = index
+                    "
+                    class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div class="flex-shrink-0">
+                        <div
+                          class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center"
+                        >
+                          <i class="pi pi-file text-green-600 text-xl"></i>
+                        </div>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h4
+                          class="font-medium text-sm text-gray-900 truncate"
+                          [title]="doc.name"
+                        >
+                          {{ doc.name }}
+                        </h4>
+                        <p class="text-xs text-gray-500 mt-1">
+                          {{ doc.document_type || 'Document' }}
+                        </p>
+                        <div class="flex gap-2 mt-3">
+                          <button
+                            class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                            (click)="downloadDocument(doc)"
+                          >
+                            <i class="pi pi-download mr-1"></i>
+                            Download
+                          </button>
+                          <button
+                            class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                            (click)="previewDocument(doc)"
+                          >
+                            <i class="pi pi-eye mr-1"></i>
+                            Preview
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="p-2 bg-neutral-900 flex gap-2 overflow-x-auto">
-                <img
-                  *ngFor="let p of previewImages; let i = index"
-                  [src]="imageUrl(p)"
-                  class="w-14 h-14 object-cover rounded border cursor-pointer"
-                  [class.border-primary]="i === previewIndex"
-                  (click)="goToImage(i)"
-                />
-              </div>
+              <ng-template #noDocuments>
+                <div class="text-center py-12">
+                  <i class="pi pi-file text-4xl text-gray-300 mb-4"></i>
+                  <h3 class="text-lg font-medium text-gray-900 mb-2">
+                    No Documents
+                  </h3>
+                  <p class="text-gray-500">
+                    This machine doesn't have any documents attached.
+                  </p>
+                </div>
+              </ng-template>
+            </div>
+            <div
+              class="flex items-center justify-end gap-3 p-6 border-t border-gray-200 flex-shrink-0"
+            >
+              <button
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                (click)="documentsVisible = false"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -491,6 +861,8 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   previewVisible = false;
   previewImages: string[] = [];
   previewIndex = 0;
+  documentsVisible = false;
+  selectedMachine: any = null;
   sidebarCollapsed = false;
   searchTerm = '';
   sortKey:
@@ -889,5 +1261,36 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     } catch {
       return rows;
     }
+  }
+
+  // Document modal methods
+  openDocumentsModal(machine: any): void {
+    this.selectedMachine = machine;
+    this.documentsVisible = true;
+  }
+
+  downloadDocument(doc: any): void {
+    const link = document.createElement('a');
+    link.href = this.documentUrl(doc.file_path);
+    link.download = doc.name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  previewDocument(doc: any): void {
+    const url = this.documentUrl(doc.file_path);
+    window.open(url, '_blank');
+  }
+
+  documentUrl(filePath: string): string {
+    const baseUrl = environment.baseUrl;
+    const normalizedPath = !filePath
+      ? ''
+      : filePath.startsWith('/')
+        ? filePath
+        : `/${filePath}`;
+    return `${baseUrl}${normalizedPath}`;
   }
 }

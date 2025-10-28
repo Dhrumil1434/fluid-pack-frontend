@@ -79,7 +79,7 @@ export class MachineService {
     if (data.mobile_number) {
       form.append('mobile_number', data.mobile_number);
     }
-    if (data.metadata) {
+    if (data.metadata !== undefined) {
       form.append('metadata', JSON.stringify(data.metadata));
     }
     if (data.images && data.images.length) {
@@ -115,6 +115,7 @@ export class MachineService {
       images?: File[];
       documents?: File[];
       metadata?: Record<string, unknown>;
+      removedDocuments?: any[];
     }
   ): Observable<ApiResponse<Machine>> {
     const form = new FormData();
@@ -123,7 +124,12 @@ export class MachineService {
     if (data.party_name) form.append('party_name', data.party_name);
     if (data.location) form.append('location', data.location);
     if (data.mobile_number) form.append('mobile_number', data.mobile_number);
-    if (data.metadata) form.append('metadata', JSON.stringify(data.metadata));
+    if (data.metadata !== undefined) {
+      form.append('metadata', JSON.stringify(data.metadata));
+    }
+    if (data.removedDocuments && data.removedDocuments.length > 0) {
+      form.append('removedDocuments', JSON.stringify(data.removedDocuments));
+    }
     if (data.images && data.images.length) {
       data.images.forEach(file => form.append('images', file));
     }

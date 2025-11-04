@@ -1,0 +1,465 @@
+<div
+  class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
+>
+  <app-admin-sidebar
+    [collapsed]="sidebarCollapsed"
+    (collapseChange)="onSidebarCollapseChange($event)"
+  ></app-admin-sidebar>
+
+  <div
+    class="transition-all duration-300"
+    [class.ml-16]="sidebarCollapsed"
+    [class.ml-64]="!sidebarCollapsed"
+  >
+    <header
+      class="bg-white border-b border-gray-100 px-6 py-3 sticky top-0 z-40"
+    >
+      <div class="flex items-center justify-between">
+        <button
+          class="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
+          (click)="toggleSidebar()"
+          title="Toggle sidebar"
+        >
+          <i class="pi pi-bars text-lg"></i>
+        </button>
+        <div class="text-lg font-semibold">Sequence Management</div>
+        <div class="w-10"></div>
+      </div>
+    </header>
+
+    <main class="p-6 space-y-4">
+      <app-list-filters
+        searchLabel="Search sequence configurations"
+        searchPlaceholder="Category, prefix, format"
+        (searchChange)="onSearchChange($event)"
+        (apply)="reload()"
+        (clear)="clearFilters()"
+      >
+        <div filters-extra class="flex items-end gap-3">
+          <select
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            [(ngModel)]="filters.categoryId"
+            (change)="onFilterChange()"
+          >
+            <option [ngValue]="undefined">All Categories</option>
+            <option
+              *ngFor="let cat of mainCategories; trackBy: trackByCategoryId"
+              [ngValue]="cat._id"
+            >
+              {{ cat.name }}
+            </option>
+          </select>
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              [(ngModel)]="filters.includeInactive"
+              (change)="onFilterChange()"
+            />
+            Include Inactive
+          </label>
+        </div>
+      </app-list-filters>
+
+      <app-list-table-shell title="Sequence Configurations">
+        <div table-actions class="flex items-center gap-2">
+          <button
+            class="px-3 py-1 bg-primary text-white rounded-md"
+            (click)="openCreate()"
+          >
+            Add Configuration
+          </button>
+        </div>
+
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="bg-neutral-50 text-left">
+              <th class="px-4 py-2">Category</th>
+              <th class="px-4 py-2">Subcategory</th>
+              <th class="px-4 py-2">Prefix</th>
+              <th class="px-4 py-2">Current Sequence</th>
+              <th class="px-4 py-2">Starting Number</th>
+              <th class="px-4 py-2">Format</th>
+              <th class="px-4 py-2">Status</th>
+              <th class="px-4 py-2 w-40">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="
+                let config of getFilteredConfigs();
+                trackBy: trackByConfigId
+              "
+              class="border-t"
+            >
+              <td class="px-4 py-2">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-folder text-blue-500"></i>
+                  <span class="font-medium">{{
+                    getCategoryName(config.category_id)
+                  }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-2">
+                <span
+                  *ngIf="config.subcategory_id"
+                  class="text-xs text-gray-600"
+                >
+                  {{ getSubcategoryName(config.subcategory_id) }}
+                </span>
+                <span
+                  *ngIf="!config.subcategory_id"
+                  class="text-gray-400 text-xs"
+                  >-</span
+                >
+              </td>
+              <td class="px-4 py-2">
+                <span class="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                  {{ config.sequence_prefix }}
+                </span>
+              </td>
+              <td class="px-4 py-2">
+                <span
+                  class="font-mono text-sm bg-blue-100 px-2 py-1 rounded text-blue-800"
+                >
+                  {{ config.current_sequence }}
+                </span>
+              </td>
+              <td class="px-4 py-2">{{ config.starting_number }}</td>
+              <td class="px-4 py-2">
+                <span
+                  class="font-mono text-xs bg-gray-100 px-2 py-1 rounded"
+                  [title]="config.format"
+                >
+                  {{
+                    config.format.length > 30
+                      ? config.format.substring(0, 30) + '...'
+                      : config.format
+                  }}
+                </span>
+              </td>
+              <td class="px-4 py-2">
+                <span
+                  class="px-2 py-1 rounded text-xs"
+                  [class.bg-green-100]="config.is_active"
+                  [class.bg-gray-100]="!config.is_active"
+                  [class.text-green-800]="config.is_active"
+                  [class.text-gray-800]="!config.is_active"
+                >
+                  {{ config.is_active ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td class="px-4 py-2">
+                <div class="flex gap-2">
+                  <button
+                    class="px-2 py-1 border rounded text-xs"
+                    (click)="openEdit(config)"
+                    title="Edit"
+                  >
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                  <button
+                    class="px-2 py-1 border rounded text-xs text-orange-600"
+                    (click)="openResetModal(config)"
+                    title="Reset Sequence"
+                  >
+                    <i class="pi pi-refresh"></i>
+                  </button>
+                  <button
+                    class="px-2 py-1 border rounded text-xs text-red-600"
+                    (click)="confirmDelete(config)"
+                    title="Delete"
+                  >
+                    <i class="pi pi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="getFilteredConfigs().length === 0">
+              <td colspan="8" class="px-4 py-6 text-center text-neutral-500">
+                No sequence configurations found
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div table-footer class="w-full">
+          <app-table-pagination
+            [page]="page"
+            [pages]="pages"
+            [total]="total"
+            [limit]="limit"
+            (pageChange)="onPageChange($event)"
+            (limitChange)="onLimitChange($event)"
+          ></app-table-pagination>
+        </div>
+      </app-list-table-shell>
+
+      <!-- Create / Edit Modal -->
+      <div
+        *ngIf="formVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="closeForm()"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="closeForm()"
+          (keydown.space)="closeForm()"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-2xl max-h-[90vh] flex flex-col"
+        >
+          <div
+            class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+          >
+            <h3 class="text-lg font-semibold text-text">
+              {{
+                editing
+                  ? 'Edit Sequence Configuration'
+                  : 'Add Sequence Configuration'
+              }}
+            </h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="closeForm()"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <form
+              [formGroup]="form"
+              class="p-4 space-y-4"
+              (ngSubmit)="submitForm()"
+            >
+              <div class="space-y-1">
+                <label class="text-sm">Category *</label>
+                <select
+                  class="w-full border rounded px-3 py-2"
+                  formControlName="categoryId"
+                  (change)="onCategoryChange()"
+                >
+                  <option value="">Select category</option>
+                  <option
+                    *ngFor="
+                      let cat of mainCategories;
+                      trackBy: trackByCategoryId
+                    "
+                    [value]="cat._id"
+                  >
+                    {{ cat.name }}
+                  </option>
+                </select>
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['categoryId'].touched &&
+                    form.controls['categoryId'].invalid
+                  "
+                >
+                  Category is required
+                </div>
+              </div>
+
+              <div class="space-y-1" *ngIf="subcategories.length > 0">
+                <label class="text-sm">Subcategory (Optional)</label>
+                <select
+                  class="w-full border rounded px-3 py-2"
+                  formControlName="subcategoryId"
+                >
+                  <option value="">No subcategory</option>
+                  <option
+                    *ngFor="
+                      let subcat of subcategories;
+                      trackBy: trackBySubcategoryId
+                    "
+                    [value]="subcat._id"
+                  >
+                    {{ subcat.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1">
+                  <label class="text-sm">Sequence Prefix *</label>
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2 font-mono uppercase"
+                    formControlName="sequencePrefix"
+                    placeholder="e.g., MACH"
+                    maxlength="10"
+                  />
+                  <div class="text-xs text-gray-500">
+                    Uppercase letters, numbers, and hyphens only (max 10 chars)
+                  </div>
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="
+                      form.controls['sequencePrefix'].touched &&
+                      form.controls['sequencePrefix'].invalid
+                    "
+                  >
+                    Valid prefix is required (1-10 characters, uppercase
+                    alphanumeric)
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-sm">Starting Number *</label>
+                  <input
+                    type="number"
+                    class="w-full border rounded px-3 py-2"
+                    formControlName="startingNumber"
+                    placeholder="1"
+                    min="1"
+                  />
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="
+                      form.controls['startingNumber'].touched &&
+                      form.controls['startingNumber'].invalid
+                    "
+                  >
+                    Starting number must be at least 1
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-sm">Format Pattern *</label>
+                <input
+                  type="text"
+                  class="w-full border rounded px-3 py-2 font-mono"
+                  formControlName="format"
+                  placeholder="{{ '{' }}category{{ '}' }}-{{ '{' }}sequence{{
+                    '}'
+                  }}"
+                />
+                <div class="text-xs text-gray-500">
+                  Use {{ '{' }}category{{ '}' }} for category name and
+                  {{ '{' }}sequence{{ '}' }} for sequence number
+                </div>
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['format'].touched &&
+                    form.controls['format'].invalid
+                  "
+                >
+                  Format must include {{ '{' }}category{{ '}' }} and
+                  {{ '{' }}sequence{{ '}' }} placeholders
+                </div>
+              </div>
+            </form>
+          </div>
+          <div
+            class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              type="button"
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="closeForm()"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              [disabled]="form.invalid || submitting"
+              (click)="submitForm()"
+            >
+              <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
+              <i *ngIf="!submitting" class="pi pi-save"></i>
+              <span>{{ editing ? 'Save Changes' : 'Create' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reset Sequence Modal -->
+      <div
+        *ngIf="resetModalVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="closeResetModal()"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="closeResetModal()"
+          (keydown.space)="closeResetModal()"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-md flex flex-col"
+        >
+          <div
+            class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+          >
+            <h3 class="text-lg font-semibold text-text">Reset Sequence</h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="closeResetModal()"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <form
+              [formGroup]="resetForm"
+              class="p-4 space-y-4"
+              (ngSubmit)="submitReset()"
+            >
+              <div class="space-y-1">
+                <label class="text-sm">New Starting Number *</label>
+                <input
+                  type="number"
+                  class="w-full border rounded px-3 py-2"
+                  formControlName="newStartingNumber"
+                  placeholder="1"
+                  min="1"
+                />
+                <div class="text-xs text-gray-500">
+                  The sequence will be reset to this number. Current sequence:
+                  {{ selected?.current_sequence }}
+                </div>
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    resetForm.controls['newStartingNumber'].touched &&
+                    resetForm.controls['newStartingNumber'].invalid
+                  "
+                >
+                  Starting number must be at least 1
+                </div>
+              </div>
+            </form>
+          </div>
+          <div
+            class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              type="button"
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="closeResetModal()"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-3 py-2 rounded-md bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              [disabled]="resetForm.invalid || submitting"
+              (click)="submitReset()"
+            >
+              <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
+              <i *ngIf="!submitting" class="pi pi-refresh"></i>
+              <span>Reset Sequence</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<p-toast></p-toast>

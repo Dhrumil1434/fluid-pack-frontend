@@ -563,8 +563,8 @@ export class PermissionManagementComponent {
         const cs = new m.CategoryService(
           this.permissionService['baseApiService']
         );
-        cs.getActiveCategories().subscribe({
-          next: res => (this.categoryOptions = (res?.data as any) || []),
+        cs.getAllCategories({ includeInactive: false }).subscribe({
+          next: (res: any) => (this.categoryOptions = (res?.data as any) || []),
         });
       })
       .finally(() => (this.loadingRefs = false));

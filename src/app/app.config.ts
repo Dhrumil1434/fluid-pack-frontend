@@ -10,6 +10,7 @@ import { requestInterceptor } from './core/interceptors/request.interceptor';
 import { responseInterceptor } from './core/interceptors/response.interceptor';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { loaderInterceptor } from './core/interceptors/loader.interceptor';
+import { CategoryService } from './core/services/category.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -32,11 +33,12 @@ export const appConfig: ApplicationConfig = {
           darkModeSelector: '.dark-mode',
           cssLayer: {
             name: 'primeng',
-            order: 'tailwind-base, primeng, tailwind-utilities'
-          }
-        }
-      }
+            order: 'tailwind-base, primeng, tailwind-utilities',
+          },
+        },
+      },
     }),
     MessageService,
+    CategoryService,
   ],
 };

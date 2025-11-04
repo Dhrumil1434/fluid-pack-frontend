@@ -22,6 +22,7 @@ import { API_ENDPOINTS } from '../../../../core/constants/api.constants';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { ElementRef, ViewChild } from '@angular/core';
+import { CategoryService } from '../../../../core/services/category.service';
 
 @Component({
   selector: 'app-create-machine-modal',
@@ -71,6 +72,7 @@ import { ElementRef, ViewChild } from '@angular/core';
               <select
                 class="w-full border rounded px-3 py-2"
                 formControlName="category_id"
+                (change)="onCategoryChange()"
               >
                 <option value="" disabled>Select category</option>
                 <option *ngFor="let c of categories" [value]="c._id">
@@ -86,6 +88,18 @@ import { ElementRef, ViewChild } from '@angular/core';
               >
                 Category is required
               </div>
+            </div>
+            <div class="space-y-1" *ngIf="subcategories.length > 0">
+              <label class="text-sm">Subcategory (Optional)</label>
+              <select
+                class="w-full border rounded px-3 py-2"
+                formControlName="subcategory_id"
+              >
+                <option value="">No subcategory</option>
+                <option *ngFor="let sc of subcategories" [value]="sc._id">
+                  {{ sc.name }}
+                </option>
+              </select>
             </div>
             <div class="space-y-1">
               <label class="text-sm">Party Name</label>
@@ -391,6 +405,9 @@ export class CreateMachineModalComponent
     if (v) {
       // Refresh categories each time modal opens to stay in sync
       this.fetchCategories();
+      // Reset subcategories when modal opens
+      this.subcategories = [];
+      this.form.patchValue({ subcategory_id: '' });
     }
   }
   get visible() {
@@ -400,7 +417,8 @@ export class CreateMachineModalComponent
   @Output() created = new EventEmitter<void>();
 
   form: FormGroup;
-  categories: Array<{ _id: string; name: string }> = [];
+  categories: Array<{ _id: string; name: string; level?: number }> = [];
+  subcategories: Array<{ _id: string; name: string }> = [];
   categoriesLoading = false;
   selectedFiles: File[] = [];
   selectedPreviews: string[] = [];
@@ -412,11 +430,13 @@ export class CreateMachineModalComponent
   constructor(
     private fb: FormBuilder,
     private baseApi: BaseApiService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private categoryService: CategoryService
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       category_id: ['', Validators.required],
+      subcategory_id: [''],
       party_name: [
         '',
         [
@@ -550,6 +570,9 @@ export class CreateMachineModalComponent
     const formData = new FormData();
     formData.append('name', this.form.value.name);
     formData.append('category_id', this.form.value.category_id);
+    if (this.form.value.subcategory_id) {
+      formData.append('subcategory_id', this.form.value.subcategory_id);
+    }
     formData.append('party_name', this.form.value.party_name);
     formData.append('location', this.form.value.location);
     formData.append('mobile_number', this.form.value.mobile_number);
@@ -600,18 +623,44 @@ export class CreateMachineModalComponent
 
   private fetchCategories(): void {
     this.categoriesLoading = true;
-    this.baseApi.get<any>(API_ENDPOINTS.CATEGORY_ACTIVE).subscribe({
-      next: res => {
-        const data: any = (res as any).data || res;
-        this.categories = Array.isArray(data)
-          ? data
-          : data.categories || data?.data?.categories || [];
-        this.categoriesLoading = false;
-      },
-      error: () => {
-        this.categoriesLoading = false;
-      },
-    });
+    this.categoryService
+      .getAllCategories({ includeInactive: false })
+      .subscribe({
+        next: res => {
+          const data: any = res.data || [];
+          // Filter to show only main categories (level 0) in the main dropdown
+          this.categories = data.filter((cat: any) => cat.level === 0);
+          this.categoriesLoading = false;
+        },
+        error: () => {
+          this.categoriesLoading = false;
+        },
+      });
+  }
+
+  onCategoryChange(): void {
+    // Reset subcategory when category changes
+    this.subcategories = [];
+    this.form.patchValue({ subcategory_id: '' });
+
+    // Load subcategories for the selected category
+    const categoryId = this.form.get('category_id')?.value;
+    if (categoryId) {
+      this.loadSubcategories(categoryId);
+    }
+  }
+
+  loadSubcategories(categoryId: string): void {
+    this.categoryService
+      .getAllCategories({ includeInactive: false, parentId: categoryId })
+      .subscribe({
+        next: res => {
+          this.subcategories = res.data || [];
+        },
+        error: () => {
+          this.subcategories = [];
+        },
+      });
   }
 
   // Metadata helpers

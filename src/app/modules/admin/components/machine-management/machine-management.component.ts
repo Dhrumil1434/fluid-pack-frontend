@@ -23,6 +23,12 @@ import { CategoryService } from '../../../../core/services/category.service';
 import { environment } from '../../../../../environments/environment';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import {
+  SequenceConfig,
+  SequenceGenerationRequest,
+} from '../../../../core/models/category.model';
+import { MessageService } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
 
 @Component({
   selector: 'app-machine-management',
@@ -35,7 +41,9 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
     ListTableShellComponent,
     AdminSidebarComponent,
     TablePaginationComponent,
+    ToastModule,
   ],
+  providers: [MessageService],
   template: `
     <div
       class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
@@ -83,49 +91,25 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                 <option [ngValue]="true">Approved</option>
                 <option [ngValue]="false">Pending</option>
               </select>
-              <div class="relative">
-                <input
-                  class="px-3 py-2 border border-neutral-300 rounded-md w-64"
-                  placeholder="Search categories"
-                  [value]="filterCategoryInput"
-                  (focus)="
-                    filterCategoryOpen = true;
-                    onCategoryInput(filterCategoryInput, 'filter')
-                  "
-                  (input)="onCategoryInput($any($event.target).value, 'filter')"
-                />
-                <div
-                  class="absolute z-50 mt-1 w-64 bg-white border border-neutral-300 rounded-md shadow"
-                  *ngIf="filterCategoryOpen"
-                >
-                  <div
-                    class="p-2 text-sm text-text-muted"
-                    *ngIf="categorySuggestLoading"
-                  >
-                    Searching...
-                  </div>
-                  <button
-                    type="button"
-                    class="w-full text-left px-3 py-2 hover:bg-neutral-100 text-sm"
-                    (click)="
-                      selectCategory(
-                        { _id: undefined, name: 'All categories' },
-                        'filter'
-                      )
-                    "
-                  >
-                    All categories
-                  </button>
-                  <button
-                    type="button"
-                    class="w-full text-left px-3 py-2 hover:bg-neutral-100 text-sm"
-                    *ngFor="let opt of categorySuggest; trackBy: trackById"
-                    (click)="selectCategory(opt, 'filter')"
-                  >
-                    {{ opt.name }}
-                  </button>
-                </div>
-              </div>
+              <select
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.has_sequence"
+                (change)="reload()"
+              >
+                <option [ngValue]="undefined">All sequences</option>
+                <option [ngValue]="true">With sequence</option>
+                <option [ngValue]="false">Without sequence</option>
+              </select>
+              <select
+                class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+                [(ngModel)]="filters.category_id"
+                (change)="onCategoryFilterChange()"
+              >
+                <option [ngValue]="undefined">All categories</option>
+                <option *ngFor="let cat of filterCategories" [value]="cat._id">
+                  {{ getCategoryDisplayName(cat) }}
+                </option>
+              </select>
             </div>
           </app-list-filters>
 
@@ -137,13 +121,54 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
               >
                 Add Machine
               </button>
+              <button
+                class="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                (click)="generateSequencesForSelectedMachines()"
+                [disabled]="
+                  isGeneratingSequence ||
+                  getMachinesWithoutSequence().length === 0
+                "
+                title="Generate sequences for machines without sequences"
+              >
+                <i
+                  *ngIf="isGeneratingSequence"
+                  class="pi pi-spinner pi-spin mr-1"
+                ></i>
+                <i *ngIf="!isGeneratingSequence" class="pi pi-cog mr-1"></i>
+                {{
+                  isGeneratingSequence ? 'Generating...' : 'Generate Sequences'
+                }}
+              </button>
+            </div>
+
+            <!-- Bulk Generation Progress -->
+            <div
+              *ngIf="isGeneratingSequence"
+              class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-blue-800"
+                  >Generating Sequences...</span
+                >
+                <span class="text-sm text-blue-600"
+                  >{{ sequenceGenerationProgress }}%</span
+                >
+              </div>
+              <div class="w-full bg-blue-200 rounded-full h-2">
+                <div
+                  class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  [style.width.%]="sequenceGenerationProgress"
+                ></div>
+              </div>
             </div>
 
             <table class="min-w-full text-sm">
               <thead>
                 <tr class="bg-neutral-50 text-left">
+                  <th class="px-4 py-2">Sequence</th>
                   <th class="px-4 py-2">Name</th>
                   <th class="px-4 py-2">Category</th>
+                  <th class="px-4 py-2">Subcategory</th>
                   <th class="px-4 py-2">Party</th>
                   <th class="px-4 py-2">Location</th>
                   <th class="px-4 py-2">Mobile</th>
@@ -155,8 +180,62 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
               </thead>
               <tbody>
                 <tr *ngFor="let m of machines" class="border-t">
+                  <td class="px-4 py-2">
+                    <div class="flex items-center gap-2">
+                      <span
+                        *ngIf="m.machine_sequence"
+                        class="font-mono text-sm font-semibold bg-blue-100 text-blue-800 px-3 py-1.5 rounded border border-blue-200 cursor-pointer hover:bg-blue-200 transition-colors"
+                        [title]="
+                          'Sequence: ' + m.machine_sequence + ' (Click to edit)'
+                        "
+                        (click)="openEditSequenceModal(m)"
+                      >
+                        {{ m.machine_sequence }}
+                      </span>
+                      <span
+                        *ngIf="!m.machine_sequence"
+                        class="text-gray-400 text-xs italic"
+                        >No sequence</span
+                      >
+                      <button
+                        *ngIf="!m.machine_sequence"
+                        class="text-xs text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
+                        (click)="generateSequenceForMachine(m)"
+                        title="Generate Sequence for this machine"
+                        [disabled]="isGeneratingSequence"
+                      >
+                        <i
+                          class="pi pi-cog mr-1"
+                          [class.pi-spin]="isGeneratingSequence"
+                        ></i>
+                        Generate
+                      </button>
+                      <button
+                        *ngIf="m.machine_sequence"
+                        class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors"
+                        (click)="removeSequenceFromMachine(m)"
+                        title="Remove sequence from this machine"
+                      >
+                        <i class="pi pi-times mr-1"></i>
+                        Remove
+                      </button>
+                    </div>
+                  </td>
                   <td class="px-4 py-2">{{ m.name }}</td>
                   <td class="px-4 py-2">{{ m.category_id.name }}</td>
+                  <td class="px-4 py-2">
+                    <span
+                      *ngIf="m.subcategory_id"
+                      class="text-xs text-gray-600"
+                    >
+                      {{ getSubcategoryDisplayName(m.subcategory_id) }}
+                    </span>
+                    <span
+                      *ngIf="!m.subcategory_id"
+                      class="text-gray-400 text-xs"
+                      >-</span
+                    >
+                  </td>
                   <td class="px-4 py-2">{{ m.party_name || '-' }}</td>
                   <td class="px-4 py-2">{{ m.location || '-' }}</td>
                   <td class="px-4 py-2">{{ m.mobile_number || '-' }}</td>
@@ -198,7 +277,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                 </tr>
                 <tr *ngIf="machines.length === 0">
                   <td
-                    colspan="9"
+                    colspan="11"
                     class="px-4 py-6 text-center text-neutral-500"
                   >
                     No machines found
@@ -286,6 +365,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                     <select
                       class="w-full border rounded px-3 py-2"
                       formControlName="category_id"
+                      (change)="onCategoryChange()"
                     >
                       <option value="" disabled>Select category</option>
                       <option *ngFor="let c of categories" [value]="c._id">
@@ -300,6 +380,72 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                       "
                     >
                       Category is required
+                    </div>
+                  </div>
+
+                  <div class="space-y-1" *ngIf="subcategories.length > 0">
+                    <label class="text-sm">Subcategory (Optional)</label>
+                    <select
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="subcategory_id"
+                      (change)="onSubcategoryChange()"
+                    >
+                      <option value="">No subcategory</option>
+                      <option *ngFor="let sc of subcategories" [value]="sc._id">
+                        {{ sc.name }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-sm">Machine Sequence</label>
+                      <button
+                        type="button"
+                        class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        (click)="openSequenceGenerator()"
+                        [disabled]="
+                          !form.get('category_id')?.value ||
+                          isGeneratingSequence
+                        "
+                      >
+                        <i
+                          *ngIf="isGeneratingSequence"
+                          class="pi pi-spinner pi-spin mr-1"
+                        ></i>
+                        <i
+                          *ngIf="!isGeneratingSequence"
+                          class="pi pi-cog mr-1"
+                        ></i>
+                        {{
+                          isGeneratingSequence ? 'Generating...' : 'Generate'
+                        }}
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      formControlName="machine_sequence"
+                      placeholder="Machine sequence will be generated automatically"
+                      readonly
+                    />
+                    <div class="text-xs text-gray-500">
+                      <span
+                        *ngIf="
+                          form.get('category_id')?.value &&
+                          hasSequenceConfig(form.get('category_id')?.value)
+                        "
+                      >
+                        ✓ Sequence configuration available for this category
+                      </span>
+                      <span
+                        *ngIf="
+                          form.get('category_id')?.value &&
+                          !hasSequenceConfig(form.get('category_id')?.value)
+                        "
+                      >
+                        ⚠ No sequence configuration found for this category
+                      </span>
                     </div>
                   </div>
 
@@ -719,6 +865,39 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
+                      >Subcategory</span
+                    >
+                    <span *ngIf="selected?.subcategory_id" class="text-sm">
+                      {{
+                        selected && selected.subcategory_id
+                          ? getSubcategoryDisplayName(selected.subcategory_id)
+                          : '-'
+                      }}
+                    </span>
+                    <span
+                      *ngIf="!selected?.subcategory_id"
+                      class="text-gray-400 text-sm"
+                      >-</span
+                    >
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Machine Sequence</span
+                    >
+                    <span
+                      *ngIf="selected?.machine_sequence"
+                      class="font-mono text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                    >
+                      {{ selected?.machine_sequence }}
+                    </span>
+                    <span
+                      *ngIf="!selected?.machine_sequence"
+                      class="text-gray-400"
+                      >-</span
+                    >
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
                       >Approved</span
                     >
                     {{ selected?.is_approved ? 'Yes' : 'No' }}
@@ -1062,6 +1241,157 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
           </div>
         </main>
       </div>
+
+      <!-- Toast Component -->
+      <p-toast></p-toast>
+
+      <!-- Edit Sequence Modal -->
+      <div
+        *ngIf="showEditSequenceModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        (click)="closeEditSequenceModal()"
+      >
+        <div
+          class="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+          (click)="$event.stopPropagation()"
+        >
+          <h3 class="text-lg font-semibold mb-4">Edit Sequence</h3>
+          <form
+            [formGroup]="editSequenceForm"
+            (ngSubmit)="saveEditedSequence()"
+          >
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2"
+                >Machine: {{ selectedMachineForSequence?.name }}</label
+              >
+              <input
+                type="text"
+                formControlName="machine_sequence"
+                class="w-full px-3 py-2 border rounded-md"
+                placeholder="Enter sequence number"
+              />
+              <div
+                *ngIf="
+                  editSequenceForm.controls['machine_sequence'].invalid &&
+                  editSequenceForm.controls['machine_sequence'].touched
+                "
+                class="text-red-500 text-xs mt-1"
+              >
+                Sequence is required and must be unique
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                class="px-4 py-2 border rounded-md hover:bg-gray-50"
+                (click)="closeEditSequenceModal()"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                [disabled]="editSequenceForm.invalid"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Swap Sequence Modal -->
+      <div
+        *ngIf="showSwapSequenceModal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        (click)="closeSwapSequenceModal()"
+      >
+        <div
+          class="bg-white rounded-lg p-6 max-w-lg w-full mx-4"
+          (click)="$event.stopPropagation()"
+        >
+          <h3 class="text-lg font-semibold mb-4">Swap Sequences</h3>
+          <form [formGroup]="swapSequenceForm" (ngSubmit)="swapSequences()">
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2"
+                >First Machine</label
+              >
+              <div class="p-3 bg-gray-50 rounded-md">
+                <div class="font-medium">{{ firstMachineForSwap?.name }}</div>
+                <div class="text-sm text-gray-600">
+                  Current Sequence:
+                  <span class="font-mono">{{
+                    firstMachineForSwap?.machine_sequence || 'None'
+                  }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="block text-sm font-medium mb-2"
+                >Second Machine *</label
+              >
+              <select
+                formControlName="secondMachineId"
+                class="w-full px-3 py-2 border rounded-md"
+                (change)="
+                  onSecondMachineSelect(
+                    swapSequenceForm.get('secondMachineId')?.value || ''
+                  )
+                "
+              >
+                <option value="">Select a machine...</option>
+                <option
+                  *ngFor="let m of machines"
+                  [value]="m._id"
+                  [disabled]="m._id === firstMachineForSwap?._id"
+                >
+                  {{ m.name }}
+                  {{
+                    m.machine_sequence ? ' (' + m.machine_sequence + ')' : ''
+                  }}
+                </option>
+              </select>
+              <div
+                *ngIf="
+                  swapSequenceForm.controls['secondMachineId'].invalid &&
+                  swapSequenceForm.controls['secondMachineId'].touched
+                "
+                class="text-red-500 text-xs mt-1"
+              >
+                Please select a second machine
+              </div>
+            </div>
+            <div
+              *ngIf="secondMachineForSwap"
+              class="mb-4 p-3 bg-gray-50 rounded-md"
+            >
+              <div class="font-medium">{{ secondMachineForSwap.name }}</div>
+              <div class="text-sm text-gray-600">
+                Current Sequence:
+                <span class="font-mono">{{
+                  secondMachineForSwap.machine_sequence || 'None'
+                }}</span>
+              </div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                class="px-4 py-2 border rounded-md hover:bg-gray-50"
+                (click)="closeSwapSequenceModal()"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                [disabled]="swapSequenceForm.invalid || !secondMachineForSwap"
+              >
+                Swap Sequences
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   `,
   styles: [],
@@ -1072,8 +1402,12 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   pages = 1;
   page = 1;
   limit = 10;
-  filters: { search?: string; is_approved?: boolean; category_id?: string } =
-    {};
+  filters: {
+    search?: string;
+    is_approved?: boolean;
+    category_id?: string;
+    has_sequence?: boolean;
+  } = {};
   // form state
   formVisible = false;
   viewVisible = false;
@@ -1084,7 +1418,18 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   formLoading = false;
   selected: Machine | null = null;
   form: FormGroup;
-  categories: Array<{ _id: string; name: string }> = [];
+  categories: Array<{
+    _id: string;
+    name: string;
+    level: number;
+    children?: any[];
+  }> = [];
+  filterCategories: Array<{
+    _id: string;
+    name: string;
+    level: number;
+  }> = [];
+  subcategories: Array<{ _id: string; name: string; level: number }> = [];
   previewImages: string[] = [];
   selectedFiles: File[] = [];
   selectedDocuments: File[] = [];
@@ -1112,13 +1457,32 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   lightboxImages: string[] = [];
   lightboxIndex = 0;
 
+  // sequence management
+  sequenceConfigs: SequenceConfig[] = [];
+  selectedSequence: string = '';
+  showSequenceGenerator = false;
+  isGeneratingSequence = false;
+  sequenceGenerationProgress = 0;
+
+  // Edit sequence modal
+  showEditSequenceModal = false;
+  editSequenceForm: FormGroup;
+  selectedMachineForSequence: Machine | null = null;
+
+  // Swap sequence modal
+  showSwapSequenceModal = false;
+  swapSequenceForm: FormGroup;
+  firstMachineForSwap: Machine | null = null;
+  secondMachineForSwap: Machine | null = null;
+
   // ViewChild for document input
   @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
 
   constructor(
     private machineService: MachineService,
     private fb: FormBuilder,
-    private categoryService: CategoryService
+    private categoryService: CategoryService,
+    private messageService: MessageService
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -1148,13 +1512,28 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         ],
       ],
       images: [null],
+      machine_sequence: [''],
+      subcategory_id: [''],
       is_approved: [false],
+    });
+
+    // Initialize edit sequence form
+    this.editSequenceForm = this.fb.group({
+      machine_sequence: ['', [Validators.required, Validators.maxLength(50)]],
+    });
+
+    // Initialize swap sequence form
+    this.swapSequenceForm = this.fb.group({
+      firstMachineId: ['', Validators.required],
+      secondMachineId: ['', Validators.required],
     });
   }
 
   ngOnInit(): void {
     this.reload();
     this.loadCategories();
+    this.loadFilterCategories();
+    this.loadSequenceConfigs();
     // Debounce search input
     const s = this.searchInput$
       .pipe(debounceTime(300), distinctUntilChanged())
@@ -1182,6 +1561,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.filterCategoryOpen = false;
   }
 
+  onCategoryFilterChange(): void {
+    this.page = 1;
+    this.reload();
+  }
+
   reload(): void {
     this.machineService
       .getAllMachines({
@@ -1190,9 +1574,36 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         search: this.filters.search,
         is_approved: this.filters.is_approved,
         category_id: this.filters.category_id,
+        has_sequence: this.filters.has_sequence,
       })
       .subscribe(res => {
         this.machines = res.data.machines;
+        // Sort machines by category name, then by sequence for better display
+        this.machines.sort((a, b) => {
+          const catA =
+            typeof a.category_id === 'string'
+              ? a.category_id
+              : (a.category_id as any)?.name || '';
+          const catB =
+            typeof b.category_id === 'string'
+              ? b.category_id
+              : (b.category_id as any)?.name || '';
+
+          // First sort by category name
+          const catCompare = String(catA).localeCompare(String(catB));
+          if (catCompare !== 0) return catCompare;
+
+          // Then sort by sequence if both have sequences
+          if (a.machine_sequence && b.machine_sequence) {
+            return a.machine_sequence.localeCompare(b.machine_sequence);
+          }
+          // Machines with sequences come first
+          if (a.machine_sequence && !b.machine_sequence) return -1;
+          if (!a.machine_sequence && b.machine_sequence) return 1;
+
+          // Finally sort by name
+          return (a.name || '').localeCompare(b.name || '');
+        });
         this.total = res.data.total;
         this.pages = res.data.pages;
       });
@@ -1220,6 +1631,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.existingImages = [];
     this.existingDocuments = [];
     this.removedDocuments = [];
+    this.subcategories = [];
     this.isDragging = false;
     this.isDocumentDragging = false;
     this.metadataText = '';
@@ -1239,7 +1651,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.formLoading = true;
     // Always fetch the latest machine details to ensure defaults & images are current
     const id = (machine?._id as string) || '';
-    const applyData = (m: Machine) => {
+    const applyData = (m: any) => {
       this.selected = m;
       this.form.patchValue({
         name: m.name,
@@ -1250,6 +1662,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name: m.party_name || '',
         location: m.location || '',
         mobile_number: m.mobile_number || '',
+        machine_sequence: m.machine_sequence || '',
+        subcategory_id: m.subcategory_id || '',
         is_approved: !!m.is_approved,
       });
       // Reset client-side selections
@@ -1262,6 +1676,17 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       // Load existing files
       this.existingImages = m.images || [];
       this.existingDocuments = m.documents || [];
+
+      // Load subcategories for the selected category
+      if (m.category_id) {
+        const categoryId =
+          typeof m.category_id === 'string'
+            ? m.category_id
+            : (m.category_id as any)?._id;
+        if (categoryId) {
+          this.loadSubcategories(categoryId);
+        }
+      }
       // Pre-fill metadata entries
       try {
         const meta =
@@ -1349,13 +1774,22 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   submitForm(): void {
     if (this.submitting || this.form.invalid) return;
     this.submitting = true;
-    const { name, category_id, party_name, location, mobile_number } = this.form
-      .value as {
+    const {
+      name,
+      category_id,
+      party_name,
+      location,
+      mobile_number,
+      machine_sequence,
+      subcategory_id,
+    } = this.form.value as {
       name: string;
       category_id: string;
       party_name: string;
       location: string;
       mobile_number: string;
+      machine_sequence: string;
+      subcategory_id: string;
     };
     // Build metadata object from dynamic rows
     const metadataEntries = this.metadataEntries.filter(
@@ -1380,6 +1814,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name,
         location,
         mobile_number,
+        machine_sequence,
+        subcategory_id,
         images: this.selectedFiles, // Only new files for upload
         documents: this.selectedDocuments, // Only new files for upload
         metadata: metadata, // Always include metadata (empty object clears existing metadata)
@@ -1417,6 +1853,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name,
         location,
         mobile_number,
+        machine_sequence,
+        subcategory_id,
         images: this.selectedFiles,
         documents: this.selectedDocuments,
         metadata: metadata, // Always include metadata (empty object is valid for new machines)
@@ -1450,9 +1888,27 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   loadCategories(): void {
-    this.categoryService.getActiveCategories().subscribe(res => {
-      this.categories = res.data || [];
-    });
+    this.categoryService
+      .getAllCategories({ includeInactive: false })
+      .subscribe(res => {
+        this.categories = res.data || [];
+        // Filter to show only main categories (level 0) in the main dropdown
+        this.categories = this.categories.filter(cat => cat.level === 0);
+      });
+  }
+
+  loadFilterCategories(): void {
+    this.categoryService
+      .getAllCategories({ includeInactive: false })
+      .subscribe(res => {
+        // Load all categories for filtering (including subcategories)
+        this.filterCategories = res.data || [];
+        // Sort by level first, then by name
+        this.filterCategories.sort((a, b) => {
+          if (a.level !== b.level) return a.level - b.level;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+      });
   }
 
   // Document handling methods
@@ -1689,5 +2145,630 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     const removedDoc = this.existingDocuments[index];
     this.removedDocuments.push(removedDoc); // Track for backend removal
     this.existingDocuments.splice(index, 1);
+  }
+
+  // ==================== SEQUENCE MANAGEMENT ====================
+
+  loadSequenceConfigs(): void {
+    this.categoryService.getAllSequenceConfigs().subscribe({
+      next: (response: any) => {
+        this.sequenceConfigs = response.data || [];
+      },
+      error: (error: any) => {
+        console.error('Error loading sequence configs:', error);
+      },
+    });
+  }
+
+  getSequenceConfigForCategory(categoryId: string): SequenceConfig | undefined {
+    return this.sequenceConfigs.find(
+      config => config.category_id === categoryId
+    );
+  }
+
+  hasSequenceConfig(categoryId: string): boolean {
+    return !!this.getSequenceConfigForCategory(categoryId);
+  }
+
+  openSequenceGenerator(): void {
+    const categoryId = this.form.get('category_id')?.value;
+    if (!categoryId) {
+      alert('Please select a category first');
+      return;
+    }
+    this.showSequenceGenerator = true;
+  }
+
+  generateSequence(): void {
+    const categoryId = this.form.get('category_id')?.value;
+    const subcategoryId = this.form.get('subcategory_id')?.value;
+
+    if (!categoryId) {
+      alert('Please select a category first');
+      return;
+    }
+
+    this.isGeneratingSequence = true;
+    this.sequenceGenerationProgress = 0;
+
+    const request: SequenceGenerationRequest = {
+      categoryId: categoryId,
+      subcategoryId: subcategoryId || undefined,
+    };
+
+    this.categoryService.generateSequence(request).subscribe({
+      next: (response: any) => {
+        this.selectedSequence = response.data.sequence;
+        this.isGeneratingSequence = false;
+        this.sequenceGenerationProgress = 100;
+        this.showSequenceGenerator = false;
+
+        // Update the form with the generated sequence
+        this.form.patchValue({ machine_sequence: this.selectedSequence });
+      },
+      error: (error: any) => {
+        console.error('Error generating sequence:', error);
+        this.isGeneratingSequence = false;
+        this.sequenceGenerationProgress = 0;
+        alert(
+          'Failed to generate sequence: ' + (error.message || 'Unknown error')
+        );
+      },
+    });
+  }
+
+  onCategoryChange(): void {
+    // Reset sequence and subcategory when category changes
+    this.selectedSequence = '';
+    this.subcategories = [];
+    this.form.patchValue({
+      machine_sequence: '',
+      subcategory_id: '',
+    });
+
+    // Load subcategories for the selected category
+    const categoryId = this.form.get('category_id')?.value;
+    if (categoryId) {
+      this.loadSubcategories(categoryId);
+    }
+  }
+
+  loadSubcategories(categoryId: string): void {
+    this.categoryService
+      .getAllCategories({ includeInactive: false, parentId: categoryId })
+      .subscribe(res => {
+        this.subcategories = res.data || [];
+      });
+  }
+
+  onSubcategoryChange(): void {
+    // Reset sequence when subcategory changes
+    this.selectedSequence = '';
+    this.form.patchValue({ machine_sequence: '' });
+  }
+
+  // ==================== ENHANCED MACHINE MANAGEMENT ====================
+
+  getMachinesWithoutSequence(): Machine[] {
+    return this.machines.filter(m => !m.machine_sequence);
+  }
+
+  getSubcategoryName(subcategoryId: string): string {
+    if (!subcategoryId) return '';
+    const subcategory = this.subcategories.find(sc => sc._id === subcategoryId);
+    return subcategory?.name || 'Unknown Subcategory';
+  }
+
+  getLevelLabel(level: number): string {
+    switch (level) {
+      case 0:
+        return 'Main';
+      case 1:
+        return 'Sub';
+      case 2:
+        return 'Sub-sub';
+      default:
+        return `L${level}`;
+    }
+  }
+
+  getCategoryDisplayName(cat: { name: string; level: number }): string {
+    if (cat.level > 0) {
+      return `${cat.name} (${this.getLevelLabel(cat.level)})`;
+    }
+    return cat.name;
+  }
+
+  getSubcategoryDisplayName(
+    subcategoryId: string | { _id?: string; name?: string } | null | undefined
+  ): string {
+    if (!subcategoryId) return '-';
+    // If it's an object with a name property (populated from backend)
+    if (
+      typeof subcategoryId === 'object' &&
+      subcategoryId !== null &&
+      'name' in subcategoryId &&
+      subcategoryId.name
+    ) {
+      return subcategoryId.name;
+    }
+    // If it's a string ID, use the helper method
+    if (typeof subcategoryId === 'string') {
+      return this.getSubcategoryName(subcategoryId) || '-';
+    }
+    // If it's an object with _id, extract the ID and use helper
+    if (
+      typeof subcategoryId === 'object' &&
+      subcategoryId !== null &&
+      '_id' in subcategoryId &&
+      subcategoryId._id
+    ) {
+      const idStr =
+        typeof subcategoryId._id === 'string'
+          ? subcategoryId._id
+          : String(subcategoryId._id);
+      return this.getSubcategoryName(idStr) || '-';
+    }
+    return '-';
+  }
+
+  generateSequenceForMachine(machine: Machine): void {
+    if (!machine.category_id) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Warning',
+        detail: 'Machine must have a category to generate sequence',
+      });
+      return;
+    }
+
+    this.isGeneratingSequence = true;
+    this.sequenceGenerationProgress = 0;
+
+    const request: SequenceGenerationRequest = {
+      categoryId:
+        typeof machine.category_id === 'string'
+          ? machine.category_id
+          : machine.category_id._id,
+      subcategoryId: machine.subcategory_id
+        ? typeof machine.subcategory_id === 'string'
+          ? machine.subcategory_id
+          : (machine.subcategory_id as any)?._id
+        : undefined,
+    };
+
+    this.categoryService.generateSequence(request).subscribe({
+      next: (response: any) => {
+        const generatedSequence = response.data.sequence;
+        this.sequenceGenerationProgress = 50;
+
+        // Save the sequence to the machine
+        this.machineService
+          .updateMachineForm(machine._id, {
+            machine_sequence: generatedSequence,
+          })
+          .subscribe({
+            next: (_updateResponse: any) => {
+              this.isGeneratingSequence = false;
+              this.sequenceGenerationProgress = 100;
+
+              // Update the machine in the list
+              const machineIndex = this.machines.findIndex(
+                m => m._id === machine._id
+              );
+              if (machineIndex !== -1) {
+                this.machines[machineIndex] = {
+                  ...this.machines[machineIndex],
+                  machine_sequence: generatedSequence,
+                };
+              }
+
+              // Show success message
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Success',
+                detail: `Sequence generated successfully: ${generatedSequence}`,
+              });
+            },
+            error: (updateError: any) => {
+              console.error('Error saving sequence to machine:', updateError);
+              this.isGeneratingSequence = false;
+              this.sequenceGenerationProgress = 0;
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Error',
+                detail:
+                  'Failed to save sequence: ' +
+                  (updateError.error?.message || 'Unknown error'),
+              });
+            },
+          });
+      },
+      error: (error: any) => {
+        console.error('Error generating sequence:', error);
+        this.isGeneratingSequence = false;
+        this.sequenceGenerationProgress = 0;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail:
+            'Failed to generate sequence: ' +
+            (error.error?.message || 'Unknown error'),
+        });
+      },
+    });
+  }
+
+  // Bulk sequence generation
+  generateSequencesForSelectedMachines(): void {
+    const machinesWithoutSequence = this.machines.filter(
+      m => !m.machine_sequence
+    );
+
+    if (machinesWithoutSequence.length === 0) {
+      this.messageService.add({
+        severity: 'info',
+        summary: 'Info',
+        detail: 'All machines already have sequences',
+      });
+      return;
+    }
+
+    if (
+      confirm(
+        `Generate sequences for ${machinesWithoutSequence.length} machines without sequences?`
+      )
+    ) {
+      this.bulkGenerateSequences(machinesWithoutSequence);
+    }
+  }
+
+  private bulkGenerateSequences(machines: Machine[]): void {
+    this.isGeneratingSequence = true;
+    this.sequenceGenerationProgress = 0;
+    let completed = 0;
+    const total = machines.length;
+
+    machines.forEach((machine, _index) => {
+      const request: SequenceGenerationRequest = {
+        categoryId:
+          typeof machine.category_id === 'string'
+            ? machine.category_id
+            : machine.category_id._id,
+        subcategoryId: machine.subcategory_id
+          ? typeof machine.subcategory_id === 'string'
+            ? machine.subcategory_id
+            : (machine.subcategory_id as any)?._id
+          : undefined,
+      };
+
+      this.categoryService.generateSequence(request).subscribe({
+        next: (response: any) => {
+          const generatedSequence = response.data.sequence;
+
+          // Save the sequence to the machine
+          this.machineService
+            .updateMachineForm(machine._id, {
+              machine_sequence: generatedSequence,
+            })
+            .subscribe({
+              next: (_updateResponse: any) => {
+                completed++;
+                this.sequenceGenerationProgress = Math.round(
+                  (completed / total) * 100
+                );
+
+                // Update the machine in the list
+                const machineIndex = this.machines.findIndex(
+                  m => m._id === machine._id
+                );
+                if (machineIndex !== -1) {
+                  this.machines[machineIndex] = {
+                    ...this.machines[machineIndex],
+                    machine_sequence: generatedSequence,
+                  };
+                }
+
+                if (completed === total) {
+                  this.isGeneratingSequence = false;
+                  this.messageService.add({
+                    severity: 'success',
+                    summary: 'Success',
+                    detail: `Successfully generated sequences for ${completed} machines`,
+                  });
+                }
+              },
+              error: (updateError: any) => {
+                console.error(
+                  `Error saving sequence for machine ${machine.name}:`,
+                  updateError
+                );
+                completed++;
+                this.sequenceGenerationProgress = Math.round(
+                  (completed / total) * 100
+                );
+
+                if (completed === total) {
+                  this.isGeneratingSequence = false;
+                  this.messageService.add({
+                    severity: 'warn',
+                    summary: 'Warning',
+                    detail: `Completed with some errors. Generated sequences for ${completed - 1} machines`,
+                  });
+                }
+              },
+            });
+        },
+        error: (error: any) => {
+          console.error(
+            `Error generating sequence for machine ${machine.name}:`,
+            error
+          );
+          completed++;
+          this.sequenceGenerationProgress = Math.round(
+            (completed / total) * 100
+          );
+
+          if (completed === total) {
+            this.isGeneratingSequence = false;
+            this.messageService.add({
+              severity: 'warn',
+              summary: 'Warning',
+              detail: `Completed with some errors. Generated sequences for ${completed - 1} machines`,
+            });
+          }
+        },
+      });
+    });
+  }
+
+  // Edit sequence
+  openEditSequenceModal(machine: Machine): void {
+    this.selectedMachineForSequence = machine;
+    this.editSequenceForm.patchValue({
+      machine_sequence: machine.machine_sequence || '',
+    });
+    this.showEditSequenceModal = true;
+  }
+
+  closeEditSequenceModal(): void {
+    this.showEditSequenceModal = false;
+    this.selectedMachineForSequence = null;
+    this.editSequenceForm.reset();
+  }
+
+  saveEditedSequence(): void {
+    if (this.editSequenceForm.invalid || !this.selectedMachineForSequence) {
+      return;
+    }
+
+    const newSequence = this.editSequenceForm.value.machine_sequence.trim();
+    const currentSequence = this.selectedMachineForSequence.machine_sequence;
+
+    // Don't save if sequence hasn't changed
+    if (newSequence === currentSequence) {
+      this.closeEditSequenceModal();
+      return;
+    }
+
+    this.machineService
+      .updateMachineForm(this.selectedMachineForSequence._id, {
+        machine_sequence: newSequence,
+      })
+      .subscribe({
+        next: (_response: any) => {
+          // Update the machine in the list
+          const machineIndex = this.machines.findIndex(
+            m => m._id === this.selectedMachineForSequence!._id
+          );
+          if (machineIndex !== -1) {
+            this.machines[machineIndex] = {
+              ...this.machines[machineIndex],
+              machine_sequence: newSequence,
+            };
+          }
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: `Sequence updated successfully to ${newSequence}`,
+          });
+
+          this.closeEditSequenceModal();
+        },
+        error: (error: any) => {
+          console.error('Error updating sequence:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail:
+              error.error?.message ||
+              'Failed to update sequence. It may already be assigned to another machine.',
+          });
+        },
+      });
+  }
+
+  // Swap sequence
+  openSwapSequenceModal(machine: Machine): void {
+    this.firstMachineForSwap = machine;
+    this.swapSequenceForm.patchValue({
+      firstMachineId: machine._id,
+    });
+    this.showSwapSequenceModal = true;
+  }
+
+  closeSwapSequenceModal(): void {
+    this.showSwapSequenceModal = false;
+    this.firstMachineForSwap = null;
+    this.secondMachineForSwap = null;
+    this.swapSequenceForm.reset();
+  }
+
+  onSecondMachineSelect(machineId: string): void {
+    if (!machineId) {
+      this.secondMachineForSwap = null;
+      return;
+    }
+
+    const machine = this.machines.find(m => m._id === machineId);
+    this.secondMachineForSwap = machine || null;
+    this.swapSequenceForm.patchValue({
+      secondMachineId: machineId,
+    });
+  }
+
+  swapSequences(): void {
+    if (
+      this.swapSequenceForm.invalid ||
+      !this.firstMachineForSwap ||
+      !this.secondMachineForSwap
+    ) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Warning',
+        detail: 'Please select both machines to swap sequences',
+      });
+      return;
+    }
+
+    if (this.firstMachineForSwap._id === this.secondMachineForSwap._id) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Warning',
+        detail: 'Cannot swap sequence with the same machine',
+      });
+      return;
+    }
+
+    const firstSequence = this.firstMachineForSwap.machine_sequence || '';
+    const secondSequence = this.secondMachineForSwap.machine_sequence || '';
+
+    // Swap sequences
+    this.machineService
+      .updateMachineForm(this.firstMachineForSwap._id, {
+        machine_sequence: secondSequence,
+      })
+      .subscribe({
+        next: () => {
+          this.machineService
+            .updateMachineForm(this.secondMachineForSwap!._id, {
+              machine_sequence: firstSequence,
+            })
+            .subscribe({
+              next: () => {
+                // Update machines in the list
+                const firstIndex = this.machines.findIndex(
+                  m => m._id === this.firstMachineForSwap!._id
+                );
+                const secondIndex = this.machines.findIndex(
+                  m => m._id === this.secondMachineForSwap!._id
+                );
+
+                if (firstIndex !== -1) {
+                  this.machines[firstIndex] = {
+                    ...this.machines[firstIndex],
+                    machine_sequence: secondSequence,
+                  };
+                }
+
+                if (secondIndex !== -1) {
+                  this.machines[secondIndex] = {
+                    ...this.machines[secondIndex],
+                    machine_sequence: firstSequence,
+                  };
+                }
+
+                this.messageService.add({
+                  severity: 'success',
+                  summary: 'Success',
+                  detail: 'Sequences swapped successfully',
+                });
+
+                this.closeSwapSequenceModal();
+              },
+              error: (error: any) => {
+                console.error('Error updating second machine sequence:', error);
+                // Revert first machine
+                this.machineService
+                  .updateMachineForm(this.firstMachineForSwap!._id, {
+                    machine_sequence: firstSequence,
+                  })
+                  .subscribe();
+
+                this.messageService.add({
+                  severity: 'error',
+                  summary: 'Error',
+                  detail: 'Failed to swap sequences. Please try again.',
+                });
+              },
+            });
+        },
+        error: (error: any) => {
+          console.error('Error updating first machine sequence:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to swap sequences. Please try again.',
+          });
+        },
+      });
+  }
+
+  // Remove sequence from machine
+  removeSequenceFromMachine(machine: Machine): void {
+    if (!machine.machine_sequence) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Warning',
+        detail: 'This machine does not have a sequence to remove',
+      });
+      return;
+    }
+
+    // Confirm removal
+    if (
+      !confirm(
+        `Are you sure you want to remove the sequence "${machine.machine_sequence}" from machine "${machine.name}"?`
+      )
+    ) {
+      return;
+    }
+
+    // Update machine with empty sequence
+    this.machineService
+      .updateMachineForm(machine._id, {
+        machine_sequence: '',
+      })
+      .subscribe({
+        next: (_response: any) => {
+          // Update the machine in the list
+          const machineIndex = this.machines.findIndex(
+            m => m._id === machine._id
+          );
+          if (machineIndex !== -1) {
+            this.machines[machineIndex] = {
+              ...this.machines[machineIndex],
+              machine_sequence: '',
+            };
+          }
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: `Sequence removed successfully from "${machine.name}"`,
+          });
+        },
+        error: (error: any) => {
+          console.error('Error removing sequence:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail:
+              'Failed to remove sequence: ' +
+              (error.error?.message || 'Unknown error'),
+          });
+        },
+      });
   }
 }

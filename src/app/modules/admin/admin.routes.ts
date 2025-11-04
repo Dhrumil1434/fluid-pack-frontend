@@ -87,4 +87,12 @@ export const adminRoutes: Routes = [
       ),
     canActivate: [AdminGuard],
   },
+  {
+    path: 'sequence-management',
+    loadComponent: () =>
+      import(
+        './components/sequence-management/sequence-management.component'
+      ).then(m => m.SequenceManagementComponent),
+    canActivate: [AdminGuard],
+  },
 ];

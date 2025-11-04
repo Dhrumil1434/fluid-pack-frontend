@@ -65,6 +65,11 @@ export class AdminSidebarComponent implements OnInit {
         },
         { label: 'Categories', icon: 'pi pi-tags', route: '/admin/categories' },
         {
+          label: 'Sequence Management',
+          icon: 'pi pi-sort-numeric-up',
+          route: '/admin/sequence-management',
+        },
+        {
           label: 'QC Entries',
           icon: 'pi pi-check-circle',
           route: '/admin/qc-entries',

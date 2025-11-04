@@ -60,9 +60,11 @@ export class MachineService {
   createMachineForm(data: {
     name: string;
     category_id: string;
+    subcategory_id?: string;
     party_name?: string;
     location?: string;
     mobile_number?: string;
+    machine_sequence?: string;
     images?: File[];
     documents?: File[];
     metadata?: Record<string, unknown>;
@@ -70,6 +72,12 @@ export class MachineService {
     const form = new FormData();
     form.append('name', data.name);
     form.append('category_id', data.category_id);
+    if (data.subcategory_id) {
+      form.append('subcategory_id', data.subcategory_id);
+    }
+    if (data.machine_sequence) {
+      form.append('machine_sequence', data.machine_sequence);
+    }
     if (data.party_name) {
       form.append('party_name', data.party_name);
     }
@@ -109,9 +117,11 @@ export class MachineService {
     data: {
       name?: string;
       category_id?: string;
+      subcategory_id?: string;
       party_name?: string;
       location?: string;
       mobile_number?: string;
+      machine_sequence?: string;
       images?: File[];
       documents?: File[];
       metadata?: Record<string, unknown>;
@@ -121,6 +131,10 @@ export class MachineService {
     const form = new FormData();
     if (data.name) form.append('name', data.name);
     if (data.category_id) form.append('category_id', data.category_id);
+    if (data.subcategory_id) form.append('subcategory_id', data.subcategory_id);
+    // Allow empty string for machine_sequence to clear it
+    if (data.machine_sequence !== undefined)
+      form.append('machine_sequence', data.machine_sequence);
     if (data.party_name) form.append('party_name', data.party_name);
     if (data.location) form.append('location', data.location);
     if (data.mobile_number) form.append('mobile_number', data.mobile_number);

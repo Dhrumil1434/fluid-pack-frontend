@@ -24,6 +24,8 @@ export interface Machine {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  machine_sequence?: string;
+  subcategory_id?: string;
   updatedBy?: {
     _id: string;
     username: string;
@@ -41,6 +43,8 @@ export interface CreateMachineRequest {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  machine_sequence?: string;
+  subcategory_id?: string;
   images?: string[];
   documents?: MachineDocument[];
   metadata?: Record<string, unknown>;
@@ -52,6 +56,8 @@ export interface UpdateMachineRequest {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  machine_sequence?: string;
+  subcategory_id?: string;
   images?: string[];
   documents?: MachineDocument[];
   metadata?: Record<string, unknown>;
@@ -62,6 +68,7 @@ export interface MachineFilters {
   is_approved?: boolean;
   created_by?: string;
   search?: string;
+  has_sequence?: boolean;
   page?: number;
   limit?: number;
 }

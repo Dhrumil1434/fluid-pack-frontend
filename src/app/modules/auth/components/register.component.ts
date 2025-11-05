@@ -14,17 +14,30 @@ import {
   UserRegistration,
 } from '../../../../assets/schemas/fluid-pack.schema';
 import { ValidationService } from '../../../core/services/validation.service';
-import { ErrorHandlerService, FormFieldErrors } from '../../../core/services/error-handler.service';
+import {
+  ErrorHandlerService,
+  FormFieldErrors,
+} from '../../../core/services/error-handler.service';
 import { LoaderService } from '../../../core/services/loader.service';
-import { DepartmentRoleService, Department, Role } from '../../../core/services/department-role.service';
+import {
+  DepartmentRoleService,
+  Department,
+  Role,
+} from '../../../core/services/department-role.service';
 import { generateObjectId } from '../../../core/utils/object-id.util';
 import { AuthService } from '../services/auth.service';
 import { CommonLoaderButtonComponent } from '../../../shared/components/common-loader-button/common-loader-button.component';
+import { LOGO_PATHS } from '../../../core/constants/logo.constants';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterModule, CommonLoaderButtonComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    RouterModule,
+    CommonLoaderButtonComponent,
+  ],
   templateUrl: './register.component.html',
   styleUrls: ['./register.component.css'],
 })
@@ -46,6 +59,23 @@ export class RegisterComponent implements OnInit {
   departments: Department[] = [];
   roles: Role[] = [];
 
+  // Logo path
+  logoPath: string | null = LOGO_PATHS.MAIN;
+
+  // Handle logo load error
+  onLogoError(): void {
+    this.logoPath = null;
+  }
+
+  // TrackBy functions for ngFor directives
+  trackByDepartmentId(index: number, dept: Department): string {
+    return dept._id;
+  }
+
+  trackByRoleId(index: number, role: Role): string {
+    return role._id;
+  }
+
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
@@ -64,26 +94,40 @@ export class RegisterComponent implements OnInit {
   }
 
   private initializeForm() {
-    this.registerForm = this.fb.group({
-      // Step 1: Basic Information
-      username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(30)]],
-      email: ['', [Validators.required, Validators.email]],
+    this.registerForm = this.fb.group(
+      {
+        // Step 1: Basic Information
+        username: [
+          '',
+          [
+            Validators.required,
+            Validators.minLength(3),
+            Validators.maxLength(30),
+          ],
+        ],
+        email: ['', [Validators.required, Validators.email]],
 
-      // Step 2: Security
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required]],
+        // Step 2: Security
+        password: ['', [Validators.required, Validators.minLength(6)]],
+        confirmPassword: ['', [Validators.required]],
 
-      // Step 3: Organization
-      department: ['', [Validators.required]],
-      role: ['', [Validators.required]],
-    }, { validators: this.passwordMatchValidator });
+        // Step 3: Organization
+        department: ['', [Validators.required]],
+        role: ['', [Validators.required]],
+      },
+      { validators: this.passwordMatchValidator }
+    );
   }
 
   private passwordMatchValidator(form: FormGroup) {
     const password = form.get('password');
     const confirmPassword = form.get('confirmPassword');
 
-    if (password && confirmPassword && password.value !== confirmPassword.value) {
+    if (
+      password &&
+      confirmPassword &&
+      password.value !== confirmPassword.value
+    ) {
       confirmPassword.setErrors({ passwordMismatch: true });
       return { passwordMismatch: true };
     }
@@ -115,7 +159,9 @@ export class RegisterComponent implements OnInit {
       this.clearCurrentStepErrors();
 
       // Update field errors for display (no toast for real-time validation)
-      const stepFieldErrors = this.errorHandler.showValidationError(result.errors);
+      const stepFieldErrors = this.errorHandler.showValidationError(
+        result.errors
+      );
       this.fieldErrors = { ...this.fieldErrors, ...stepFieldErrors };
 
       // Set new errors for each field
@@ -202,7 +248,7 @@ export class RegisterComponent implements OnInit {
       // Load departments and roles from API
       const [departmentsResponse, rolesResponse] = await Promise.all([
         this.departmentRoleService.getDepartments().toPromise(),
-        this.departmentRoleService.getRoles().toPromise()
+        this.departmentRoleService.getRoles().toPromise(),
       ]);
 
       if (departmentsResponse?.success && departmentsResponse.data) {
@@ -218,7 +264,8 @@ export class RegisterComponent implements OnInit {
         this.messageService.add({
           severity: 'warn',
           summary: 'Warning',
-          detail: 'No departments or roles available. Please contact administrator.',
+          detail:
+            'No departments or roles available. Please contact administrator.',
           life: 5000,
         });
       }
@@ -227,15 +274,39 @@ export class RegisterComponent implements OnInit {
 
       // Fallback to mock data if API fails
       this.departments = [
-        { _id: generateObjectId(), name: 'Engineering', description: 'Engineering Department' },
-        { _id: generateObjectId(), name: 'Quality Assurance', description: 'QA Department' },
-        { _id: generateObjectId(), name: 'Management', description: 'Management Department' },
+        {
+          _id: generateObjectId(),
+          name: 'Engineering',
+          description: 'Engineering Department',
+        },
+        {
+          _id: generateObjectId(),
+          name: 'Quality Assurance',
+          description: 'QA Department',
+        },
+        {
+          _id: generateObjectId(),
+          name: 'Management',
+          description: 'Management Department',
+        },
       ];
 
       this.roles = [
-        { _id: generateObjectId(), name: 'Engineer', description: 'Engineering Role' },
-        { _id: generateObjectId(), name: 'QA Specialist', description: 'Quality Assurance Role' },
-        { _id: generateObjectId(), name: 'Manager', description: 'Management Role' },
+        {
+          _id: generateObjectId(),
+          name: 'Engineer',
+          description: 'Engineering Role',
+        },
+        {
+          _id: generateObjectId(),
+          name: 'QA Specialist',
+          description: 'Quality Assurance Role',
+        },
+        {
+          _id: generateObjectId(),
+          name: 'Manager',
+          description: 'Management Role',
+        },
       ];
 
       this.messageService.add({
@@ -249,7 +320,10 @@ export class RegisterComponent implements OnInit {
 
   isFieldInvalid(fieldName: string): boolean {
     const control = this.registerForm.get(fieldName);
-    const hasFieldError = this.errorHandler.hasFieldError(this.fieldErrors, fieldName);
+    const hasFieldError = this.errorHandler.hasFieldError(
+      this.fieldErrors,
+      fieldName
+    );
     return control
       ? (control.invalid && (control.dirty || control.touched)) || hasFieldError
       : hasFieldError;
@@ -257,7 +331,10 @@ export class RegisterComponent implements OnInit {
 
   getFieldError(fieldName: string): string {
     // First check for field-specific errors from validation
-    const fieldError = this.errorHandler.getFieldError(this.fieldErrors, fieldName);
+    const fieldError = this.errorHandler.getFieldError(
+      this.fieldErrors,
+      fieldName
+    );
     if (fieldError) {
       return fieldError;
     }
@@ -399,13 +476,18 @@ export class RegisterComponent implements OnInit {
       }
 
       // API call - interceptors handle everything automatically!
-      const response = await firstValueFrom(this.authService.register(registrationData));
+      const response = await firstValueFrom(
+        this.authService.register(registrationData)
+      );
 
       // Handle success
-      this.errorHandler.showSuccess('Account created successfully! Please wait for admin approval.');
+      this.errorHandler.showSuccess(
+        'Account created successfully! Please wait for admin approval.'
+      );
       this.registerResult = {
         success: true,
-        message: 'Registration successful! Your account is pending admin approval.',
+        message:
+          'Registration successful! Your account is pending admin approval.',
         data: response,
       };
     } catch (error: any) {
@@ -472,7 +554,11 @@ export class RegisterComponent implements OnInit {
       return apiError.data.message;
     }
 
-    if (apiError?.errors && Array.isArray(apiError.errors) && apiError.errors.length > 0) {
+    if (
+      apiError?.errors &&
+      Array.isArray(apiError.errors) &&
+      apiError.errors.length > 0
+    ) {
       // If it's an array of errors, take the first one
       return apiError.errors[0].message || apiError.errors[0];
     }

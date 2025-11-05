@@ -76,9 +76,15 @@ export class NotificationService {
     }
 
     // Connect to Socket.IO server using environment configuration
+    // Note: The origin header is automatically set by the browser based on the page URL
+    // (e.g., http://localhost:4200 or http://192.168.29.20:4200)
+    // The backend must allow both origins in CORS configuration
     this.socket = io(environment.baseUrl, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
+      // Force origin to match the current page location
+      // This ensures CORS works correctly
+      autoConnect: true,
     });
 
     this.socket.on('connect', () => {

@@ -4,7 +4,14 @@
     <!-- Header Section -->
     <div class="login-header">
       <div class="logo-container">
-        <i class="pi pi-building"></i>
+        <img
+          *ngIf="logoPath"
+          [src]="logoPath"
+          alt="Fluid Pack Logo"
+          class="logo-image"
+          (error)="onLogoError()"
+        />
+        <i *ngIf="!logoPath" class="pi pi-building"></i>
       </div>
       <h1 class="login-title">Welcome Back</h1>
       <p class="login-subtitle">Sign in to your Fluid Pack account</p>
@@ -55,14 +62,41 @@
             title="Toggle password visibility"
           >
             <!-- Show Eye Icon when password is hidden -->
-            <svg *ngIf="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            <svg
+              *ngIf="!showPassword"
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              ></path>
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              ></path>
             </svg>
 
             <!-- Show Eye Slash Icon when password is visible -->
-            <svg *ngIf="showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+            <svg
+              *ngIf="showPassword"
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
+              ></path>
             </svg>
           </button>
         </div>
@@ -91,7 +125,12 @@
     </form>
 
     <!-- Result Message -->
-    <div *ngIf="loginResult" class="result-message" [class.success]="loginResult.success" [class.error]="!loginResult.success">
+    <div
+      *ngIf="loginResult"
+      class="result-message"
+      [class.success]="loginResult.success"
+      [class.error]="!loginResult.success"
+    >
       <div class="result-icon">
         <i *ngIf="loginResult.success" class="pi pi-check-circle"></i>
         <i *ngIf="!loginResult.success" class="pi pi-times-circle"></i>
@@ -100,7 +139,9 @@
         <div class="result-title">{{ loginResult.message }}</div>
         <div *ngIf="loginResult.errors" class="result-errors">
           <ul>
-            <li *ngFor="let error of loginResult.errors; trackBy: trackByError">{{ error.message }}</li>
+            <li *ngFor="let error of loginResult.errors; trackBy: trackByError">
+              {{ error.message }}
+            </li>
           </ul>
         </div>
       </div>
@@ -124,7 +165,8 @@
         Create Account
       </app-common-loader-button>
       <p class="signup-text">
-        <a routerLink="/auth/register" class="signup-link">Register here</a> to get started
+        <a routerLink="/auth/register" class="signup-link">Register here</a> to
+        get started
       </p>
     </div>
   </div>

@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 
 // Services
 import { AuthService } from '../../../../../core/services/auth.service';
+import { LOGO_PATHS } from '../../../../../core/constants/logo.constants';
 
 interface SidebarItem {
   label: string;
@@ -23,6 +24,14 @@ interface SidebarItem {
 export class AdminSidebarComponent implements OnInit {
   @Input() collapsed = false;
   @Output() collapseChange = new EventEmitter<boolean>();
+
+  // Logo path
+  logoPath: string | null = LOGO_PATHS.ICON;
+
+  // Handle logo load error
+  onLogoError(): void {
+    this.logoPath = null;
+  }
 
   // Track expanded menu items
   expandedItems: Set<string> = new Set();

@@ -8,9 +8,16 @@
   <div class="p-6 border-b border-neutral-300">
     <div class="flex items-center space-x-3">
       <div
-        class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg"
+        class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg overflow-hidden p-1"
       >
-        <i class="pi pi-check-circle text-white text-lg"></i>
+        <img
+          *ngIf="logoPath"
+          [src]="logoPath"
+          alt="Fluid Pack Logo"
+          class="w-full h-full object-contain rounded-lg"
+          (error)="onLogoError()"
+        />
+        <i *ngIf="!logoPath" class="pi pi-check-circle text-white text-lg"></i>
       </div>
       <div *ngIf="!collapsed" class="transition-all duration-300">
         <h2 class="text-xl font-bold text-text">Fluid Pack</h2>

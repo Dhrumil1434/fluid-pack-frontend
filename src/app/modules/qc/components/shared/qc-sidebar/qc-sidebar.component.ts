@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
+import { LOGO_PATHS } from '../../../../../core/constants/logo.constants';
 
 interface SidebarItem {
   label: string;
@@ -20,6 +21,14 @@ interface SidebarItem {
 export class QcSidebarComponent implements OnInit {
   @Input() collapsed = false;
   @Output() collapseChange = new EventEmitter<boolean>();
+
+  // Logo path
+  logoPath: string | null = LOGO_PATHS.ICON;
+
+  // Handle logo load error
+  onLogoError(): void {
+    this.logoPath = null;
+  }
 
   // Track expanded menu items
   expandedItems: Set<string> = new Set();

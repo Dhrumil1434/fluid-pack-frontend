@@ -23,6 +23,7 @@ import { RoleService } from '../../../core/services/role.service';
 import { AuthService } from '../services/auth.service';
 import { AuthService as CoreAuthService } from '../../../core/services/auth.service';
 import { CommonLoaderButtonComponent } from '../../../shared/components/common-loader-button/common-loader-button.component';
+import { LOGO_PATHS } from '../../../core/constants/logo.constants';
 
 @Component({
   selector: 'app-login',
@@ -44,6 +45,14 @@ export class LoginComponent implements OnInit {
 
   // Password visibility toggle
   showPassword = false;
+
+  // Logo path
+  logoPath: string | null = LOGO_PATHS.MAIN;
+
+  // Handle logo load error
+  onLogoError(): void {
+    this.logoPath = null;
+  }
 
   constructor(
     private fb: FormBuilder,

@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../../core/services/auth.service';
+import { LOGO_PATHS } from '../../../../../core/constants/logo.constants';
 
 interface SidebarItem {
   label: string;
@@ -24,9 +25,16 @@ interface SidebarItem {
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-3 flex-1">
             <div
-              class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg"
+              class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg overflow-hidden p-1"
             >
-              <i class="pi pi-wrench text-white text-lg"></i>
+              <img
+                *ngIf="logoPath"
+                [src]="logoPath"
+                alt="Fluid Pack Logo"
+                class="w-full h-full object-contain rounded-lg"
+                (error)="onLogoError()"
+              />
+              <i *ngIf="!logoPath" class="pi pi-wrench text-white text-lg"></i>
             </div>
             <div *ngIf="!collapsed" class="transition-all duration-300">
               <h2 class="text-xl font-bold text-text">Dispatch</h2>
@@ -124,6 +132,14 @@ export class TechnicianSidebarComponent {
   @Output() collapseChange = new EventEmitter<boolean>();
 
   expanded = new Set<string>();
+
+  // Logo path
+  logoPath: string | null = LOGO_PATHS.ICON;
+
+  // Handle logo load error
+  onLogoError(): void {
+    this.logoPath = null;
+  }
 
   sidebarItems: SidebarItem[] = [
     { label: 'Dashboard', icon: 'pi pi-home', route: '/dispatch/technician' },

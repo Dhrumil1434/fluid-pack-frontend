@@ -41,8 +41,14 @@ import { FormsModule } from '@angular/forms';
               [(ngModel)]="form.action"
             >
               <option value="">Select action</option>
-              <option value="createMachine">Create Machine</option>
-              <option value="approveMachine">Approve Machine</option>
+              <option value="CREATE_MACHINE">Create Machine</option>
+              <option value="EDIT_MACHINE">Edit Machine</option>
+              <option value="UPDATE_MACHINE_SEQUENCE">
+                Update Machine Sequence
+              </option>
+              <option value="DELETE_MACHINE">Delete Machine</option>
+              <option value="APPROVE_MACHINE">Approve Machine</option>
+              <option value="VIEW_MACHINE">View Machine</option>
             </select>
           </div>
           <div>

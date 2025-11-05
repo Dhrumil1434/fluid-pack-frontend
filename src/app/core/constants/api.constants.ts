@@ -59,6 +59,13 @@ export const API_ENDPOINTS = {
   VALIDATE_CATEGORIES: '/permission/validate-categories',
   TOGGLE_PERMISSION: '/permission/:id/toggle',
   CLEAR_PERMISSION_CACHE: '/permission/clear-cache',
+
+  // Notifications
+  NOTIFICATIONS: '/notifications',
+  NOTIFICATION_BY_ID: '/notifications/:id',
+  NOTIFICATION_UNREAD_COUNT: '/notifications/unread-count',
+  NOTIFICATION_MARK_READ: '/notifications/:id/read',
+  NOTIFICATION_MARK_ALL_READ: '/notifications/mark-all-read',
 } as const;
 
 export const HTTP_STATUS_CODES = {

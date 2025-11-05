@@ -21,15 +21,17 @@ interface SidebarItem {
       [class.w-64]="!collapsed"
     >
       <div class="p-6 border-b border-neutral-300">
-        <div class="flex items-center space-x-3">
-          <div
-            class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg"
-          >
-            <i class="pi pi-wrench text-white text-lg"></i>
-          </div>
-          <div *ngIf="!collapsed" class="transition-all duration-300">
-            <h2 class="text-xl font-bold text-text">Dispatch</h2>
-            <span class="text-sm text-text-muted">Technician</span>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3 flex-1">
+            <div
+              class="w-10 h-10 bg-gradient-to-r from-primary to-primary-light rounded-xl flex items-center justify-center shadow-lg"
+            >
+              <i class="pi pi-wrench text-white text-lg"></i>
+            </div>
+            <div *ngIf="!collapsed" class="transition-all duration-300">
+              <h2 class="text-xl font-bold text-text">Dispatch</h2>
+              <span class="text-sm text-text-muted">Technician</span>
+            </div>
           </div>
         </div>
       </div>

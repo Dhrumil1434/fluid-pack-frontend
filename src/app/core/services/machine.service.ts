@@ -174,6 +174,18 @@ export class MachineService {
   }
 
   /**
+   * Update machine sequence only
+   */
+  updateMachineSequence(
+    id: string,
+    sequence: string
+  ): Observable<ApiResponse<Machine>> {
+    return this.baseApiService.patch<Machine>(`/machines/${id}/sequence`, {
+      machine_sequence: sequence,
+    });
+  }
+
+  /**
    * Get machines by category
    */
   getMachinesByCategory(

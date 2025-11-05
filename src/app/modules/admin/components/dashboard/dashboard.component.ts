@@ -10,6 +10,7 @@ import { RecentActivityComponent } from '../shared/recent-activity/recent-activi
 import { PendingApprovalsComponent } from '../shared/pending-approvals/pending-approvals.component';
 import { UserManagementPreviewComponent } from '../shared/user-management-preview/user-management-preview.component';
 import { MachineManagementPreviewComponent } from '../shared/machine-management-preview/machine-management-preview.component';
+import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
 
 // Services
 import { AdminDashboardService } from '../../services/admin-dashboard.service';
@@ -29,6 +30,7 @@ import { ErrorHandlerService } from '../../../../core/services/error-handler.ser
     PendingApprovalsComponent,
     UserManagementPreviewComponent,
     MachineManagementPreviewComponent,
+    PageHeaderComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css'],

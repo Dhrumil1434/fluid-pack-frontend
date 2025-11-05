@@ -12,6 +12,7 @@ import {
   FormBuilder,
   FormGroup,
   Validators,
+  AbstractControl,
 } from '@angular/forms';
 import { ListFiltersComponent } from '../shared/list/list-filters.component';
 import { ListTableShellComponent } from '../shared/list/list-table-shell.component';
@@ -29,6 +30,7 @@ import {
 } from '../../../../core/models/category.model';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
 
 @Component({
   selector: 'app-machine-management',
@@ -42,6 +44,7 @@ import { ToastModule } from 'primeng/toast';
     AdminSidebarComponent,
     TablePaginationComponent,
     ToastModule,
+    PageHeaderComponent,
   ],
   providers: [MessageService],
   template: `
@@ -58,21 +61,18 @@ import { ToastModule } from 'primeng/toast';
         [class.ml-16]="sidebarCollapsed"
         [class.ml-64]="!sidebarCollapsed"
       >
-        <header
-          class="bg-white border-b border-gray-100 px-6 py-3 sticky top-0 z-40"
+        <!-- Header -->
+        <app-page-header
+          title="Machine Management"
+          subtitle="Manage all machine records"
+          [sidebarCollapsed]="sidebarCollapsed"
+          (toggleSidebar)="toggleSidebar()"
+          [breadcrumbs]="[
+            { label: 'Dashboard', route: '/admin/dashboard' },
+            { label: 'Machine Management' },
+          ]"
         >
-          <div class="flex items-center justify-between">
-            <button
-              class="p-2.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
-              (click)="toggleSidebar()"
-              title="Toggle sidebar"
-            >
-              <i class="pi pi-bars text-lg"></i>
-            </button>
-            <div class="text-lg font-semibold">Machine Management</div>
-            <div class="w-10"></div>
-          </div>
-        </header>
+        </app-page-header>
 
         <main class="p-6 space-y-4">
           <app-list-filters
@@ -346,8 +346,14 @@ import { ToastModule } from 'primeng/toast';
                     <input
                       type="text"
                       class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['name'].touched &&
+                        form.controls['name'].invalid
+                      "
                       formControlName="name"
                       placeholder="Enter machine name"
+                      (blur)="form.controls['name'].markAsTouched()"
+                      (input)="form.controls['name'].markAsTouched()"
                     />
                     <div
                       class="text-xs text-error"
@@ -356,7 +362,19 @@ import { ToastModule } from 'primeng/toast';
                         form.controls['name'].invalid
                       "
                     >
-                      Name is required (min 2 characters)
+                      <span *ngIf="form.controls['name'].errors?.['required']">
+                        Machine name is required
+                      </span>
+                      <span *ngIf="form.controls['name'].errors?.['minlength']">
+                        Machine name must be at least 2 characters long
+                      </span>
+                      <span *ngIf="form.controls['name'].errors?.['maxlength']">
+                        Machine name cannot exceed 100 characters
+                      </span>
+                      <span *ngIf="form.controls['name'].errors?.['pattern']">
+                        Machine name can only contain letters, numbers, spaces,
+                        and common punctuation
+                      </span>
                     </div>
                   </div>
 
@@ -364,8 +382,13 @@ import { ToastModule } from 'primeng/toast';
                     <label class="text-sm">Category</label>
                     <select
                       class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['category_id'].touched &&
+                        form.controls['category_id'].invalid
+                      "
                       formControlName="category_id"
                       (change)="onCategoryChange()"
+                      (blur)="form.controls['category_id'].markAsTouched()"
                     >
                       <option value="" disabled>Select category</option>
                       <option *ngFor="let c of categories" [value]="c._id">
@@ -379,7 +402,18 @@ import { ToastModule } from 'primeng/toast';
                         form.controls['category_id'].invalid
                       "
                     >
-                      Category is required
+                      <span
+                        *ngIf="
+                          form.controls['category_id'].errors?.['required']
+                        "
+                      >
+                        Category ID is required
+                      </span>
+                      <span
+                        *ngIf="form.controls['category_id'].errors?.['pattern']"
+                      >
+                        Invalid category ID format
+                      </span>
                     </div>
                   </div>
 
@@ -387,14 +421,36 @@ import { ToastModule } from 'primeng/toast';
                     <label class="text-sm">Subcategory (Optional)</label>
                     <select
                       class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['subcategory_id'].touched &&
+                        form.controls['subcategory_id'].invalid &&
+                        form.controls['subcategory_id'].value
+                      "
                       formControlName="subcategory_id"
                       (change)="onSubcategoryChange()"
+                      (blur)="form.controls['subcategory_id'].markAsTouched()"
                     >
                       <option value="">No subcategory</option>
                       <option *ngFor="let sc of subcategories" [value]="sc._id">
                         {{ sc.name }}
                       </option>
                     </select>
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['subcategory_id'].touched &&
+                        form.controls['subcategory_id'].invalid &&
+                        form.controls['subcategory_id'].value
+                      "
+                    >
+                      <span
+                        *ngIf="
+                          form.controls['subcategory_id'].errors?.['pattern']
+                        "
+                      >
+                        Invalid subcategory ID format
+                      </span>
+                    </div>
                   </div>
 
                   <div class="space-y-1">
@@ -454,8 +510,14 @@ import { ToastModule } from 'primeng/toast';
                     <input
                       type="text"
                       class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['party_name'].touched &&
+                        form.controls['party_name'].invalid
+                      "
                       formControlName="party_name"
                       placeholder="Enter party/company name"
+                      (blur)="form.controls['party_name'].markAsTouched()"
+                      (input)="form.controls['party_name'].markAsTouched()"
                     />
                     <div
                       class="text-xs text-error"
@@ -464,7 +526,31 @@ import { ToastModule } from 'primeng/toast';
                         form.controls['party_name'].invalid
                       "
                     >
-                      Party name is required (2-100 characters)
+                      <span
+                        *ngIf="form.controls['party_name'].errors?.['required']"
+                      >
+                        Party name is required
+                      </span>
+                      <span
+                        *ngIf="
+                          form.controls['party_name'].errors?.['minlength']
+                        "
+                      >
+                        Party name must be at least 2 characters long
+                      </span>
+                      <span
+                        *ngIf="
+                          form.controls['party_name'].errors?.['maxlength']
+                        "
+                      >
+                        Party name cannot exceed 100 characters
+                      </span>
+                      <span
+                        *ngIf="form.controls['party_name'].errors?.['pattern']"
+                      >
+                        Party name can only contain letters, numbers, spaces,
+                        and common punctuation
+                      </span>
                     </div>
                   </div>
 
@@ -473,8 +559,14 @@ import { ToastModule } from 'primeng/toast';
                     <input
                       type="text"
                       class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['location'].touched &&
+                        form.controls['location'].invalid
+                      "
                       formControlName="location"
                       placeholder="Enter city-country or location"
+                      (blur)="form.controls['location'].markAsTouched()"
+                      (input)="form.controls['location'].markAsTouched()"
                     />
                     <div
                       class="text-xs text-error"
@@ -483,7 +575,21 @@ import { ToastModule } from 'primeng/toast';
                         form.controls['location'].invalid
                       "
                     >
-                      Location is required (2-100 characters)
+                      <span
+                        *ngIf="form.controls['location'].errors?.['required']"
+                      >
+                        Location is required
+                      </span>
+                      <span
+                        *ngIf="form.controls['location'].errors?.['minlength']"
+                      >
+                        Location must be at least 2 characters long
+                      </span>
+                      <span
+                        *ngIf="form.controls['location'].errors?.['maxlength']"
+                      >
+                        Location cannot exceed 100 characters
+                      </span>
                     </div>
                   </div>
 
@@ -492,8 +598,14 @@ import { ToastModule } from 'primeng/toast';
                     <input
                       type="tel"
                       class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['mobile_number'].touched &&
+                        form.controls['mobile_number'].invalid
+                      "
                       formControlName="mobile_number"
                       placeholder="Enter mobile number"
+                      (blur)="form.controls['mobile_number'].markAsTouched()"
+                      (input)="form.controls['mobile_number'].markAsTouched()"
                     />
                     <div
                       class="text-xs text-error"
@@ -502,7 +614,35 @@ import { ToastModule } from 'primeng/toast';
                         form.controls['mobile_number'].invalid
                       "
                     >
-                      Mobile number is required (10-20 characters)
+                      <span
+                        *ngIf="
+                          form.controls['mobile_number'].errors?.['required']
+                        "
+                      >
+                        Mobile number is required
+                      </span>
+                      <span
+                        *ngIf="
+                          form.controls['mobile_number'].errors?.['minlength']
+                        "
+                      >
+                        Mobile number must be at least 10 characters long
+                      </span>
+                      <span
+                        *ngIf="
+                          form.controls['mobile_number'].errors?.['maxlength']
+                        "
+                      >
+                        Mobile number cannot exceed 20 characters
+                      </span>
+                      <span
+                        *ngIf="
+                          form.controls['mobile_number'].errors?.['pattern']
+                        "
+                      >
+                        Mobile number can only contain numbers, spaces, hyphens,
+                        parentheses, and optional + prefix
+                      </span>
                     </div>
                   </div>
                   <!-- Metadata section -->
@@ -794,8 +934,13 @@ import { ToastModule } from 'primeng/toast';
                 </button>
                 <button
                   type="submit"
-                  class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
                   [disabled]="form.invalid || submitting"
+                  [title]="
+                    form.invalid
+                      ? 'Please fix validation errors before submitting'
+                      : ''
+                  "
                   (click)="submitForm()"
                 >
                   <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
@@ -1129,6 +1274,108 @@ import { ToastModule } from 'primeng/toast';
                   (click)="doDelete()"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bulk Generate Sequences Confirmation Modal -->
+          <div
+            *ngIf="bulkGenerateConfirmVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+          >
+            <div
+              class="absolute inset-0 bg-black/40"
+              (click)="bulkGenerateConfirmVisible = false"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="bulkGenerateConfirmVisible = false"
+              (keydown.space)="bulkGenerateConfirmVisible = false"
+            ></div>
+            <div
+              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-md p-5"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-text">
+                  Generate Sequences
+                </h3>
+                <button
+                  class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+                  (click)="bulkGenerateConfirmVisible = false"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="text-text">
+                Generate sequences for
+                {{ pendingBulkGenerateMachines.length }} machine(s) without
+                sequences?
+              </div>
+              <div class="flex items-center justify-end gap-2 mt-4">
+                <button
+                  class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+                  (click)="bulkGenerateConfirmVisible = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary/90"
+                  (click)="doBulkGenerateSequences()"
+                >
+                  Generate
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Remove Sequence Confirmation Modal -->
+          <div
+            *ngIf="removeSequenceConfirmVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+          >
+            <div
+              class="absolute inset-0 bg-black/40"
+              (click)="removeSequenceConfirmVisible = false"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="removeSequenceConfirmVisible = false"
+              (keydown.space)="removeSequenceConfirmVisible = false"
+            ></div>
+            <div
+              class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-md p-5"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-text">Remove Sequence</h3>
+                <button
+                  class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+                  (click)="removeSequenceConfirmVisible = false"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="text-text">
+                Are you sure you want to remove the sequence "<span
+                  class="font-medium"
+                  >{{
+                    selectedMachineForRemoveSequence?.machine_sequence
+                  }}</span
+                >" from machine "<span class="font-medium">{{
+                  selectedMachineForRemoveSequence?.name
+                }}</span
+                >"?
+              </div>
+              <div class="flex items-center justify-end gap-2 mt-4">
+                <button
+                  class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+                  (click)="removeSequenceConfirmVisible = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="px-3 py-2 rounded-md border border-error text-error hover:bg-error/10"
+                  (click)="doRemoveSequence()"
+                >
+                  Remove
                 </button>
               </div>
             </div>
@@ -1475,6 +1722,12 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   firstMachineForSwap: Machine | null = null;
   secondMachineForSwap: Machine | null = null;
 
+  // Confirmation modals
+  bulkGenerateConfirmVisible = false;
+  pendingBulkGenerateMachines: Machine[] = [];
+  removeSequenceConfirmVisible = false;
+  selectedMachineForRemoveSequence: Machine | null = null;
+
   // ViewChild for document input
   @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
 
@@ -1485,14 +1738,26 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     private messageService: MessageService
   ) {
     this.form = this.fb.group({
-      name: ['', [Validators.required, Validators.minLength(2)]],
-      category_id: ['', [Validators.required]],
+      name: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
+        ],
+      ],
+      category_id: [
+        '',
+        [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
+      ],
       party_name: [
         '',
         [
           Validators.required,
           Validators.minLength(2),
           Validators.maxLength(100),
+          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
         ],
       ],
       location: [
@@ -1509,11 +1774,12 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           Validators.required,
           Validators.minLength(10),
           Validators.maxLength(20),
+          Validators.pattern(/^[+]?[0-9\s\-()]+$/),
         ],
       ],
       images: [null],
-      machine_sequence: [''],
-      subcategory_id: [''],
+      machine_sequence: ['', [Validators.maxLength(50)]],
+      subcategory_id: ['', [this.subcategoryIdValidator]],
       is_approved: [false],
     });
 
@@ -1663,7 +1929,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         location: m.location || '',
         mobile_number: m.mobile_number || '',
         machine_sequence: m.machine_sequence || '',
-        subcategory_id: m.subcategory_id || '',
+        subcategory_id: m.subcategory_id
+          ? typeof m.subcategory_id === 'string'
+            ? m.subcategory_id
+            : (m.subcategory_id as any)?._id || ''
+          : '',
         is_approved: !!m.is_approved,
       });
       // Reset client-side selections
@@ -1772,25 +2042,60 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   submitForm(): void {
-    if (this.submitting || this.form.invalid) return;
+    // Mark all fields as touched to show validation errors
+    Object.keys(this.form.controls).forEach(key => {
+      this.form.get(key)?.markAsTouched();
+    });
+
+    if (this.submitting || this.form.invalid) {
+      if (this.form.invalid) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Validation Error',
+          detail: 'Please fix the errors in the form before submitting.',
+        });
+      }
+      return;
+    }
+
     this.submitting = true;
-    const {
-      name,
-      category_id,
-      party_name,
-      location,
-      mobile_number,
-      machine_sequence,
-      subcategory_id,
-    } = this.form.value as {
-      name: string;
-      category_id: string;
-      party_name: string;
-      location: string;
-      mobile_number: string;
-      machine_sequence: string;
-      subcategory_id: string;
-    };
+
+    // Extract and sanitize form values
+    const name = (this.form.value.name || '').trim();
+    const category_id = (this.form.value.category_id || '').trim();
+    const party_name = (this.form.value.party_name || '').trim();
+    const location = (this.form.value.location || '').trim();
+    const mobile_number = (this.form.value.mobile_number || '').trim();
+    const machine_sequence = (this.form.value.machine_sequence || '').trim();
+    // Handle subcategory_id: extract ID if it's an object, or use empty string if invalid
+    let subcategory_id = '';
+    const subcategoryValue = this.form.value.subcategory_id;
+    if (subcategoryValue) {
+      if (typeof subcategoryValue === 'string') {
+        subcategory_id = subcategoryValue.trim();
+      } else if (
+        typeof subcategoryValue === 'object' &&
+        subcategoryValue?._id
+      ) {
+        subcategory_id = String(subcategoryValue._id).trim();
+      }
+    }
+    // Validate subcategory_id format if it has a value (empty string is allowed)
+    if (
+      subcategory_id &&
+      subcategory_id.trim() !== '' &&
+      !/^[0-9a-fA-F]{24}$/.test(subcategory_id)
+    ) {
+      this.submitting = false;
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'Invalid subcategory ID format',
+      });
+      this.form.get('subcategory_id')?.setErrors({ pattern: true });
+      this.form.get('subcategory_id')?.markAsTouched();
+      return;
+    }
     // Build metadata object from dynamic rows
     const metadataEntries = this.metadataEntries.filter(
       e => (e.key || '').trim().length > 0
@@ -1814,13 +2119,20 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name,
         location,
         mobile_number,
-        machine_sequence,
-        subcategory_id,
+        machine_sequence: machine_sequence || undefined, // Only include if not empty
         images: this.selectedFiles, // Only new files for upload
         documents: this.selectedDocuments, // Only new files for upload
         metadata: metadata, // Always include metadata (empty object clears existing metadata)
         removedDocuments: this.removedDocuments, // Documents to be removed
       };
+
+      // Only include subcategory_id if it has a valid value (empty string is allowed by backend)
+      if (subcategory_id) {
+        updatePayload.subcategory_id = subcategory_id;
+      } else {
+        // Send empty string to clear subcategory (backend allows this)
+        updatePayload.subcategory_id = '';
+      }
 
       this.machineService
         .updateMachineForm(this.selected._id, updatePayload)
@@ -1829,6 +2141,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             const finalize = () => {
               this.submitting = false;
               this.formVisible = false;
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Success',
+                detail: 'Machine updated successfully',
+              });
               this.reload();
             };
             if (currentApproved !== nextApproved) {
@@ -1836,13 +2153,43 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
                 .updateMachineApproval(this.selected!._id, {
                   is_approved: nextApproved,
                 })
-                .subscribe({ next: finalize, error: finalize });
+                .subscribe({
+                  next: finalize,
+                  error: (err: any) => {
+                    console.error('Error updating approval:', err);
+                    finalize();
+                  },
+                });
             } else {
               finalize();
             }
           },
-          error: () => {
+          error: (err: any) => {
             this.submitting = false;
+            console.error('Error updating machine:', err);
+
+            // Extract error message from response
+            let errorMessage = 'Failed to update machine';
+            if (err?.error?.message) {
+              errorMessage = err.error.message;
+            } else if (
+              err?.error?.details &&
+              Array.isArray(err.error.details)
+            ) {
+              // Handle validation errors from backend
+              const validationErrors = err.error.details
+                .map((d: any) => `${d.field}: ${d.message}`)
+                .join(', ');
+              errorMessage = `Validation failed: ${validationErrors}`;
+            } else if (err?.message) {
+              errorMessage = err.message;
+            }
+
+            this.messageService.add({
+              severity: 'error',
+              summary: 'Update Failed',
+              detail: errorMessage,
+            });
           },
         });
     } else {
@@ -1860,14 +2207,45 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         metadata: metadata, // Always include metadata (empty object is valid for new machines)
       };
 
+      // Only include subcategory_id if it has a valid value
+      if (subcategory_id) {
+        createPayload.subcategory_id = subcategory_id;
+      }
+
       this.machineService.createMachineForm(createPayload).subscribe({
         next: () => {
           this.submitting = false;
           this.formVisible = false;
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: 'Machine created successfully',
+          });
           this.reload();
         },
-        error: () => {
+        error: (err: any) => {
           this.submitting = false;
+          console.error('Error creating machine:', err);
+
+          // Extract error message from response
+          let errorMessage = 'Failed to create machine';
+          if (err?.error?.message) {
+            errorMessage = err.error.message;
+          } else if (err?.error?.details && Array.isArray(err.error.details)) {
+            // Handle validation errors from backend
+            const validationErrors = err.error.details
+              .map((d: any) => `${d.field}: ${d.message}`)
+              .join(', ');
+            errorMessage = `Validation failed: ${validationErrors}`;
+          } else if (err?.message) {
+            errorMessage = err.message;
+          }
+
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Creation Failed',
+            detail: errorMessage,
+          });
         },
       });
     }
@@ -2009,6 +2387,23 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   trackById = (_: number, item: { _id: string }) => item._id;
   trackByIndex = (i: number) => i;
   trackByKey = (_: number, item: { key: string; value: unknown }) => item.key;
+
+  // Custom validator for subcategory_id - allows empty string or valid ObjectId
+  subcategoryIdValidator = (
+    control: AbstractControl
+  ): { [key: string]: any } | null => {
+    if (!control.value) {
+      return null; // Empty/null is allowed (optional field)
+    }
+    const value = String(control.value).trim();
+    if (value === '') {
+      return null; // Empty string is allowed (optional field)
+    }
+    if (!/^[0-9a-fA-F]{24}$/.test(value)) {
+      return { pattern: true };
+    }
+    return null;
+  };
 
   imageUrl(path: string): string {
     if (!path) return '';
@@ -2173,7 +2568,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   openSequenceGenerator(): void {
     const categoryId = this.form.get('category_id')?.value;
     if (!categoryId) {
-      alert('Please select a category first');
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Category Required',
+        detail: 'Please select a category first',
+      });
       return;
     }
     this.showSequenceGenerator = true;
@@ -2184,7 +2583,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     const subcategoryId = this.form.get('subcategory_id')?.value;
 
     if (!categoryId) {
-      alert('Please select a category first');
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Category Required',
+        detail: 'Please select a category first',
+      });
       return;
     }
 
@@ -2210,9 +2613,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         console.error('Error generating sequence:', error);
         this.isGeneratingSequence = false;
         this.sequenceGenerationProgress = 0;
-        alert(
-          'Failed to generate sequence: ' + (error.message || 'Unknown error')
-        );
+        const errorMessage =
+          error?.error?.message || error?.message || 'Unknown error';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Generation Failed',
+          detail: `Failed to generate sequence: ${errorMessage}`,
+        });
       },
     });
   }
@@ -2414,22 +2821,52 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (
-      confirm(
-        `Generate sequences for ${machinesWithoutSequence.length} machines without sequences?`
-      )
-    ) {
-      this.bulkGenerateSequences(machinesWithoutSequence);
-    }
+    // Store machines for confirmation modal
+    this.pendingBulkGenerateMachines = machinesWithoutSequence;
+    this.bulkGenerateConfirmVisible = true;
+  }
+
+  // Confirmed bulk sequence generation
+  doBulkGenerateSequences(): void {
+    if (this.pendingBulkGenerateMachines.length === 0) return;
+
+    const machines = [...this.pendingBulkGenerateMachines];
+    this.bulkGenerateConfirmVisible = false;
+    this.pendingBulkGenerateMachines = [];
+
+    this.bulkGenerateSequences(machines);
   }
 
   private bulkGenerateSequences(machines: Machine[]): void {
     this.isGeneratingSequence = true;
     this.sequenceGenerationProgress = 0;
     let completed = 0;
+    let successCount = 0;
     const total = machines.length;
 
-    machines.forEach((machine, _index) => {
+    // Process machines sequentially to avoid duplicate sequences
+    const processNextMachine = (index: number): void => {
+      if (index >= machines.length) {
+        // All machines processed
+        this.isGeneratingSequence = false;
+        if (successCount === total) {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: `Successfully generated sequences for ${successCount} machines`,
+          });
+        } else {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'Warning',
+            detail: `Completed with some errors. Generated sequences for ${successCount} out of ${total} machines`,
+          });
+        }
+        this.reload(); // Refresh the list to show updated sequences
+        return;
+      }
+
+      const machine = machines[index];
       const request: SequenceGenerationRequest = {
         categoryId:
           typeof machine.category_id === 'string'
@@ -2454,6 +2891,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             .subscribe({
               next: (_updateResponse: any) => {
                 completed++;
+                successCount++;
                 this.sequenceGenerationProgress = Math.round(
                   (completed / total) * 100
                 );
@@ -2469,14 +2907,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
                   };
                 }
 
-                if (completed === total) {
-                  this.isGeneratingSequence = false;
-                  this.messageService.add({
-                    severity: 'success',
-                    summary: 'Success',
-                    detail: `Successfully generated sequences for ${completed} machines`,
-                  });
-                }
+                // Process next machine
+                processNextMachine(index + 1);
               },
               error: (updateError: any) => {
                 console.error(
@@ -2488,14 +2920,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
                   (completed / total) * 100
                 );
 
-                if (completed === total) {
-                  this.isGeneratingSequence = false;
-                  this.messageService.add({
-                    severity: 'warn',
-                    summary: 'Warning',
-                    detail: `Completed with some errors. Generated sequences for ${completed - 1} machines`,
-                  });
-                }
+                // Process next machine even on error
+                processNextMachine(index + 1);
               },
             });
         },
@@ -2509,17 +2935,14 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             (completed / total) * 100
           );
 
-          if (completed === total) {
-            this.isGeneratingSequence = false;
-            this.messageService.add({
-              severity: 'warn',
-              summary: 'Warning',
-              detail: `Completed with some errors. Generated sequences for ${completed - 1} machines`,
-            });
-          }
+          // Process next machine even on error
+          processNextMachine(index + 1);
         },
       });
-    });
+    };
+
+    // Start processing from the first machine
+    processNextMachine(0);
   }
 
   // Edit sequence
@@ -2726,14 +3149,17 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Confirm removal
-    if (
-      !confirm(
-        `Are you sure you want to remove the sequence "${machine.machine_sequence}" from machine "${machine.name}"?`
-      )
-    ) {
-      return;
-    }
+    // Store machine for confirmation modal
+    this.selectedMachineForRemoveSequence = machine;
+    this.removeSequenceConfirmVisible = true;
+  }
+
+  // Confirmed removal of sequence
+  doRemoveSequence(): void {
+    if (!this.selectedMachineForRemoveSequence) return;
+
+    const machine = this.selectedMachineForRemoveSequence;
+    this.removeSequenceConfirmVisible = false;
 
     // Update machine with empty sequence
     this.machineService
@@ -2758,6 +3184,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             summary: 'Success',
             detail: `Sequence removed successfully from "${machine.name}"`,
           });
+          this.selectedMachineForRemoveSequence = null;
         },
         error: (error: any) => {
           console.error('Error removing sequence:', error);
@@ -2766,8 +3193,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             summary: 'Error',
             detail:
               'Failed to remove sequence: ' +
-              (error.error?.message || 'Unknown error'),
+              (error?.error?.message || error?.message || 'Unknown error'),
           });
+          this.selectedMachineForRemoveSequence = null;
         },
       });
   }

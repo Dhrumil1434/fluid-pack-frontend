@@ -1,12 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import {
-  ReactiveFormsModule,
-  FormBuilder,
-  FormGroup,
-  Validators,
-} from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { BaseApiService } from '../../../core/services/base-api.service';
 import { API_ENDPOINTS } from '../../../core/constants/api.constants';
@@ -18,11 +13,20 @@ import { environment } from '../../../../environments/environment';
 import { TechnicianSidebarComponent } from '../components/shared/technician-sidebar/technician-sidebar.component';
 import { TablePaginationComponent } from '../../admin/components/user-management/table-pagination.component';
 import { ApprovalsService } from '../services/approvals.service';
+import { CategoryService } from '../../../core/services/category.service';
+import { MachineService } from '../../../core/services/machine.service';
+import {
+  SequenceGenerationRequest,
+  SequenceConfig,
+} from '../../../core/models/category.model';
+import { CreateMachineModalComponent } from '../components/create-machine-modal/create-machine-modal.component';
+import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
 
 interface MachineRow {
   _id: string;
   name: string;
   category_id?: { name?: string } | string;
+  subcategory_id?: { name?: string; _id?: string } | string | null;
   images?: string[];
   documents?: Array<{
     name: string;
@@ -33,13 +37,17 @@ interface MachineRow {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  machine_sequence?: string;
   createdAt: string;
+  updatedAt?: string;
+  updatedBy?: { username?: string };
+  metadata?: Record<string, any>;
   approvalStatus?: 'pending' | 'approved' | 'rejected' | null;
   rejectionReason?: string | null;
   approverNotes?: string | null;
   decisionByName?: string | null;
   decisionDate?: string | null;
-  created_by?: { username: string };
+  created_by?: { username: string; email?: string };
 }
 
 @Component({
@@ -52,6 +60,8 @@ interface MachineRow {
     ToastModule,
     TechnicianSidebarComponent,
     TablePaginationComponent,
+    CreateMachineModalComponent,
+    PageHeaderComponent,
   ],
   template: `
     <app-technician-sidebar
@@ -63,24 +73,35 @@ interface MachineRow {
       [class.ml-16]="sidebarCollapsed"
       [class.ml-64]="!sidebarCollapsed"
     >
-      <div class="p-6 space-y-6">
-        <p-toast></p-toast>
-        <!-- Header -->
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <h2 class="text-xl font-semibold">Machines</h2>
-          </div>
+      <!-- Header -->
+      <app-page-header
+        title="Machines"
+        subtitle="Manage your machine records"
+        [sidebarCollapsed]="sidebarCollapsed"
+        (toggleSidebar)="sidebarCollapsed = !sidebarCollapsed"
+      >
+        <div headerActions class="flex items-center gap-2">
           <button
-            class="px-3 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150"
-            [class.opacity-50]="creating || !canCreate"
-            [class.pointer-events-none]="!canCreate"
-            [disabled]="creating || !canCreate"
+            class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            [disabled]="!canCreate"
             (click)="openCreate()"
+            title="Create new machine"
           >
             <i class="pi pi-plus mr-2"></i>
             Create Machine
           </button>
         </div>
+      </app-page-header>
+
+      <div class="p-6 space-y-6">
+        <p-toast></p-toast>
+
+        <!-- Create Machine Modal -->
+        <app-create-machine-modal
+          [visible]="createVisible"
+          (cancel)="createVisible = false"
+          (created)="onMachineCreated()"
+        ></app-create-machine-modal>
 
         <!-- Filters & Search -->
         <div class="flex flex-col md:flex-row md:items-center gap-3">
@@ -172,6 +193,11 @@ interface MachineRow {
                     <th
                       class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
+                      Sequence
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       Machine
                     </th>
                     <th
@@ -222,6 +248,48 @@ interface MachineRow {
                     class="hover:bg-gray-50 transition-colors"
                     [class.bg-gray-50]="i % 2 === 0"
                   >
+                    <!-- Sequence -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center gap-2">
+                        <span
+                          *ngIf="m.machine_sequence"
+                          class="font-mono text-sm font-semibold bg-blue-100 text-blue-800 px-3 py-1.5 rounded border border-blue-200"
+                          [title]="'Sequence: ' + m.machine_sequence"
+                        >
+                          {{ m.machine_sequence }}
+                        </span>
+                        <span
+                          *ngIf="
+                            !m.machine_sequence &&
+                            (m.is_approved || !m.category_id)
+                          "
+                          class="text-gray-400 text-xs italic"
+                          >No sequence</span
+                        >
+                        <!-- Generate Sequence Button -->
+                        <button
+                          *ngIf="
+                            !m.machine_sequence &&
+                            !m.is_approved &&
+                            !!m.category_id
+                          "
+                          class="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          (click)="generateSequenceForMachine(m)"
+                          [disabled]="
+                            isGeneratingSequence ||
+                            generatingSequenceForMachineId === m._id
+                          "
+                          title="Generate sequence for this machine"
+                        >
+                          <i
+                            class="pi pi-cog text-sm"
+                            [class.pi-spin]="
+                              generatingSequenceForMachineId === m._id
+                            "
+                          ></i>
+                        </button>
+                      </div>
+                    </td>
                     <!-- Machine Name -->
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div class="flex items-center">
@@ -406,6 +474,14 @@ interface MachineRow {
                     <!-- Actions -->
                     <td class="px-6 py-4 whitespace-nowrap text-center">
                       <div class="flex items-center justify-center gap-2">
+                        <button
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
+                          (click)="openView(m)"
+                          title="View machine details"
+                        >
+                          <i class="pi pi-eye mr-1"></i>
+                          View
+                        </button>
                         <button
                           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
                           [disabled]="!m.images?.length"
@@ -703,7 +779,7 @@ interface MachineRow {
         <!-- Documents Modal -->
         <div
           *ngIf="documentsVisible"
-          class="fixed inset-0 z-50 flex items-center justify-center"
+          class="fixed inset-0 z-[60] flex items-center justify-center"
         >
           <div
             class="absolute inset-0 bg-black/40"
@@ -816,6 +892,250 @@ interface MachineRow {
             </div>
           </div>
         </div>
+
+        <!-- View Modal (consistent with admin view) -->
+        <div
+          *ngIf="viewVisible"
+          class="fixed inset-0 z-50 flex items-center justify-center"
+        >
+          <div
+            class="absolute inset-0 bg-black/40"
+            (click)="viewVisible = false"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="viewVisible = false"
+            (keydown.space)="viewVisible = false"
+          ></div>
+          <div
+            class="relative bg-white border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
+          >
+            <div
+              class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+            >
+              <h3 class="text-lg font-semibold text-gray-900">
+                Machine Details
+              </h3>
+              <button
+                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md"
+                (click)="viewVisible = false"
+              >
+                <i class="pi pi-times"></i>
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                  <span class="block text-xs text-gray-500 mb-1">Name</span>
+                  <span class="text-sm font-medium text-gray-900">{{
+                    viewMachine?.name
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Party Name</span
+                  >
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.party_name || '-'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1">Location</span>
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.location || '-'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Mobile Number</span
+                  >
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.mobile_number || '-'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1">Category</span>
+                  <span class="text-sm text-gray-900">{{
+                    getCategoryNameForView() || '-'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Subcategory</span
+                  >
+                  <span
+                    *ngIf="viewMachine?.subcategory_id"
+                    class="text-sm text-gray-900"
+                  >
+                    {{ getSubcategoryDisplayName(viewMachine?.subcategory_id) }}
+                  </span>
+                  <span
+                    *ngIf="!viewMachine?.subcategory_id"
+                    class="text-gray-400 text-sm"
+                    >-</span
+                  >
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Machine Sequence</span
+                  >
+                  <span
+                    *ngIf="viewMachine?.machine_sequence"
+                    class="font-mono text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                  >
+                    {{ viewMachine?.machine_sequence }}
+                  </span>
+                  <span
+                    *ngIf="!viewMachine?.machine_sequence"
+                    class="text-gray-400 text-sm"
+                    >-</span
+                  >
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1">Approved</span>
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.is_approved ? 'Yes' : 'No'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Created By</span
+                  >
+                  <span class="text-sm text-gray-900"
+                    >{{ viewMachine?.created_by?.username || '-' }}
+                    <span
+                      *ngIf="viewMachine?.created_by?.email"
+                      class="text-gray-500"
+                    >
+                      ({{ viewMachine?.created_by?.email }})
+                    </span>
+                  </span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Updated By</span
+                  >
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.updatedBy?.username || '—'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1">Created</span>
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.createdAt | date: 'medium'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1">Updated</span>
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.updatedAt || viewMachine?.createdAt
+                      | date: 'medium'
+                  }}</span>
+                </div>
+                <div class="md:col-span-2">
+                  <span class="block text-xs text-gray-500 mb-1">Images</span>
+                  <div
+                    class="mt-1 flex gap-2 flex-wrap"
+                    *ngIf="viewMachine?.images?.length; else noimg"
+                  >
+                    <img
+                      *ngFor="
+                        let img of viewMachine?.images;
+                        let i = index;
+                        trackBy: trackByIndex
+                      "
+                      [src]="imageUrl(img)"
+                      class="w-16 h-16 object-cover rounded border cursor-pointer"
+                      (click)="openPreview(viewMachine?.images || [], i)"
+                    />
+                  </div>
+                  <ng-template #noimg>
+                    <span class="text-xs text-gray-500">No images</span>
+                  </ng-template>
+                </div>
+                <div class="md:col-span-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="block text-xs text-gray-500">Documents</span>
+                    <button
+                      *ngIf="viewMachine?.documents?.length"
+                      class="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-light transition-colors"
+                      (click)="openDocumentsModal(viewMachine)"
+                    >
+                      <i class="pi pi-file mr-1"></i>
+                      View All Documents ({{
+                        viewMachine?.documents?.length || 0
+                      }})
+                    </button>
+                  </div>
+                  <div
+                    class="mt-1 flex gap-2 flex-wrap"
+                    *ngIf="viewMachine?.documents?.length; else nodocs"
+                  >
+                    <div
+                      *ngFor="
+                        let doc of viewMachine?.documents | slice: 0 : 3;
+                        let i = index;
+                        trackBy: trackByIndex
+                      "
+                      class="flex items-center gap-2 px-3 py-2 bg-neutral-100 rounded-md border text-sm hover:bg-neutral-200 transition-colors"
+                    >
+                      <i class="pi pi-file text-primary"></i>
+                      <span class="truncate max-w-40 font-medium">{{
+                        doc.name
+                      }}</span>
+                    </div>
+                    <div
+                      *ngIf="(viewMachine?.documents?.length || 0) > 3"
+                      class="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 text-sm text-primary font-medium"
+                    >
+                      <i class="pi pi-plus"></i>
+                      <span
+                        >+{{
+                          (viewMachine?.documents?.length || 0) - 3
+                        }}
+                        more</span
+                      >
+                    </div>
+                  </div>
+                  <ng-template #nodocs>
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                      <i class="pi pi-file"></i>
+                      <span>No documents attached</span>
+                    </div>
+                  </ng-template>
+                </div>
+                <div class="md:col-span-2" *ngIf="viewMachine?.metadata">
+                  <span class="block text-xs text-gray-500 mb-1">Metadata</span>
+                  <div class="border rounded divide-y">
+                    <div
+                      class="p-2 grid grid-cols-5 gap-2"
+                      *ngFor="
+                        let kv of viewMachine?.metadata | keyvalue;
+                        trackBy: trackByKey
+                      "
+                    >
+                      <div class="col-span-2 text-xs font-medium">
+                        {{ kv.key }}
+                      </div>
+                      <div class="col-span-3 text-xs break-all">
+                        {{ kv.value }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+            >
+              <button
+                class="px-3 py-2 rounded-md border border-neutral-300 text-gray-700 hover:bg-gray-50"
+                (click)="viewVisible = false"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -852,11 +1172,6 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   filter = signal<'all' | 'own'>('own');
 
   createVisible = false;
-  creating = false;
-  form: FormGroup;
-  categories: Array<{ _id: string; name: string }> = [];
-  selectedFiles: File[] = [];
-  selectedPreviews: string[] = [];
   canCreate = true;
   previewVisible = false;
   previewImages: string[] = [];
@@ -864,7 +1179,17 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   documentsVisible = false;
   selectedMachine: any = null;
   sidebarCollapsed = false;
+  // View modal state
+  viewVisible = false;
+  viewMachine: MachineRow | null = null;
   searchTerm = '';
+
+  // Sequence generation
+  isGeneratingSequence = false;
+  generatingSequenceForMachineId: string | null = null;
+
+  // Sequence configs
+  sequenceConfigs: SequenceConfig[] = [];
   sortKey:
     | 'created_desc'
     | 'created_asc'
@@ -893,17 +1218,14 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     private permissionService: PermissionService,
     private route: ActivatedRoute,
     private approvals: ApprovalsService,
-    private messageService: MessageService
-  ) {
-    this.form = this.fb.group({
-      name: ['', [Validators.required, Validators.minLength(2)]],
-      category_id: ['', Validators.required],
-    });
-  }
+    private messageService: MessageService,
+    private categoryService: CategoryService,
+    private machineService: MachineService
+  ) {}
 
   ngOnInit(): void {
     this.checkCreatePermission();
-    this.fetchCategories();
+    this.loadSequenceConfigs();
     this.refresh();
     // Auto-open modal if query param specifies it
     this.route.queryParamMap.subscribe(params => {
@@ -915,7 +1237,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
+    // Cleanup handled by CreateMachineModalComponent
   }
 
   setFilter(f: 'all' | 'own'): void {
@@ -930,6 +1252,11 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     if (!m.category_id) return '-';
     if (typeof m.category_id === 'string') return m.category_id;
     return m.category_id?.name || '-';
+  }
+
+  getCategoryNameForView(): string {
+    if (!this.viewMachine) return '-';
+    return this.categoryName(this.viewMachine);
   }
 
   refresh(): void {
@@ -995,97 +1322,188 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
       });
       return;
     }
-    this.form.reset();
-    this.selectedFiles = [];
-    this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
-    this.selectedPreviews = [];
     this.createVisible = true;
-    // Ensure categories are fresh whenever the modal is opened
-    this.fetchCategories();
   }
 
-  closeCreate(): void {
-    if (!this.creating) this.createVisible = false;
+  onMachineCreated(): void {
+    this.createVisible = false;
+    this.refresh();
   }
 
-  onFilesSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const files = input.files ? Array.from(input.files) : [];
-    const limited = files.slice(0, 5);
-    this.selectedFiles = limited;
-    // Previews
-    this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
-    this.selectedPreviews = this.selectedFiles.map(f => URL.createObjectURL(f));
-  }
-
-  removeFile(index: number): void {
-    if (index < 0 || index >= this.selectedFiles.length) return;
-    const [removed] = this.selectedPreviews.splice(index, 1);
-    if (removed) URL.revokeObjectURL(removed);
-    this.selectedFiles.splice(index, 1);
-  }
-
-  onSubmit(): void {
-    if (this.form.invalid || this.creating) return;
-    const user = this.auth.getCurrentUser();
-    if (!user?._id) return;
-    const formData = new FormData();
-    formData.append('name', this.form.value.name);
-    formData.append('category_id', this.form.value.category_id);
-    // metadata is optional; omit for now
-    for (const f of this.selectedFiles) {
-      formData.append('images', f);
-    }
-
-    this.creating = true;
-    this.baseApi.post<any>(API_ENDPOINTS.MACHINES, formData).subscribe({
-      next: () => {
-        this.creating = false;
-        this.createVisible = false;
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Created',
-          detail: 'Machine created and pending approval.',
-        });
-        this.refresh();
+  // Sequence config methods
+  loadSequenceConfigs(): void {
+    this.categoryService.getAllSequenceConfigs().subscribe({
+      next: (response: any) => {
+        // Handle different response structures
+        if (Array.isArray(response)) {
+          this.sequenceConfigs = response;
+        } else if (response?.data) {
+          this.sequenceConfigs = Array.isArray(response.data)
+            ? response.data
+            : [];
+        } else {
+          this.sequenceConfigs = [];
+        }
+        console.log('Sequence configs loaded:', this.sequenceConfigs.length);
       },
-      error: err => {
-        this.creating = false;
-        const detail = err?.error?.message || 'Failed to create machine';
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail,
-        });
+      error: (error: any) => {
+        console.error('Error loading sequence configs:', error);
+        this.sequenceConfigs = []; // Set empty array on error
       },
     });
   }
 
-  private fetchCategories(): void {
-    // Use active categories for selection
-    this.baseApi.get<any>(API_ENDPOINTS.CATEGORY_ACTIVE).subscribe({
-      next: res => {
-        const data: any = (res as any).data || res;
-        this.categories = Array.isArray(data)
-          ? data
-          : data.categories || data?.data?.categories || [];
+  getSequenceConfigForCategory(categoryId: string): SequenceConfig | undefined {
+    return this.sequenceConfigs.find(
+      config => config.category_id === categoryId
+    );
+  }
+
+  hasSequenceConfigForMachine(machine: MachineRow): boolean {
+    // If sequence configs failed to load, still show button - let the API handle validation
+    if (this.sequenceConfigs.length === 0) {
+      // If configs haven't loaded yet or failed, still allow button if machine has category
+      // The generate endpoint will return an error if no config exists
+      return (
+        !!machine.category_id &&
+        !machine.machine_sequence &&
+        !machine.is_approved
+      );
+    }
+
+    if (!machine.category_id) return false;
+    const categoryId =
+      typeof machine.category_id === 'string'
+        ? machine.category_id
+        : (machine.category_id as any)?._id;
+
+    if (!categoryId) return false;
+
+    const config = this.getSequenceConfigForCategory(categoryId);
+    return !!config;
+  }
+
+  generateSequenceForMachine(machine: MachineRow): void {
+    if (
+      !machine.category_id ||
+      machine.is_approved ||
+      machine.machine_sequence
+    ) {
+      return;
+    }
+
+    this.generatingSequenceForMachineId = machine._id;
+
+    const categoryId =
+      typeof machine.category_id === 'string'
+        ? machine.category_id
+        : (machine.category_id as any)?._id || '';
+
+    const subcategoryId = machine.subcategory_id
+      ? typeof machine.subcategory_id === 'string'
+        ? machine.subcategory_id
+        : (machine.subcategory_id as any)?._id
+      : undefined;
+
+    const request: SequenceGenerationRequest = {
+      categoryId: categoryId,
+      subcategoryId: subcategoryId,
+    };
+
+    this.categoryService.generateSequence(request).subscribe({
+      next: (response: any) => {
+        const generatedSequence = response.data.sequence;
+
+        // Update the machine with the generated sequence
+        this.machineService
+          .updateMachineSequence(machine._id, generatedSequence)
+          .subscribe({
+            next: (_updateResponse: any) => {
+              // Update the machine in the list
+              const machineIndex = this.rows.findIndex(
+                m => m._id === machine._id
+              );
+              if (machineIndex !== -1) {
+                this.rows[machineIndex] = {
+                  ...this.rows[machineIndex],
+                  machine_sequence: generatedSequence,
+                };
+              }
+
+              this.generatingSequenceForMachineId = null;
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Sequence Generated',
+                detail: `Sequence "${generatedSequence}" generated successfully for "${machine.name}"`,
+              });
+            },
+            error: (updateError: any) => {
+              console.error(
+                `Error saving sequence for machine ${machine.name}:`,
+                updateError
+              );
+              this.generatingSequenceForMachineId = null;
+              const errorMessage =
+                updateError?.error?.message ||
+                updateError?.message ||
+                'Unknown error';
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Update Failed',
+                detail: `Failed to save sequence: ${errorMessage}`,
+              });
+            },
+          });
       },
-      error: () => {},
+      error: (error: any) => {
+        console.error(
+          `Error generating sequence for machine ${machine.name}:`,
+          error
+        );
+        this.generatingSequenceForMachineId = null;
+        const errorMessage =
+          error?.error?.message || error?.message || 'Unknown error';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Generation Failed',
+          detail: `Failed to generate sequence: ${errorMessage}`,
+        });
+      },
     });
   }
 
   private checkCreatePermission(): void {
-    this.permissionService
-      .checkPermission({ action: 'CREATE_MACHINE' } as any)
-      .subscribe({
-        next: res => {
-          const allowed = (res as any)?.data?.allowed ?? (res as any)?.allowed;
-          this.canCreate = !!allowed;
-        },
-        error: () => {
-          this.canCreate = false;
-        },
-      });
+    const body = { action: 'CREATE_MACHINE' };
+    this.baseApi.post<any>(API_ENDPOINTS.CHECK_PERMISSION, body).subscribe({
+      next: res => {
+        const payload: any = (res as any)?.data ?? res;
+        const result = payload?.result ?? payload;
+        this.canCreate = !!(result?.allowed || result?.requiresApproval);
+        if (!this.canCreate) {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'Permission denied',
+            detail:
+              result?.reason ||
+              'You do not have permission to create machines.',
+          });
+        } else if (!result?.allowed && result?.requiresApproval) {
+          this.messageService.add({
+            severity: 'info',
+            summary: 'Requires approval',
+            detail: 'Your creation will be submitted for approval.',
+          });
+        }
+      },
+      error: () => {
+        this.canCreate = false;
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Permission check failed',
+          detail: 'Could not verify permissions. Please try again.',
+        });
+      },
+    });
   }
 
   imageUrl(path: string): string {
@@ -1293,4 +1711,35 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
         : `/${filePath}`;
     return `${baseUrl}${normalizedPath}`;
   }
+
+  // View modal methods
+  openView(machine: MachineRow): void {
+    this.viewMachine = machine;
+    this.viewVisible = true;
+  }
+
+  getSubcategoryDisplayName(
+    subcategoryId: string | { _id?: string; name?: string } | null | undefined
+  ): string {
+    if (!subcategoryId) return '-';
+    // If it's an object with a name property (populated from backend)
+    if (
+      typeof subcategoryId === 'object' &&
+      subcategoryId !== null &&
+      'name' in subcategoryId &&
+      subcategoryId.name
+    ) {
+      return subcategoryId.name;
+    }
+    // If it's a string ID, we can't resolve it without a lookup, so return '-'
+    // For technician view, we'll rely on populated data from backend
+    if (typeof subcategoryId === 'string') {
+      return '-';
+    }
+    // If it's an object with _id but no name, return '-'
+    return '-';
+  }
+
+  trackByIndex = (i: number) => i;
+  trackByKey = (_: number, item: { key: string; value: unknown }) => item.key;
 }

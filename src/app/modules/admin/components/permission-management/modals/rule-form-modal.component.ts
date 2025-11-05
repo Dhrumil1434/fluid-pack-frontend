@@ -63,6 +63,9 @@ import { FormsModule } from '@angular/forms';
               <option value="">Select action</option>
               <option value="CREATE_MACHINE">Create Machine</option>
               <option value="EDIT_MACHINE">Edit Machine</option>
+              <option value="UPDATE_MACHINE_SEQUENCE">
+                Update Machine Sequence
+              </option>
               <option value="DELETE_MACHINE">Delete Machine</option>
               <option value="APPROVE_MACHINE">Approve Machine</option>
               <option value="VIEW_MACHINE">View Machine</option>

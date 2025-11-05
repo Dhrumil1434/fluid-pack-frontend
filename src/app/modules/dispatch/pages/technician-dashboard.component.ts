@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from '../../../core/constants/api.constants';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { BaseApiService } from '../../../core/services/base-api.service';
+import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
 
 interface MachineRow {
   _id: string;
@@ -17,6 +18,7 @@ interface MachineRow {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  machine_sequence?: string;
   documents?: Array<{
     name: string;
     file_path: string;
@@ -34,6 +36,7 @@ interface MachineRow {
     TechnicianSidebarComponent,
     CreateMachineModalComponent,
     ToastModule,
+    PageHeaderComponent,
   ],
   template: `
     <!-- Standalone technician shell with its own sidebar -->
@@ -47,49 +50,37 @@ interface MachineRow {
         [class.ml-16]="sidebarCollapsed"
         [class.ml-64]="!sidebarCollapsed"
       >
-        <p-toast></p-toast>
-        <!-- Header replicating admin page shell -->
-        <header
-          class="bg-bg border-b border-neutral-300 px-6 py-3 sticky top-0 z-40"
+        <!-- Header -->
+        <app-page-header
+          title="Dashboard"
+          subtitle="Technician Dashboard"
+          [sidebarCollapsed]="sidebarCollapsed"
+          (toggleSidebar)="sidebarCollapsed = !sidebarCollapsed"
+          [breadcrumbs]="[
+            { label: 'Dispatch', route: '/dispatch/technician' },
+            { label: 'Dashboard' },
+          ]"
         >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <button
-                class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
-                title="Toggle sidebar"
-                (click)="sidebarCollapsed = !sidebarCollapsed"
-              >
-                <i class="pi pi-bars"></i>
-              </button>
-              <nav class="text-sm text-text-muted flex items-center gap-2">
-                <i class="pi pi-home"></i>
-                <a routerLink="/dispatch/technician" class="hover:underline"
-                  >Dispatch</a
-                >
-                <span>/</span>
-                <span class="text-text">Technician</span>
-              </nav>
-            </div>
-            <div class="flex items-center gap-2">
-              <button
-                class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
-                title="Refresh"
-                (click)="fetchRecent()"
-              >
-                <i class="pi pi-refresh"></i>
-              </button>
-              <button
-                class="px-3 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150"
-                [class.opacity-50]="!canCreate"
-                [disabled]="!canCreate"
-                (click)="onCreateClicked($event)"
-              >
-                <i class="pi pi-plus mr-2"></i>
-                Create Machine
-              </button>
-            </div>
+          <div headerActions class="flex items-center gap-2">
+            <button
+              class="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200"
+              title="Refresh"
+              (click)="fetchRecent()"
+            >
+              <i class="pi pi-refresh text-lg"></i>
+            </button>
+            <button
+              class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              [disabled]="!canCreate"
+              (click)="onCreateClicked($event)"
+              title="Create new machine"
+            >
+              <i class="pi pi-plus mr-2"></i>
+              Create Machine
+            </button>
           </div>
-        </header>
+        </app-page-header>
+        <p-toast></p-toast>
         <div class="p-6 space-y-6">
           <app-create-machine-modal
             [visible]="createVisible"
@@ -124,6 +115,7 @@ interface MachineRow {
                 <table class="min-w-full text-sm">
                   <thead>
                     <tr class="text-left">
+                      <th class="px-3 py-2">Sequence</th>
                       <th class="px-3 py-2">Name</th>
                       <th class="px-3 py-2">Category</th>
                       <th class="px-3 py-2">Party</th>
@@ -138,6 +130,20 @@ interface MachineRow {
                       *ngFor="let m of machines"
                       class="border-t border-neutral-200"
                     >
+                      <td class="px-3 py-2">
+                        <span
+                          *ngIf="m.machine_sequence"
+                          class="font-mono text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                        >
+                          {{ m.machine_sequence }}
+                        </span>
+                        <span
+                          *ngIf="!m.machine_sequence"
+                          class="text-gray-400 text-xs italic"
+                        >
+                          -
+                        </span>
+                      </td>
                       <td class="px-3 py-2">{{ m.name }}</td>
                       <td class="px-3 py-2">{{ categoryName(m) }}</td>
                       <td class="px-3 py-2">{{ m.party_name || '-' }}</td>
@@ -197,6 +203,7 @@ interface MachineRow {
               <table class="min-w-full text-sm">
                 <thead>
                   <tr class="text-left">
+                    <th class="px-3 py-2">Sequence</th>
                     <th class="px-3 py-2">Name</th>
                     <th class="px-3 py-2">Category</th>
                     <th class="px-3 py-2">Party</th>
@@ -211,6 +218,20 @@ interface MachineRow {
                     *ngFor="let m of machines"
                     class="border-t border-neutral-200"
                   >
+                    <td class="px-3 py-2">
+                      <span
+                        *ngIf="m.machine_sequence"
+                        class="font-mono text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                      >
+                        {{ m.machine_sequence }}
+                      </span>
+                      <span
+                        *ngIf="!m.machine_sequence"
+                        class="text-gray-400 text-xs italic"
+                      >
+                        -
+                      </span>
+                    </td>
                     <td class="px-3 py-2">{{ m.name }}</td>
                     <td class="px-3 py-2">{{ categoryName(m) }}</td>
                     <td class="px-3 py-2">{{ m.party_name || '-' }}</td>

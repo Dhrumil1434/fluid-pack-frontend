@@ -14,6 +14,7 @@ import { User } from '../../../../core/models/user.model';
 import { ToastModule } from 'primeng/toast';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
 
 @Component({
   selector: 'app-user-management',
@@ -30,6 +31,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
     UserDetailsModalComponent,
     ToastModule,
     ConfirmDialogModule,
+    PageHeaderComponent,
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './user-management.component.html',

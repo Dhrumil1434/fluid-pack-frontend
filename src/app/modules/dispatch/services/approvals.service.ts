@@ -26,11 +26,22 @@ export class ApprovalsService {
     limit = 10,
     search?: string,
     status: 'pending' | 'approved' | 'rejected' = 'pending',
-    sort: string = '-createdAt'
+    sort: string = '-createdAt',
+    filters?: {
+      sequence?: string;
+      categoryId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      requestedBy?: string;
+      metadataKey?: string;
+      metadataValue?: string;
+    }
   ): Observable<PendingApprovalsResponse> {
-    const params = new URLSearchParams();
-    params.set('page', String(page));
-    params.set('limit', String(limit));
+    const params: Record<string, string> = {
+      page: String(page),
+      limit: String(limit),
+    };
+
     // The backend expects uppercase status for the general listing endpoint.
     const uppercaseStatus = status?.toUpperCase() as
       | 'PENDING'
@@ -39,26 +50,42 @@ export class ApprovalsService {
 
     if (status === 'pending') {
       // Use role-scoped pending endpoint for current approver
+      if (search) params['search'] = search;
+      if (sort) params['sort'] = sort;
+
+      // Add enhanced filters
+      if (filters?.sequence) params['sequence'] = filters.sequence;
+      if (filters?.categoryId) params['categoryId'] = filters.categoryId;
+      if (filters?.dateFrom) params['dateFrom'] = filters.dateFrom;
+      if (filters?.dateTo) params['dateTo'] = filters.dateTo;
+      if (filters?.requestedBy) params['requestedBy'] = filters.requestedBy;
+      if (filters?.metadataKey) params['metadataKey'] = filters.metadataKey;
+      if (filters?.metadataValue)
+        params['metadataValue'] = filters.metadataValue;
+
       return this.api
-        .get<PendingApprovalsResponse>(
-          API_ENDPOINTS.PENDING_APPROVALS,
-          Object.fromEntries(params as any)
-        )
+        .get<PendingApprovalsResponse>(API_ENDPOINTS.PENDING_APPROVALS, params)
         .pipe(
           map((res: any) => (res?.data ?? res) as PendingApprovalsResponse)
         );
     }
 
     // For non-pending filters, use general endpoint with uppercase status
-    if (uppercaseStatus) params.set('status', uppercaseStatus);
-    if (search) params.set('search', search);
-    if (sort) params.set('sort', sort);
+    if (uppercaseStatus) params['status'] = uppercaseStatus;
+    if (search) params['search'] = search;
+    if (sort) params['sort'] = sort;
+
+    // Add enhanced filters
+    if (filters?.sequence) params['sequence'] = filters.sequence;
+    if (filters?.categoryId) params['categoryId'] = filters.categoryId;
+    if (filters?.dateFrom) params['dateFrom'] = filters.dateFrom;
+    if (filters?.dateTo) params['dateTo'] = filters.dateTo;
+    if (filters?.requestedBy) params['requestedBy'] = filters.requestedBy;
+    if (filters?.metadataKey) params['metadataKey'] = filters.metadataKey;
+    if (filters?.metadataValue) params['metadataValue'] = filters.metadataValue;
 
     return this.api
-      .get<PendingApprovalsResponse>(
-        API_ENDPOINTS.MACHINE_APPROVALS,
-        Object.fromEntries(params as any)
-      )
+      .get<PendingApprovalsResponse>(API_ENDPOINTS.MACHINE_APPROVALS, params)
       .pipe(map((res: any) => (res?.data ?? res) as PendingApprovalsResponse));
   }
 

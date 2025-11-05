@@ -23,6 +23,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { ElementRef, ViewChild } from '@angular/core';
 import { CategoryService } from '../../../../core/services/category.service';
+import { SequenceGenerationRequest } from '../../../../core/models/category.model';
 
 @Component({
   selector: 'app-create-machine-modal',
@@ -56,7 +57,12 @@ import { CategoryService } from '../../../../core/services/category.service';
               <input
                 type="text"
                 class="w-full border rounded px-3 py-2"
+                [class.border-red-500]="
+                  form.controls['name'].touched && form.controls['name'].invalid
+                "
                 formControlName="name"
+                (blur)="form.controls['name'].markAsTouched()"
+                (input)="form.controls['name'].markAsTouched()"
               />
               <div
                 class="text-xs text-error"
@@ -64,15 +70,32 @@ import { CategoryService } from '../../../../core/services/category.service';
                   form.controls['name'].touched && form.controls['name'].invalid
                 "
               >
-                Name is required (min 2 characters)
+                <span *ngIf="form.controls['name'].errors?.['required']">
+                  Machine name is required
+                </span>
+                <span *ngIf="form.controls['name'].errors?.['minlength']">
+                  Machine name must be at least 2 characters long
+                </span>
+                <span *ngIf="form.controls['name'].errors?.['maxlength']">
+                  Machine name cannot exceed 100 characters
+                </span>
+                <span *ngIf="form.controls['name'].errors?.['pattern']">
+                  Machine name can only contain letters, numbers, spaces, and
+                  common punctuation
+                </span>
               </div>
             </div>
             <div class="space-y-1">
               <label class="text-sm">Category</label>
               <select
                 class="w-full border rounded px-3 py-2"
+                [class.border-red-500]="
+                  form.controls['category_id'].touched &&
+                  form.controls['category_id'].invalid
+                "
                 formControlName="category_id"
                 (change)="onCategoryChange()"
+                (blur)="form.controls['category_id'].markAsTouched()"
               >
                 <option value="" disabled>Select category</option>
                 <option *ngFor="let c of categories" [value]="c._id">
@@ -86,7 +109,12 @@ import { CategoryService } from '../../../../core/services/category.service';
                   form.controls['category_id'].invalid
                 "
               >
-                Category is required
+                <span *ngIf="form.controls['category_id'].errors?.['required']">
+                  Category ID is required
+                </span>
+                <span *ngIf="form.controls['category_id'].errors?.['pattern']">
+                  Invalid category ID format
+                </span>
               </div>
             </div>
             <div class="space-y-1" *ngIf="subcategories.length > 0">
@@ -100,14 +128,61 @@ import { CategoryService } from '../../../../core/services/category.service';
                   {{ sc.name }}
                 </option>
               </select>
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['subcategory_id'].touched &&
+                  form.controls['subcategory_id'].invalid &&
+                  form.controls['subcategory_id'].value
+                "
+              >
+                <span
+                  *ngIf="form.controls['subcategory_id'].errors?.['pattern']"
+                >
+                  Invalid subcategory ID format
+                </span>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <label class="text-sm">Machine Sequence</label>
+                <button
+                  type="button"
+                  class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  (click)="generateSequence()"
+                  [disabled]="
+                    !form.get('category_id')?.value || isGeneratingSequence
+                  "
+                >
+                  <i
+                    *ngIf="isGeneratingSequence"
+                    class="pi pi-spinner pi-spin mr-1"
+                  ></i>
+                  <i *ngIf="!isGeneratingSequence" class="pi pi-cog mr-1"></i>
+                  {{ isGeneratingSequence ? 'Generating...' : 'Generate' }}
+                </button>
+              </div>
+              <input
+                type="text"
+                class="w-full border rounded px-3 py-2 bg-gray-50"
+                formControlName="machine_sequence"
+                placeholder="Sequence will be generated automatically"
+                readonly
+              />
             </div>
             <div class="space-y-1">
               <label class="text-sm">Party Name</label>
               <input
                 type="text"
                 class="w-full border rounded px-3 py-2"
+                [class.border-red-500]="
+                  form.controls['party_name'].touched &&
+                  form.controls['party_name'].invalid
+                "
                 formControlName="party_name"
                 placeholder="Enter party/company name"
+                (blur)="form.controls['party_name'].markAsTouched()"
+                (input)="form.controls['party_name'].markAsTouched()"
               />
               <div
                 class="text-xs text-error"
@@ -116,7 +191,19 @@ import { CategoryService } from '../../../../core/services/category.service';
                   form.controls['party_name'].invalid
                 "
               >
-                Party name is required (2-100 characters)
+                <span *ngIf="form.controls['party_name'].errors?.['required']">
+                  Party name is required
+                </span>
+                <span *ngIf="form.controls['party_name'].errors?.['minlength']">
+                  Party name must be at least 2 characters long
+                </span>
+                <span *ngIf="form.controls['party_name'].errors?.['maxlength']">
+                  Party name cannot exceed 100 characters
+                </span>
+                <span *ngIf="form.controls['party_name'].errors?.['pattern']">
+                  Party name can only contain letters, numbers, spaces, and
+                  common punctuation
+                </span>
               </div>
             </div>
             <div class="space-y-1">
@@ -124,8 +211,14 @@ import { CategoryService } from '../../../../core/services/category.service';
               <input
                 type="text"
                 class="w-full border rounded px-3 py-2"
+                [class.border-red-500]="
+                  form.controls['location'].touched &&
+                  form.controls['location'].invalid
+                "
                 formControlName="location"
                 placeholder="Enter city-country or location"
+                (blur)="form.controls['location'].markAsTouched()"
+                (input)="form.controls['location'].markAsTouched()"
               />
               <div
                 class="text-xs text-error"
@@ -134,7 +227,15 @@ import { CategoryService } from '../../../../core/services/category.service';
                   form.controls['location'].invalid
                 "
               >
-                Location is required (2-100 characters)
+                <span *ngIf="form.controls['location'].errors?.['required']">
+                  Location is required
+                </span>
+                <span *ngIf="form.controls['location'].errors?.['minlength']">
+                  Location must be at least 2 characters long
+                </span>
+                <span *ngIf="form.controls['location'].errors?.['maxlength']">
+                  Location cannot exceed 100 characters
+                </span>
               </div>
             </div>
             <div class="space-y-1">
@@ -142,8 +243,14 @@ import { CategoryService } from '../../../../core/services/category.service';
               <input
                 type="tel"
                 class="w-full border rounded px-3 py-2"
+                [class.border-red-500]="
+                  form.controls['mobile_number'].touched &&
+                  form.controls['mobile_number'].invalid
+                "
                 formControlName="mobile_number"
-                placeholder="Enter mobile number"
+                placeholder="Enter mobile number (e.g., +1234567890 or 123-456-7890)"
+                (blur)="form.controls['mobile_number'].markAsTouched()"
+                (input)="form.controls['mobile_number'].markAsTouched()"
               />
               <div
                 class="text-xs text-error"
@@ -152,7 +259,53 @@ import { CategoryService } from '../../../../core/services/category.service';
                   form.controls['mobile_number'].invalid
                 "
               >
-                Mobile number is required (10-20 characters)
+                <span
+                  *ngIf="form.controls['mobile_number'].errors?.['required']"
+                >
+                  Mobile number is required
+                </span>
+                <span
+                  *ngIf="form.controls['mobile_number'].errors?.['minlength']"
+                >
+                  Mobile number must be at least 10 characters long
+                </span>
+                <span
+                  *ngIf="form.controls['mobile_number'].errors?.['maxlength']"
+                >
+                  Mobile number cannot exceed 20 characters
+                </span>
+                <span
+                  *ngIf="form.controls['mobile_number'].errors?.['pattern']"
+                >
+                  Mobile number can only contain numbers, spaces, hyphens,
+                  parentheses, and optional + prefix
+                </span>
+                <span
+                  *ngIf="
+                    form.controls['mobile_number'].errors?.[
+                      'mobileNumberDigits'
+                    ]
+                  "
+                >
+                  {{
+                    form.controls['mobile_number'].errors?.[
+                      'mobileNumberDigits'
+                    ]?.message || 'Invalid digit count'
+                  }}
+                </span>
+                <span
+                  *ngIf="
+                    form.controls['mobile_number'].errors?.[
+                      'mobileNumberFormat'
+                    ]
+                  "
+                >
+                  {{
+                    form.controls['mobile_number'].errors?.[
+                      'mobileNumberFormat'
+                    ]?.message || 'Invalid phone number format'
+                  }}
+                </span>
               </div>
             </div>
             <div class="space-y-2">
@@ -186,7 +339,7 @@ import { CategoryService } from '../../../../core/services/category.service';
                     or drag and drop
                   </div>
                   <div class="text-xs text-neutral-500">
-                    PNG, JPG up to 5 files
+                    PNG, JPG up to 10 files
                   </div>
                 </div>
               </div>
@@ -195,7 +348,7 @@ import { CategoryService } from '../../../../core/services/category.service';
                 class="text-xs text-text-muted"
                 *ngIf="selectedFiles.length > 0"
               >
-                {{ selectedFiles.length }} file(s) selected (max 5)
+                {{ selectedFiles.length }} file(s) selected (max 10)
               </div>
 
               <div
@@ -381,8 +534,15 @@ import { CategoryService } from '../../../../core/services/category.service';
               </button>
               <button
                 type="submit"
-                class="px-3 py-2 rounded bg-primary text-white"
+                class="px-3 py-2 rounded bg-primary text-white transition-colors"
+                [class.opacity-50]="loading || form.invalid"
+                [class.cursor-not-allowed]="loading || form.invalid"
                 [disabled]="loading || form.invalid"
+                title="{{
+                  form.invalid
+                    ? 'Please fix validation errors before submitting'
+                    : ''
+                }}"
               >
                 <span *ngIf="!loading">Create</span>
                 <span *ngIf="loading">Creating...</span>
@@ -405,9 +565,10 @@ export class CreateMachineModalComponent
     if (v) {
       // Refresh categories each time modal opens to stay in sync
       this.fetchCategories();
-      // Reset subcategories when modal opens
+      // Reset subcategories and sequence when modal opens
       this.subcategories = [];
-      this.form.patchValue({ subcategory_id: '' });
+      this.form.patchValue({ subcategory_id: '', machine_sequence: '' });
+      this.selectedSequence = '';
     }
   }
   get visible() {
@@ -427,6 +588,10 @@ export class CreateMachineModalComponent
   isDragging = false;
   isDocumentDragging = false;
 
+  // Sequence generation
+  isGeneratingSequence = false;
+  selectedSequence = '';
+
   constructor(
     private fb: FormBuilder,
     private baseApi: BaseApiService,
@@ -434,15 +599,27 @@ export class CreateMachineModalComponent
     private categoryService: CategoryService
   ) {
     this.form = this.fb.group({
-      name: ['', [Validators.required, Validators.minLength(2)]],
-      category_id: ['', Validators.required],
-      subcategory_id: [''],
+      name: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(100),
+          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
+        ],
+      ],
+      category_id: [
+        '',
+        [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
+      ],
+      subcategory_id: ['', [Validators.pattern(/^[0-9a-fA-F]{24}$/)]],
       party_name: [
         '',
         [
           Validators.required,
           Validators.minLength(2),
           Validators.maxLength(100),
+          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
         ],
       ],
       location: [
@@ -459,8 +636,11 @@ export class CreateMachineModalComponent
           Validators.required,
           Validators.minLength(10),
           Validators.maxLength(20),
+          Validators.pattern(/^[+]?[0-9\s\-()]+$/),
+          this.mobileNumberValidator,
         ],
       ],
+      machine_sequence: [''],
       metadata: this.fb.array([], [this.uniqueKeysValidator]),
     });
   }
@@ -514,8 +694,21 @@ export class CreateMachineModalComponent
   }
 
   private acceptFiles(files: File[]): void {
-    const limited = files.slice(0, Math.max(0, 5 - this.selectedFiles.length));
-    if (limited.length === 0) return;
+    const maxImages = 10; // Backend allows max 10 images
+    const limited = files.slice(
+      0,
+      Math.max(0, maxImages - this.selectedFiles.length)
+    );
+    if (limited.length === 0) {
+      if (this.selectedFiles.length >= maxImages) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Limit reached',
+          detail: 'Cannot upload more than 10 images',
+        });
+      }
+      return;
+    }
     this.selectedFiles = [...this.selectedFiles, ...limited];
     this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
     this.selectedPreviews = this.selectedFiles.map(f => URL.createObjectURL(f));
@@ -566,16 +759,43 @@ export class CreateMachineModalComponent
   }
 
   onSubmit(): void {
-    if (this.form.invalid || this.loading) return;
-    const formData = new FormData();
-    formData.append('name', this.form.value.name);
-    formData.append('category_id', this.form.value.category_id);
-    if (this.form.value.subcategory_id) {
-      formData.append('subcategory_id', this.form.value.subcategory_id);
+    // Mark all fields as touched to show validation errors
+    Object.keys(this.form.controls).forEach(key => {
+      this.form.get(key)?.markAsTouched();
+    });
+
+    // Mark all metadata fields as touched
+    this.metadata.controls.forEach(control => {
+      control.get('key')?.markAsTouched();
+    });
+
+    if (this.form.invalid || this.loading) {
+      if (this.form.invalid) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Validation Error',
+          detail: 'Please fix the errors in the form before submitting.',
+        });
+      }
+      return;
     }
-    formData.append('party_name', this.form.value.party_name);
-    formData.append('location', this.form.value.location);
-    formData.append('mobile_number', this.form.value.mobile_number);
+    const formData = new FormData();
+    // Trim all string values before submission
+    formData.append('name', this.form.value.name.trim());
+    formData.append('category_id', this.form.value.category_id.trim());
+    // Only append subcategory_id if it's provided and not empty
+    const subcategoryId = this.form.value.subcategory_id?.trim();
+    if (subcategoryId) {
+      formData.append('subcategory_id', subcategoryId);
+    }
+    formData.append('party_name', this.form.value.party_name.trim());
+    formData.append('location', this.form.value.location.trim());
+    formData.append('mobile_number', this.form.value.mobile_number.trim());
+    // Only append machine_sequence if it has a value
+    const machineSequence = this.form.value.machine_sequence?.trim();
+    if (machineSequence) {
+      formData.append('machine_sequence', machineSequence);
+    }
 
     const metaObj: Record<string, unknown> = {};
     for (const group of this.metadataControls) {
@@ -639,15 +859,58 @@ export class CreateMachineModalComponent
   }
 
   onCategoryChange(): void {
-    // Reset subcategory when category changes
+    // Reset subcategory and sequence when category changes
     this.subcategories = [];
-    this.form.patchValue({ subcategory_id: '' });
+    this.form.patchValue({ subcategory_id: '', machine_sequence: '' });
+    this.selectedSequence = '';
 
     // Load subcategories for the selected category
     const categoryId = this.form.get('category_id')?.value;
     if (categoryId) {
       this.loadSubcategories(categoryId);
     }
+  }
+
+  generateSequence(): void {
+    const categoryId = this.form.get('category_id')?.value;
+    const subcategoryId = this.form.get('subcategory_id')?.value;
+
+    if (!categoryId) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Category Required',
+        detail: 'Please select a category first',
+      });
+      return;
+    }
+
+    this.isGeneratingSequence = true;
+
+    const request: SequenceGenerationRequest = {
+      categoryId: categoryId,
+      subcategoryId: subcategoryId || undefined,
+    };
+
+    this.categoryService.generateSequence(request).subscribe({
+      next: (response: any) => {
+        this.selectedSequence = response.data.sequence;
+        this.isGeneratingSequence = false;
+
+        // Update the form with the generated sequence
+        this.form.patchValue({ machine_sequence: this.selectedSequence });
+      },
+      error: (error: any) => {
+        console.error('Error generating sequence:', error);
+        this.isGeneratingSequence = false;
+        const errorMessage =
+          error?.error?.message || error?.message || 'Unknown error';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Generation Failed',
+          detail: `Failed to generate sequence: ${errorMessage}`,
+        });
+      },
+    });
   }
 
   loadSubcategories(categoryId: string): void {
@@ -708,6 +971,54 @@ export class CreateMachineModalComponent
       }
       seen.add(key);
     }
+    return null;
+  };
+
+  // Custom mobile number validator - counts actual digits
+  mobileNumberValidator = (
+    control: AbstractControl
+  ): { [key: string]: any } | null => {
+    if (!control.value) {
+      return null; // Let required validator handle empty values
+    }
+
+    const value = String(control.value).trim();
+
+    // Remove formatting characters to count actual digits
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    const digitCount = digitsOnly.length;
+
+    // Validate digit count (10-15 digits is standard for phone numbers)
+    if (digitCount < 10) {
+      return {
+        mobileNumberDigits: {
+          actual: digitCount,
+          required: 10,
+          message: 'Mobile number must contain at least 10 digits',
+        },
+      };
+    }
+
+    if (digitCount > 15) {
+      return {
+        mobileNumberDigits: {
+          actual: digitCount,
+          max: 15,
+          message: 'Mobile number cannot contain more than 15 digits',
+        },
+      };
+    }
+
+    // Additional validation: if starts with +, ensure it's followed by digits
+    if (value.startsWith('+') && digitCount < 10) {
+      return {
+        mobileNumberFormat: {
+          message:
+            'Invalid phone number format. Country code must be followed by at least 10 digits',
+        },
+      };
+    }
+
     return null;
   };
 }

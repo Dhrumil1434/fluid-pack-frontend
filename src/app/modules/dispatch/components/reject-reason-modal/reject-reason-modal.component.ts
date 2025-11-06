@@ -12,6 +12,25 @@ import {
   selector: 'app-reject-reason-modal',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, FormsModule],
+  styles: [
+    `
+      .reject-submit-btn {
+        background-color: #e74c3c !important;
+        color: white !important;
+        border-color: #e74c3c !important;
+      }
+      .reject-submit-btn:hover:not(:disabled) {
+        background-color: #c0392b !important;
+        border-color: #c0392b !important;
+      }
+      .reject-submit-btn:disabled {
+        background-color: #9ca3af !important;
+        color: white !important;
+        border-color: #9ca3af !important;
+        opacity: 0.6 !important;
+      }
+    `,
+  ],
   template: `
     <div
       class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
@@ -83,21 +102,12 @@ import {
               {{ jsonValid ? 'JSON valid' : 'Invalid JSON' }}
             </div>
           </div>
-          <div class="pt-2 flex items-center justify-between gap-2">
+          <div class="pt-2 flex items-center justify-end gap-2">
             <button
-              type="button"
-              class="px-3 py-2 rounded border"
-              (click)="cancel.emit()"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="px-4 py-2 rounded font-medium border border-error bg-error text-white shadow-sm"
-              [class.opacity-50]="!canSubmit"
-              [class.pointer-events-none]="!canSubmit"
-              style="min-width: 200px;"
-              (click)="canSubmit && onSubmit()"
+              type="submit"
+              class="reject-submit-btn px-4 py-2 rounded-md font-medium shadow-sm transition-all duration-150 cursor-pointer border"
+              [class.cursor-not-allowed]="!canSubmit"
+              [disabled]="!canSubmit"
               aria-label="Reject and send suggestions"
             >
               Reject & Send Suggestions

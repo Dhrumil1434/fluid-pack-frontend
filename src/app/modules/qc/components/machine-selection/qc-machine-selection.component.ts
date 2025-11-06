@@ -43,6 +43,7 @@ interface Machine {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  dispatch_date?: string | Date;
 }
 
 interface Category {

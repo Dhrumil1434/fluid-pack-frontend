@@ -24,6 +24,7 @@ export interface Machine {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  dispatch_date?: string | Date;
   machine_sequence?: string;
   subcategory_id?: string;
   updatedBy?: {
@@ -43,6 +44,7 @@ export interface CreateMachineRequest {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  dispatch_date?: string | Date;
   machine_sequence?: string;
   subcategory_id?: string;
   images?: string[];
@@ -56,6 +58,7 @@ export interface UpdateMachineRequest {
   party_name?: string;
   location?: string;
   mobile_number?: string;
+  dispatch_date?: string | Date;
   machine_sequence?: string;
   subcategory_id?: string;
   images?: string[];
@@ -69,6 +72,12 @@ export interface MachineFilters {
   created_by?: string;
   search?: string;
   has_sequence?: boolean;
+  metadata_key?: string;
+  metadata_value?: string;
+  dispatch_date_from?: string;
+  dispatch_date_to?: string;
+  sortBy?: 'createdAt' | 'name' | 'category' | 'dispatch_date';
+  sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;
 }

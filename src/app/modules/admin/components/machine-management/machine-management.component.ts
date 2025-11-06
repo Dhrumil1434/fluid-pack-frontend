@@ -64,7 +64,6 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
         <!-- Header -->
         <app-page-header
           title="Machine Management"
-          subtitle="Manage all machine records"
           [sidebarCollapsed]="sidebarCollapsed"
           (toggleSidebar)="toggleSidebar()"
           [breadcrumbs]="[
@@ -72,20 +71,31 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
             { label: 'Machine Management' },
           ]"
         >
+          <div headerActions class="flex items-center gap-2">
+            <button
+              class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer flex items-center gap-2 shadow-sm"
+              (click)="openCreate()"
+              title="Add new machine"
+            >
+              <i class="pi pi-plus text-sm"></i>
+              Add Machine
+            </button>
+          </div>
         </app-page-header>
 
         <main class="p-6 space-y-4">
           <app-list-filters
             searchLabel="Search machines"
-            searchPlaceholder="Name, metadata"
+            searchPlaceholder="Name, metadata, created by..."
             (searchChange)="onSearchChange($event)"
             (apply)="reload()"
             (clear)="clearFilters()"
           >
-            <div filters-extra class="flex items-end gap-3">
+            <div filters-extra class="flex flex-wrap items-end gap-3">
               <select
                 class="px-3 py-2 border border-neutral-300 rounded-md"
                 [(ngModel)]="filters.is_approved"
+                (change)="reload()"
               >
                 <option [ngValue]="undefined">All statuses</option>
                 <option [ngValue]="true">Approved</option>
@@ -110,34 +120,125 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   {{ getCategoryDisplayName(cat) }}
                 </option>
               </select>
+              <!-- Metadata Key Autocomplete -->
+              <div class="relative">
+                <input
+                  type="text"
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                  placeholder="Metadata Key"
+                  [(ngModel)]="filters.metadata_key"
+                  (input)="onMetadataKeyChange()"
+                  (focus)="showMetadataKeySuggestions = true"
+                  (blur)="hideMetadataSuggestions()"
+                />
+                <div
+                  *ngIf="
+                    showMetadataKeySuggestions &&
+                    metadataKeySuggestions.length > 0
+                  "
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <div
+                    *ngFor="let key of metadataKeySuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                    (mousedown)="selectMetadataKey(key)"
+                  >
+                    {{ key }}
+                  </div>
+                </div>
+              </div>
+              <!-- Metadata Value -->
+              <input
+                *ngIf="filters.metadata_key"
+                type="text"
+                class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                placeholder="Metadata Value"
+                [(ngModel)]="filters.metadata_value"
+                (input)="onMetadataValueChange()"
+              />
+              <!-- Dispatch Date From -->
+              <input
+                type="date"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                placeholder="Dispatch Date From"
+                [(ngModel)]="filters.dispatch_date_from"
+                (change)="reload()"
+              />
+              <!-- Dispatch Date To -->
+              <input
+                type="date"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                placeholder="Dispatch Date To"
+                [(ngModel)]="filters.dispatch_date_to"
+                (change)="reload()"
+              />
+              <!-- Sort By -->
+              <select
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.sortBy"
+                (change)="reload()"
+              >
+                <option [ngValue]="undefined">Sort By</option>
+                <option value="createdAt">Created Date</option>
+                <option value="name">Name</option>
+                <option value="category">Category</option>
+                <option value="dispatch_date">Dispatch Date</option>
+              </select>
+              <!-- Sort Order -->
+              <select
+                *ngIf="filters.sortBy"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.sortOrder"
+                (change)="reload()"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
             </div>
           </app-list-filters>
 
           <app-list-table-shell title="Machines">
             <div table-actions class="flex items-center gap-2">
               <button
-                class="px-3 py-1 bg-primary text-white rounded-md"
-                (click)="openCreate()"
-              >
-                Add Machine
-              </button>
-              <button
-                class="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                class="px-4 py-2 rounded-md font-medium transition-all duration-150 flex items-center gap-2 shadow-sm border flex-shrink-0"
+                [ngClass]="{
+                  'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:border-primary/30 cursor-pointer':
+                    !isGeneratingSequence &&
+                    getMachinesWithoutSequence().length > 0,
+                  'bg-gray-200 text-gray-600 border-gray-300 cursor-not-allowed hover:bg-gray-200':
+                    isGeneratingSequence ||
+                    getMachinesWithoutSequence().length === 0,
+                }"
                 (click)="generateSequencesForSelectedMachines()"
                 [disabled]="
                   isGeneratingSequence ||
                   getMachinesWithoutSequence().length === 0
                 "
-                title="Generate sequences for machines without sequences"
+                [title]="
+                  getMachinesWithoutSequence().length === 0
+                    ? 'No machines without sequences'
+                    : isGeneratingSequence
+                      ? 'Generating sequences...'
+                      : 'Generate sequences for ' +
+                        getMachinesWithoutSequence().length +
+                        ' machine(s) without sequences'
+                "
               >
                 <i
                   *ngIf="isGeneratingSequence"
-                  class="pi pi-spinner pi-spin mr-1"
+                  class="pi pi-spinner pi-spin text-sm"
                 ></i>
-                <i *ngIf="!isGeneratingSequence" class="pi pi-cog mr-1"></i>
-                {{
-                  isGeneratingSequence ? 'Generating...' : 'Generate Sequences'
-                }}
+                <i *ngIf="!isGeneratingSequence" class="pi pi-cog text-sm"></i>
+                <span class="whitespace-nowrap">
+                  {{
+                    isGeneratingSequence
+                      ? 'Generating...'
+                      : 'Generate Sequences' +
+                        (getMachinesWithoutSequence().length > 0
+                          ? ' (' + getMachinesWithoutSequence().length + ')'
+                          : '')
+                  }}
+                </span>
               </button>
             </div>
 
@@ -162,125 +263,308 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
               </div>
             </div>
 
+            <!-- Bulk Actions Toolbar -->
+            <div
+              *ngIf="selectedMachineIds.size > 0"
+              class="mb-4 p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-center justify-between shadow-sm"
+            >
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-medium text-primary">
+                  {{ selectedMachineIds.size }}
+                  {{ selectedMachineIds.size === 1 ? 'machine' : 'machines' }}
+                  selected
+                </span>
+                <button
+                  class="text-xs text-gray-600 hover:text-gray-900 underline"
+                  (click)="clearSelection()"
+                >
+                  Clear selection
+                </button>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  class="px-4 py-2 bg-primary/10 text-primary border border-primary/20 rounded-md font-medium transition-all duration-150 hover:bg-primary/20 hover:border-primary/30 cursor-pointer flex items-center gap-2 shadow-sm"
+                  (click)="bulkGenerateSequences()"
+                  [disabled]="
+                    isGeneratingSequence ||
+                    getSelectedMachinesWithoutSequence().length === 0
+                  "
+                  [title]="
+                    getSelectedMachinesWithoutSequence().length === 0
+                      ? 'No selected machines without sequences'
+                      : 'Generate sequences for ' +
+                        getSelectedMachinesWithoutSequence().length +
+                        ' selected machine(s)'
+                  "
+                >
+                  <i
+                    *ngIf="isGeneratingSequence"
+                    class="pi pi-spinner pi-spin text-sm"
+                  ></i>
+                  <i
+                    *ngIf="!isGeneratingSequence"
+                    class="pi pi-cog text-sm"
+                  ></i>
+                  <span class="whitespace-nowrap">
+                    Generate Sequences
+                    {{
+                      getSelectedMachinesWithoutSequence().length > 0
+                        ? ' (' +
+                          getSelectedMachinesWithoutSequence().length +
+                          ')'
+                        : ''
+                    }}
+                  </span>
+                </button>
+                <button
+                  class="px-4 py-2 bg-error/10 text-error border border-error/20 rounded-md font-medium transition-all duration-150 hover:bg-error/20 hover:border-error/30 cursor-pointer flex items-center gap-2 shadow-sm"
+                  (click)="confirmBulkDelete()"
+                  title="Delete selected machines"
+                >
+                  <i class="pi pi-trash text-sm"></i>
+                  <span class="whitespace-nowrap"
+                    >Delete ({{ selectedMachineIds.size }})</span
+                  >
+                </button>
+              </div>
+            </div>
+
             <table class="min-w-full text-sm">
               <thead>
-                <tr class="bg-neutral-50 text-left">
-                  <th class="px-4 py-2">Sequence</th>
-                  <th class="px-4 py-2">Name</th>
-                  <th class="px-4 py-2">Category</th>
-                  <th class="px-4 py-2">Subcategory</th>
-                  <th class="px-4 py-2">Party</th>
-                  <th class="px-4 py-2">Location</th>
-                  <th class="px-4 py-2">Mobile</th>
-                  <th class="px-4 py-2">Created By</th>
-                  <th class="px-4 py-2">Docs</th>
-                  <th class="px-4 py-2">Approved</th>
-                  <th class="px-4 py-2 w-40">Actions</th>
+                <tr class="bg-gray-50 text-left border-b border-gray-200">
+                  <th class="px-4 py-3 w-12">
+                    <input
+                      type="checkbox"
+                      class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer focus:ring-primary focus:ring-2"
+                      [checked]="isAllSelected"
+                      [indeterminate]="isIndeterminate"
+                      (change)="toggleSelectAll($event)"
+                      title="Select all machines"
+                    />
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Sequence
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Name
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Category
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Subcategory
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Party
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Location
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Mobile
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Dispatch Date
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Created By
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Docs
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Approved
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
+                  >
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                <tr *ngFor="let m of machines" class="border-t">
-                  <td class="px-4 py-2">
-                    <div class="flex items-center gap-2">
-                      <span
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr
+                  *ngFor="let m of machines"
+                  class="hover:bg-gray-50 transition-colors duration-150"
+                  [ngClass]="{
+                    'bg-primary/5': selectedMachineIds.has(m._id),
+                  }"
+                >
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer focus:ring-primary focus:ring-2"
+                      [checked]="selectedMachineIds.has(m._id)"
+                      (change)="toggleMachineSelection(m._id, $event)"
+                      (click)="$event.stopPropagation()"
+                      title="Select this machine"
+                    />
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <!-- Sequence Display with Hover Remove -->
+                      <div
                         *ngIf="m.machine_sequence"
-                        class="font-mono text-sm font-semibold bg-blue-100 text-blue-800 px-3 py-1.5 rounded border border-blue-200 cursor-pointer hover:bg-blue-200 transition-colors"
+                        class="group relative inline-flex items-center font-mono text-sm font-semibold bg-primary/10 text-primary px-3 py-1.5 pr-8 rounded-md border border-primary/20 cursor-pointer hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 shadow-sm"
                         [title]="
                           'Sequence: ' + m.machine_sequence + ' (Click to edit)'
                         "
                         (click)="openEditSequenceModal(m)"
                       >
                         {{ m.machine_sequence }}
-                      </span>
-                      <span
-                        *ngIf="!m.machine_sequence"
-                        class="text-gray-400 text-xs italic"
-                        >No sequence</span
-                      >
+                        <button
+                          class="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-error/20 text-error opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-error/30 cursor-pointer"
+                          (click)="
+                            removeSequenceFromMachine(m);
+                            $event.stopPropagation()
+                          "
+                          title="Remove sequence"
+                        >
+                          <i class="pi pi-times text-xs"></i>
+                        </button>
+                      </div>
+                      <!-- Generate Button (Icon Only) -->
                       <button
                         *ngIf="!m.machine_sequence"
-                        class="text-xs text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 transition-colors"
+                        class="inline-flex items-center justify-center w-8 h-8 text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         (click)="generateSequenceForMachine(m)"
                         title="Generate Sequence for this machine"
                         [disabled]="isGeneratingSequence"
                       >
                         <i
-                          class="pi pi-cog mr-1"
+                          class="pi pi-cog text-sm"
                           [class.pi-spin]="isGeneratingSequence"
                         ></i>
-                        Generate
-                      </button>
-                      <button
-                        *ngIf="m.machine_sequence"
-                        class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded border border-red-200 hover:bg-red-50 transition-colors"
-                        (click)="removeSequenceFromMachine(m)"
-                        title="Remove sequence from this machine"
-                      >
-                        <i class="pi pi-times mr-1"></i>
-                        Remove
                       </button>
                     </div>
                   </td>
-                  <td class="px-4 py-2">{{ m.name }}</td>
-                  <td class="px-4 py-2">{{ m.category_id.name }}</td>
-                  <td class="px-4 py-2">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ m.name }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.category_id.name }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
                     <span
                       *ngIf="m.subcategory_id"
-                      class="text-xs text-gray-600"
+                      class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
                     >
                       {{ getSubcategoryDisplayName(m.subcategory_id) }}
                     </span>
                     <span
                       *ngIf="!m.subcategory_id"
-                      class="text-gray-400 text-xs"
+                      class="text-gray-400 text-sm"
                       >-</span
                     >
                   </td>
-                  <td class="px-4 py-2">{{ m.party_name || '-' }}</td>
-                  <td class="px-4 py-2">{{ m.location || '-' }}</td>
-                  <td class="px-4 py-2">{{ m.mobile_number || '-' }}</td>
-                  <td class="px-4 py-2">{{ m.created_by.username }}</td>
-                  <td class="px-4 py-2">
-                    <span class="text-sm">{{ m.documents.length || 0 }}</span>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.party_name || '-' }}
+                    </div>
                   </td>
-                  <td class="px-4 py-2">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.location || '-' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.mobile_number || '-' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{
+                        m.dispatch_date
+                          ? (m.dispatch_date | date: 'dd-MM-yyyy')
+                          : '-'
+                      }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.created_by.username }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-center">
                     <span
-                      class="px-2 py-1 rounded text-xs"
-                      [class.bg-green-100]="m.is_approved"
-                      [class.bg-yellow-100]="!m.is_approved"
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                    >
+                      {{ m.documents.length || 0 }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      [ngClass]="{
+                        'bg-success/20 text-success': m.is_approved,
+                        'bg-warning/20 text-warning': !m.is_approved,
+                      }"
                     >
                       {{ m.is_approved ? 'Yes' : 'No' }}
                     </span>
                   </td>
-                  <td class="px-4 py-2">
-                    <div class="flex gap-2">
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
                       <button
-                        class="px-2 py-1 border rounded"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"
                         (click)="openView(m)"
+                        title="View machine details"
                       >
+                        <i class="pi pi-eye text-xs mr-1"></i>
                         View
                       </button>
                       <button
-                        class="px-2 py-1 border rounded"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 cursor-pointer shadow-sm"
                         (click)="openEdit(m)"
+                        title="Edit machine"
                       >
+                        <i class="pi pi-pencil text-xs mr-1"></i>
                         Edit
                       </button>
                       <button
-                        class="px-2 py-1 border rounded text-red-600"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm"
                         (click)="confirmDelete(m)"
+                        title="Delete machine"
                       >
+                        <i class="pi pi-trash text-xs mr-1"></i>
                         Delete
                       </button>
                     </div>
                   </td>
                 </tr>
                 <tr *ngIf="machines.length === 0">
-                  <td
-                    colspan="11"
-                    class="px-4 py-6 text-center text-neutral-500"
-                  >
-                    No machines found
+                  <td colspan="13" class="px-4 py-12 text-center text-gray-500">
+                    <div class="flex flex-col items-center justify-center">
+                      <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
+                      <p class="text-sm font-medium">No machines found</p>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -645,6 +929,33 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                       </span>
                     </div>
                   </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Dispatch Date</label>
+                    <input
+                      type="date"
+                      class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        form.controls['dispatch_date'].touched &&
+                        form.controls['dispatch_date'].invalid
+                      "
+                      formControlName="dispatch_date"
+                      (blur)="form.controls['dispatch_date'].markAsTouched()"
+                    />
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['dispatch_date'].touched &&
+                        form.controls['dispatch_date'].invalid
+                      "
+                    >
+                      <span
+                        *ngIf="form.controls['dispatch_date'].errors?.['date']"
+                      >
+                        Please enter a valid date
+                      </span>
+                    </div>
+                  </div>
                   <!-- Metadata section -->
                   <div class="space-y-2">
                     <div class="flex items-center justify-between">
@@ -1004,6 +1315,16 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
+                      >Dispatch Date</span
+                    >
+                    {{
+                      selected?.dispatch_date
+                        ? (selected?.dispatch_date | date: 'dd-MM-yyyy')
+                        : '-'
+                    }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
                       >Category</span
                     >
                     {{ selected?.category_id?.name || selected?.category_id }}
@@ -1319,10 +1640,94 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   Cancel
                 </button>
                 <button
-                  class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary/90"
-                  (click)="doBulkGenerateSequences()"
+                  class="px-4 py-2 rounded-md bg-primary text-white hover:bg-primary/90 transition-colors cursor-pointer flex items-center gap-2"
+                  (click)="
+                    pendingBulkGenerateMachines.length ===
+                    getSelectedMachinesWithoutSequence().length
+                      ? doBulkGenerateSequences()
+                      : doBulkGenerateSequencesForAll()
+                  "
                 >
-                  Generate
+                  <i class="pi pi-cog text-sm"></i>
+                  Generate Sequences
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bulk Delete Confirmation Modal -->
+          <div
+            *ngIf="bulkDeleteConfirmVisible"
+            class="fixed inset-0 z-50 flex items-center justify-center"
+          >
+            <div
+              class="absolute inset-0 bg-black/40"
+              (click)="bulkDeleteConfirmVisible = false"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="bulkDeleteConfirmVisible = false"
+              (keydown.space)="bulkDeleteConfirmVisible = false"
+            ></div>
+            <div
+              class="relative bg-white border border-error/30 rounded-xl shadow-medium w-full max-w-lg mx-4"
+            >
+              <div
+                class="flex items-center justify-between p-4 border-b border-error/20 bg-error/5"
+              >
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-10 h-10 bg-error/20 rounded-full flex items-center justify-center"
+                  >
+                    <i
+                      class="pi pi-exclamation-triangle text-error text-lg"
+                    ></i>
+                  </div>
+                  <h3 class="text-lg font-semibold text-gray-900">
+                    Delete Machines
+                  </h3>
+                </div>
+                <button
+                  class="p-2 text-gray-400 hover:bg-gray-100 rounded-md transition-colors cursor-pointer"
+                  (click)="bulkDeleteConfirmVisible = false"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <div class="p-4">
+                <p class="text-sm text-gray-700 mb-4">
+                  Are you sure you want to delete
+                  <strong class="text-error">{{
+                    selectedMachineIds.size
+                  }}</strong>
+                  selected machine(s)? This action cannot be undone.
+                </p>
+                <div
+                  *ngIf="getSelectedMachines().length > 0"
+                  class="max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50"
+                >
+                  <div
+                    *ngFor="let m of getSelectedMachines()"
+                    class="text-sm text-gray-700 py-1"
+                  >
+                    • {{ m.name }}
+                  </div>
+                </div>
+              </div>
+              <div
+                class="flex items-center justify-end gap-2 p-4 border-t border-gray-200"
+              >
+                <button
+                  class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                  (click)="bulkDeleteConfirmVisible = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  class="bulk-delete-btn px-4 py-2 rounded-md text-white transition-all duration-150 cursor-pointer flex items-center gap-2 font-medium shadow-sm hover:shadow-md"
+                  (click)="doBulkDelete()"
+                >
+                  <i class="pi pi-trash text-sm"></i>
+                  <span>Delete {{ selectedMachineIds.size }} Machine(s)</span>
                 </button>
               </div>
             </div>
@@ -1641,7 +2046,17 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
       </div>
     </div>
   `,
-  styles: [],
+  styles: [
+    `
+      .bulk-delete-btn {
+        background-color: #e74c3c !important;
+        color: white !important;
+      }
+      .bulk-delete-btn:hover {
+        background-color: #c0392b !important;
+      }
+    `,
+  ],
 })
 export class MachineManagementComponent implements OnInit, OnDestroy {
   machines: Machine[] = [];
@@ -1654,7 +2069,16 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     is_approved?: boolean;
     category_id?: string;
     has_sequence?: boolean;
-  } = {};
+    metadata_key?: string;
+    metadata_value?: string;
+    dispatch_date_from?: string;
+    dispatch_date_to?: string;
+    sortBy?: 'createdAt' | 'name' | 'category' | 'dispatch_date';
+    sortOrder?: 'asc' | 'desc';
+  } = {
+    sortBy: 'createdAt',
+    sortOrder: 'desc', // Default: latest first
+  };
   // form state
   formVisible = false;
   viewVisible = false;
@@ -1728,6 +2152,17 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   removeSequenceConfirmVisible = false;
   selectedMachineForRemoveSequence: Machine | null = null;
 
+  // Bulk selection state
+  selectedMachineIds = new Set<string>();
+  isAllSelected = false;
+  isIndeterminate = false;
+  bulkDeleteConfirmVisible = false;
+
+  // Metadata autocomplete
+  metadataKeySuggestions: string[] = [];
+  allMetadataKeys: string[] = []; // Master list of all keys
+  showMetadataKeySuggestions = false;
+
   // ViewChild for document input
   @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
 
@@ -1777,6 +2212,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           Validators.pattern(/^[+]?[0-9\s\-()]+$/),
         ],
       ],
+      dispatch_date: [''],
       images: [null],
       machine_sequence: ['', [Validators.maxLength(50)]],
       subcategory_id: ['', [this.subcategoryIdValidator]],
@@ -1809,6 +2245,12 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         this.reload();
       });
     this.subs.add(s);
+    // Load initial metadata keys from first page
+    this.machineService
+      .getAllMachines({ page: 1, limit: 100 })
+      .subscribe(res => {
+        this.extractMetadataKeys(res.data.machines);
+      });
   }
 
   ngOnDestroy(): void {
@@ -1820,16 +2262,78 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   clearFilters(): void {
-    this.filters = {};
+    this.filters = {
+      sortBy: 'createdAt',
+      sortOrder: 'desc', // Default: latest first
+    };
     this.page = 1;
     this.reload();
     this.filterCategoryInput = '';
     this.filterCategoryOpen = false;
+    this.showMetadataKeySuggestions = false;
   }
 
   onCategoryFilterChange(): void {
     this.page = 1;
     this.reload();
+  }
+
+  onMetadataKeyChange(): void {
+    // Filter suggestions based on input from master list
+    if (this.filters.metadata_key) {
+      const input = this.filters.metadata_key.toLowerCase().trim();
+      this.metadataKeySuggestions = this.allMetadataKeys.filter(key =>
+        key.toLowerCase().includes(input)
+      );
+    } else {
+      this.metadataKeySuggestions = [...this.allMetadataKeys];
+    }
+    // Don't reload on every keystroke, wait for blur or selection
+  }
+
+  onMetadataValueChange(): void {
+    // Debounce metadata value search
+    clearTimeout((this as any).metadataValueTimer);
+    (this as any).metadataValueTimer = setTimeout(() => {
+      this.page = 1;
+      this.reload();
+    }, 500);
+  }
+
+  selectMetadataKey(key: string): void {
+    this.filters.metadata_key = key;
+    this.showMetadataKeySuggestions = false;
+    this.page = 1;
+    this.reload();
+  }
+
+  hideMetadataSuggestions(): void {
+    setTimeout(() => {
+      this.showMetadataKeySuggestions = false;
+    }, 200);
+  }
+
+  extractMetadataKeys(machines: Machine[]): void {
+    const keySet = new Set<string>();
+    machines.forEach(machine => {
+      if (machine.metadata && typeof machine.metadata === 'object') {
+        Object.keys(machine.metadata).forEach(key => {
+          if (key && key.trim()) {
+            keySet.add(key.trim());
+          }
+        });
+      }
+    });
+    this.allMetadataKeys = Array.from(keySet).sort();
+    // Update suggestions based on current filter input
+    if (this.filters.metadata_key) {
+      const input = this.filters.metadata_key.toLowerCase().trim();
+      this.metadataKeySuggestions = this.allMetadataKeys.filter(key =>
+        key.toLowerCase().includes(input)
+      );
+    } else {
+      this.metadataKeySuggestions = [...this.allMetadataKeys];
+    }
   }
 
   reload(): void {
@@ -1841,42 +2345,28 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         is_approved: this.filters.is_approved,
         category_id: this.filters.category_id,
         has_sequence: this.filters.has_sequence,
+        metadata_key: this.filters.metadata_key,
+        metadata_value: this.filters.metadata_value,
+        dispatch_date_from: this.filters.dispatch_date_from,
+        dispatch_date_to: this.filters.dispatch_date_to,
+        sortBy: this.filters.sortBy,
+        sortOrder: this.filters.sortOrder,
       })
       .subscribe(res => {
         this.machines = res.data.machines;
-        // Sort machines by category name, then by sequence for better display
-        this.machines.sort((a, b) => {
-          const catA =
-            typeof a.category_id === 'string'
-              ? a.category_id
-              : (a.category_id as any)?.name || '';
-          const catB =
-            typeof b.category_id === 'string'
-              ? b.category_id
-              : (b.category_id as any)?.name || '';
-
-          // First sort by category name
-          const catCompare = String(catA).localeCompare(String(catB));
-          if (catCompare !== 0) return catCompare;
-
-          // Then sort by sequence if both have sequences
-          if (a.machine_sequence && b.machine_sequence) {
-            return a.machine_sequence.localeCompare(b.machine_sequence);
-          }
-          // Machines with sequences come first
-          if (a.machine_sequence && !b.machine_sequence) return -1;
-          if (!a.machine_sequence && b.machine_sequence) return 1;
-
-          // Finally sort by name
-          return (a.name || '').localeCompare(b.name || '');
-        });
+        // Extract metadata keys for autocomplete
+        this.extractMetadataKeys(this.machines);
         this.total = res.data.total;
         this.pages = res.data.pages;
+        // Update selection state after reload
+        this.updateSelectionState();
       });
   }
 
   onPageChange(p: number): void {
     this.page = p;
+    // Clear selection when changing pages
+    this.clearSelection();
     this.reload();
   }
 
@@ -1928,6 +2418,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name: m.party_name || '',
         location: m.location || '',
         mobile_number: m.mobile_number || '',
+        dispatch_date: m.dispatch_date
+          ? typeof m.dispatch_date === 'string'
+            ? m.dispatch_date.split('T')[0]
+            : new Date(m.dispatch_date).toISOString().split('T')[0]
+          : '',
         machine_sequence: m.machine_sequence || '',
         subcategory_id: m.subcategory_id
           ? typeof m.subcategory_id === 'string'
@@ -2066,6 +2561,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     const party_name = (this.form.value.party_name || '').trim();
     const location = (this.form.value.location || '').trim();
     const mobile_number = (this.form.value.mobile_number || '').trim();
+    const dispatch_date = this.form.value.dispatch_date || '';
     const machine_sequence = (this.form.value.machine_sequence || '').trim();
     // Handle subcategory_id: extract ID if it's an object, or use empty string if invalid
     let subcategory_id = '';
@@ -2119,6 +2615,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name,
         location,
         mobile_number,
+        dispatch_date: dispatch_date || undefined, // Only include if not empty
         machine_sequence: machine_sequence || undefined, // Only include if not empty
         images: this.selectedFiles, // Only new files for upload
         documents: this.selectedDocuments, // Only new files for upload
@@ -2200,6 +2697,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name,
         location,
         mobile_number,
+        dispatch_date: dispatch_date || undefined, // Only include if not empty
         machine_sequence,
         subcategory_id,
         images: this.selectedFiles,
@@ -2808,6 +3306,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
   // Bulk sequence generation
   generateSequencesForSelectedMachines(): void {
+    // This method is for generating sequences for ALL machines without sequences
+    // Use bulkGenerateSequences() for selected machines
     const machinesWithoutSequence = this.machines.filter(
       m => !m.machine_sequence
     );
@@ -2826,18 +3326,14 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.bulkGenerateConfirmVisible = true;
   }
 
-  // Confirmed bulk sequence generation
-  doBulkGenerateSequences(): void {
+  // Confirmed bulk sequence generation (for all machines without sequences)
+  doBulkGenerateSequencesForAll(): void {
     if (this.pendingBulkGenerateMachines.length === 0) return;
 
     const machines = [...this.pendingBulkGenerateMachines];
     this.bulkGenerateConfirmVisible = false;
     this.pendingBulkGenerateMachines = [];
 
-    this.bulkGenerateSequences(machines);
-  }
-
-  private bulkGenerateSequences(machines: Machine[]): void {
     this.isGeneratingSequence = true;
     this.sequenceGenerationProgress = 0;
     let completed = 0;
@@ -3198,5 +3694,230 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           this.selectedMachineForRemoveSequence = null;
         },
       });
+  }
+
+  // Bulk selection methods
+  toggleMachineSelection(machineId: string, event: Event): void {
+    const target = event.target as HTMLInputElement;
+    if (target.checked) {
+      this.selectedMachineIds.add(machineId);
+    } else {
+      this.selectedMachineIds.delete(machineId);
+    }
+    this.updateSelectionState();
+  }
+
+  toggleSelectAll(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    if (target.checked) {
+      // Select all machines on current page
+      this.machines.forEach(m => this.selectedMachineIds.add(m._id));
+    } else {
+      // Deselect all machines on current page
+      this.machines.forEach(m => this.selectedMachineIds.delete(m._id));
+    }
+    this.updateSelectionState();
+  }
+
+  updateSelectionState(): void {
+    const currentPageIds = new Set(this.machines.map(m => m._id));
+    const selectedOnPage = Array.from(this.selectedMachineIds).filter(id =>
+      currentPageIds.has(id)
+    );
+    this.isAllSelected =
+      this.machines.length > 0 &&
+      selectedOnPage.length === this.machines.length;
+    this.isIndeterminate =
+      selectedOnPage.length > 0 && selectedOnPage.length < this.machines.length;
+  }
+
+  clearSelection(): void {
+    this.selectedMachineIds.clear();
+    this.updateSelectionState();
+  }
+
+  getSelectedMachines(): Machine[] {
+    return this.machines.filter(m => this.selectedMachineIds.has(m._id));
+  }
+
+  getSelectedMachinesWithoutSequence(): Machine[] {
+    return this.getSelectedMachines().filter(m => !m.machine_sequence);
+  }
+
+  // Bulk operations
+  bulkGenerateSequences(): void {
+    const selectedWithoutSequence = this.getSelectedMachinesWithoutSequence();
+    if (selectedWithoutSequence.length === 0) {
+      this.messageService.add({
+        severity: 'info',
+        summary: 'Info',
+        detail: 'No selected machines without sequences',
+      });
+      return;
+    }
+
+    this.bulkGenerateConfirmVisible = true;
+    this.pendingBulkGenerateMachines = selectedWithoutSequence;
+  }
+
+  doBulkGenerateSequences(): void {
+    const machinesToProcess = [...this.pendingBulkGenerateMachines];
+    this.bulkGenerateConfirmVisible = false;
+    this.pendingBulkGenerateMachines = [];
+
+    if (machinesToProcess.length === 0) return;
+
+    this.isGeneratingSequence = true;
+    this.sequenceGenerationProgress = 0;
+
+    let completed = 0;
+    const total = machinesToProcess.length;
+    const errors: string[] = [];
+
+    const processNext = (index: number): void => {
+      if (index >= machinesToProcess.length) {
+        this.isGeneratingSequence = false;
+        this.sequenceGenerationProgress = 100;
+
+        // Clear selection after successful generation
+        machinesToProcess.forEach(m => this.selectedMachineIds.delete(m._id));
+        this.updateSelectionState();
+        this.reload();
+
+        if (errors.length > 0) {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'Partial Success',
+            detail: `Generated sequences for ${completed} machine(s). ${errors.length} failed.`,
+          });
+        } else {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: `Successfully generated sequences for ${completed} machine(s)`,
+          });
+        }
+        return;
+      }
+
+      const machine = machinesToProcess[index];
+      if (!machine.category_id) {
+        errors.push(machine.name);
+        this.sequenceGenerationProgress = Math.round(
+          ((index + 1) / total) * 100
+        );
+        processNext(index + 1);
+        return;
+      }
+
+      const request: SequenceGenerationRequest = {
+        categoryId:
+          typeof machine.category_id === 'string'
+            ? machine.category_id
+            : machine.category_id._id,
+        subcategoryId: machine.subcategory_id
+          ? typeof machine.subcategory_id === 'string'
+            ? machine.subcategory_id
+            : (machine.subcategory_id as any)?._id
+          : undefined,
+      };
+
+      this.categoryService.generateSequence(request).subscribe({
+        next: (response: any) => {
+          const generatedSequence = response.data.sequence;
+          this.machineService
+            .updateMachineForm(machine._id, {
+              machine_sequence: generatedSequence,
+            })
+            .subscribe({
+              next: () => {
+                completed++;
+                this.sequenceGenerationProgress = Math.round(
+                  ((index + 1) / total) * 100
+                );
+                processNext(index + 1);
+              },
+              error: (_error: any) => {
+                errors.push(machine.name);
+                this.sequenceGenerationProgress = Math.round(
+                  ((index + 1) / total) * 100
+                );
+                processNext(index + 1);
+              },
+            });
+        },
+        error: () => {
+          errors.push(machine.name);
+          this.sequenceGenerationProgress = Math.round(
+            ((index + 1) / total) * 100
+          );
+          processNext(index + 1);
+        },
+      });
+    };
+
+    processNext(0);
+  }
+
+  confirmBulkDelete(): void {
+    if (this.selectedMachineIds.size === 0) return;
+    this.bulkDeleteConfirmVisible = true;
+  }
+
+  doBulkDelete(): void {
+    const machineIds = Array.from(this.selectedMachineIds);
+    if (machineIds.length === 0) {
+      this.bulkDeleteConfirmVisible = false;
+      return;
+    }
+
+    this.bulkDeleteConfirmVisible = false;
+
+    // Delete machines one by one
+    let completed = 0;
+    let failed = 0;
+    const total = machineIds.length;
+
+    machineIds.forEach(id => {
+      this.machineService.deleteMachine(id).subscribe({
+        next: () => {
+          completed++;
+          this.selectedMachineIds.delete(id);
+          if (completed + failed === total) {
+            this.clearSelection();
+            this.reload();
+            if (failed === 0) {
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Success',
+                detail: `Successfully deleted ${completed} machine(s)`,
+              });
+            } else {
+              this.messageService.add({
+                severity: 'warn',
+                summary: 'Partial Success',
+                detail: `Deleted ${completed} machine(s). ${failed} failed.`,
+              });
+            }
+          }
+        },
+        error: (error: any) => {
+          failed++;
+          console.error(`Error deleting machine ${id}:`, error);
+          if (completed + failed === total) {
+            this.clearSelection();
+            this.reload();
+            this.messageService.add({
+              severity: failed === total ? 'error' : 'warn',
+              summary: failed === total ? 'Error' : 'Partial Success',
+              detail:
+                failed === total
+                  ? 'Failed to delete machines'
+                  : `Deleted ${completed} machine(s). ${failed} failed.`,
+            });
+          }
+        },
+      });
+    });
   }
 }

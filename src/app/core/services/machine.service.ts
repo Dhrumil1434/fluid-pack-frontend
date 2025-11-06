@@ -64,6 +64,7 @@ export class MachineService {
     party_name?: string;
     location?: string;
     mobile_number?: string;
+    dispatch_date?: string | Date;
     machine_sequence?: string;
     images?: File[];
     documents?: File[];
@@ -87,6 +88,13 @@ export class MachineService {
     if (data.mobile_number) {
       form.append('mobile_number', data.mobile_number);
     }
+    // Always append dispatch_date (empty string will be converted to null on backend)
+    const dispatchDate = data.dispatch_date
+      ? typeof data.dispatch_date === 'string'
+        ? data.dispatch_date
+        : data.dispatch_date.toISOString().split('T')[0]
+      : '';
+    form.append('dispatch_date', dispatchDate);
     if (data.metadata !== undefined) {
       form.append('metadata', JSON.stringify(data.metadata));
     }
@@ -121,6 +129,7 @@ export class MachineService {
       party_name?: string;
       location?: string;
       mobile_number?: string;
+      dispatch_date?: string | Date;
       machine_sequence?: string;
       images?: File[];
       documents?: File[];
@@ -138,6 +147,15 @@ export class MachineService {
     if (data.party_name) form.append('party_name', data.party_name);
     if (data.location) form.append('location', data.location);
     if (data.mobile_number) form.append('mobile_number', data.mobile_number);
+    // Always append dispatch_date (empty string will be converted to null on backend)
+    if (data.dispatch_date !== undefined) {
+      const dispatchDate = data.dispatch_date
+        ? typeof data.dispatch_date === 'string'
+          ? data.dispatch_date
+          : data.dispatch_date.toISOString().split('T')[0]
+        : '';
+      form.append('dispatch_date', dispatchDate);
+    }
     if (data.metadata !== undefined) {
       form.append('metadata', JSON.stringify(data.metadata));
     }

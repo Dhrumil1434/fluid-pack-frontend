@@ -24,6 +24,7 @@ import { MessageService } from 'primeng/api';
 import { ElementRef, ViewChild } from '@angular/core';
 import { CategoryService } from '../../../../core/services/category.service';
 import { SequenceGenerationRequest } from '../../../../core/models/category.model';
+import { MachineService } from '../../../../core/services/machine.service';
 
 @Component({
   selector: 'app-create-machine-modal',
@@ -308,6 +309,30 @@ import { SequenceGenerationRequest } from '../../../../core/models/category.mode
                 </span>
               </div>
             </div>
+            <div class="space-y-1">
+              <label class="text-sm">Dispatch Date</label>
+              <input
+                type="date"
+                class="w-full border rounded px-3 py-2"
+                [class.border-red-500]="
+                  form.controls['dispatch_date'].touched &&
+                  form.controls['dispatch_date'].invalid
+                "
+                formControlName="dispatch_date"
+                (blur)="form.controls['dispatch_date'].markAsTouched()"
+              />
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['dispatch_date'].touched &&
+                  form.controls['dispatch_date'].invalid
+                "
+              >
+                <span *ngIf="form.controls['dispatch_date'].errors?.['date']">
+                  Please enter a valid date
+                </span>
+              </div>
+            </div>
             <div class="space-y-2">
               <label class="text-sm">Images</label>
               <input
@@ -469,13 +494,30 @@ import { SequenceGenerationRequest } from '../../../../core/models/category.mode
                   "
                   [formGroupName]="i"
                 >
-                  <div class="col-span-5">
+                  <div class="col-span-5 relative">
                     <input
                       type="text"
                       class="w-full border rounded px-3 py-2"
                       placeholder="Field name (unique)"
                       formControlName="key"
+                      (focus)="showKeySuggestions[i] = true"
+                      (blur)="hideKeySuggestions(i)"
+                      (input)="onMetadataKeyChange(i, $event)"
                     />
+                    <div
+                      class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                      *ngIf="
+                        showKeySuggestions[i] && getKeySuggestions(i).length > 0
+                      "
+                    >
+                      <div
+                        class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        *ngFor="let key of getKeySuggestions(i)"
+                        (mousedown)="selectMetadataKey(i, key)"
+                      >
+                        {{ key }}
+                      </div>
+                    </div>
                     <div
                       class="text-xs text-error"
                       *ngIf="
@@ -486,13 +528,31 @@ import { SequenceGenerationRequest } from '../../../../core/models/category.mode
                       Key is required and must be unique
                     </div>
                   </div>
-                  <div class="col-span-4">
+                  <div class="col-span-4 relative">
                     <input
                       type="text"
                       class="w-full border rounded px-3 py-2"
                       placeholder="Value"
                       formControlName="value"
+                      (focus)="showValueSuggestions[i] = true"
+                      (blur)="hideValueSuggestions(i)"
+                      (input)="onMetadataValueChange(i, $event)"
                     />
+                    <div
+                      class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                      *ngIf="
+                        showValueSuggestions[i] &&
+                        getValueSuggestions(i).length > 0
+                      "
+                    >
+                      <div
+                        class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        *ngFor="let value of getValueSuggestions(i)"
+                        (mousedown)="selectMetadataValue(i, value)"
+                      >
+                        {{ value }}
+                      </div>
+                    </div>
                   </div>
                   <div class="col-span-2">
                     <select
@@ -569,6 +629,8 @@ export class CreateMachineModalComponent
       this.subcategories = [];
       this.form.patchValue({ subcategory_id: '', machine_sequence: '' });
       this.selectedSequence = '';
+      // Load metadata suggestions
+      this.loadMetadataSuggestions();
     }
   }
   get visible() {
@@ -592,11 +654,18 @@ export class CreateMachineModalComponent
   isGeneratingSequence = false;
   selectedSequence = '';
 
+  // Metadata suggestions
+  allMetadataKeys: string[] = [];
+  metadataKeySuggestions: { [key: string]: string[] } = {}; // key -> array of values
+  showKeySuggestions: { [index: number]: boolean } = {};
+  showValueSuggestions: { [index: number]: boolean } = {};
+
   constructor(
     private fb: FormBuilder,
     private baseApi: BaseApiService,
     private messageService: MessageService,
-    private categoryService: CategoryService
+    private categoryService: CategoryService,
+    private machineService: MachineService
   ) {
     this.form = this.fb.group({
       name: [
@@ -640,6 +709,7 @@ export class CreateMachineModalComponent
           this.mobileNumberValidator,
         ],
       ],
+      dispatch_date: [''],
       machine_sequence: [''],
       metadata: this.fb.array([], [this.uniqueKeysValidator]),
     });
@@ -791,6 +861,9 @@ export class CreateMachineModalComponent
     formData.append('party_name', this.form.value.party_name.trim());
     formData.append('location', this.form.value.location.trim());
     formData.append('mobile_number', this.form.value.mobile_number.trim());
+    // Always append dispatch_date (empty string will be converted to null on backend)
+    const dispatchDate = this.form.value.dispatch_date || '';
+    formData.append('dispatch_date', dispatchDate);
     // Only append machine_sequence if it has a value
     const machineSequence = this.form.value.machine_sequence?.trim();
     if (machineSequence) {
@@ -820,14 +893,21 @@ export class CreateMachineModalComponent
 
     this.loading = true;
     this.baseApi.post<any>(API_ENDPOINTS.MACHINES, formData).subscribe({
-      next: () => {
-        this.loading = false;
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Created',
-          detail: 'Machine created and pending approval.',
-        });
-        this.created.emit();
+      next: (response: any) => {
+        const machineId = response?.data?.machine?._id || response?.data?._id;
+
+        // Auto-generate sequence after machine creation
+        if (machineId && !machineSequence) {
+          this.autoGenerateSequenceAfterCreation(machineId);
+        } else {
+          this.loading = false;
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Created',
+            detail: 'Machine created and pending approval.',
+          });
+          this.created.emit();
+        }
       },
       error: err => {
         this.loading = false;
@@ -1021,4 +1101,207 @@ export class CreateMachineModalComponent
 
     return null;
   };
+
+  // Load metadata suggestions from all existing machines (across multiple pages)
+  loadMetadataSuggestions(): void {
+    const keysSet = new Set<string>();
+    const keyValueMap: { [key: string]: Set<string> } = {};
+    const limit = 100; // Backend limit is 100
+    let totalPages = 1;
+
+    const fetchPage = (page: number): void => {
+      this.machineService.getAllMachines({ limit, page }).subscribe({
+        next: (response: any) => {
+          const machines = response?.machines || response?.data?.machines || [];
+          const total = response?.total || response?.data?.total || 0;
+          totalPages = Math.ceil(total / limit);
+
+          // Extract metadata keys and values from this page
+          machines.forEach((machine: any) => {
+            if (machine.metadata && typeof machine.metadata === 'object') {
+              Object.keys(machine.metadata).forEach(key => {
+                if (key && key.trim()) {
+                  keysSet.add(key.trim());
+                  if (!keyValueMap[key.trim()]) {
+                    keyValueMap[key.trim()] = new Set<string>();
+                  }
+                  const value = machine.metadata[key];
+                  if (value !== null && value !== undefined) {
+                    keyValueMap[key.trim()].add(String(value));
+                  }
+                }
+              });
+            }
+          });
+
+          // If there are more pages, fetch next page (limit to 10 pages = 1000 machines)
+          if (page < totalPages && page < 10) {
+            fetchPage(page + 1);
+          } else {
+            // Done fetching, update the suggestions
+            this.allMetadataKeys = Array.from(keysSet).sort();
+            Object.keys(keyValueMap).forEach(key => {
+              this.metadataKeySuggestions[key] = Array.from(keyValueMap[key])
+                .sort()
+                .slice(0, 20); // Limit to 20 values per key
+            });
+          }
+        },
+        error: () => {
+          // On error, use whatever keys we've collected so far
+          this.allMetadataKeys = Array.from(keysSet).sort();
+          Object.keys(keyValueMap).forEach(key => {
+            this.metadataKeySuggestions[key] = Array.from(keyValueMap[key])
+              .sort()
+              .slice(0, 20);
+          });
+        },
+      });
+    };
+
+    fetchPage(1);
+  }
+
+  // Get filtered key suggestions based on input
+  getKeySuggestions(index: number): string[] {
+    const currentValue = this.metadata.at(index)?.get('key')?.value || '';
+    if (!currentValue) {
+      return this.allMetadataKeys.slice(0, 10);
+    }
+    const lowerValue = currentValue.toLowerCase();
+    return this.allMetadataKeys
+      .filter(key => key.toLowerCase().includes(lowerValue))
+      .slice(0, 10);
+  }
+
+  // Get filtered value suggestions based on selected key
+  getValueSuggestions(index: number): string[] {
+    const key = this.metadata.at(index)?.get('key')?.value || '';
+    const currentValue = this.metadata.at(index)?.get('value')?.value || '';
+    if (!key || !this.metadataKeySuggestions[key]) {
+      return [];
+    }
+    if (!currentValue) {
+      return this.metadataKeySuggestions[key].slice(0, 10);
+    }
+    const lowerValue = currentValue.toLowerCase();
+    return this.metadataKeySuggestions[key]
+      .filter(val => String(val).toLowerCase().includes(lowerValue))
+      .slice(0, 10);
+  }
+
+  // Handle metadata key input change
+  onMetadataKeyChange(_index: number, _event: Event): void {
+    // Suggestions are shown automatically on focus/input
+  }
+
+  // Handle metadata value input change
+  onMetadataValueChange(_index: number, _event: Event): void {
+    // Suggestions are shown automatically on focus/input
+  }
+
+  // Hide key suggestions with delay
+  hideKeySuggestions(index: number): void {
+    setTimeout(() => {
+      this.showKeySuggestions[index] = false;
+    }, 200);
+  }
+
+  // Hide value suggestions with delay
+  hideValueSuggestions(index: number): void {
+    setTimeout(() => {
+      this.showValueSuggestions[index] = false;
+    }, 200);
+  }
+
+  // Select a metadata key from suggestions
+  selectMetadataKey(index: number, key: string): void {
+    this.metadata.at(index)?.patchValue({ key });
+    this.showKeySuggestions[index] = false;
+    // Focus on value field
+    setTimeout(() => {
+      const valueInput = document.querySelector(
+        'input[formcontrolname="value"]'
+      ) as HTMLInputElement;
+      if (valueInput) valueInput.focus();
+    }, 100);
+  }
+
+  // Select a metadata value from suggestions
+  selectMetadataValue(index: number, value: string): void {
+    this.metadata.at(index)?.patchValue({ value: String(value) });
+    this.showValueSuggestions[index] = false;
+  }
+
+  // Auto-generate sequence after machine creation
+  autoGenerateSequenceAfterCreation(machineId: string): void {
+    const categoryId = this.form.get('category_id')?.value;
+    const subcategoryId = this.form.get('subcategory_id')?.value;
+
+    if (!categoryId) {
+      this.loading = false;
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Created',
+        detail: 'Machine created and pending approval.',
+      });
+      this.created.emit();
+      return;
+    }
+
+    this.isGeneratingSequence = true;
+
+    const request: SequenceGenerationRequest = {
+      categoryId: categoryId,
+      subcategoryId: subcategoryId || undefined,
+    };
+
+    this.categoryService.generateSequence(request).subscribe({
+      next: (response: any) => {
+        const generatedSequence = response.data.sequence;
+
+        // Update the machine with the generated sequence
+        this.machineService
+          .updateMachineSequence(machineId, generatedSequence)
+          .subscribe({
+            next: () => {
+              this.isGeneratingSequence = false;
+              this.loading = false;
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Created',
+                detail: `Machine created with sequence ${generatedSequence} and pending approval.`,
+              });
+              this.created.emit();
+            },
+            error: (error: any) => {
+              console.error('Error updating sequence:', error);
+              this.isGeneratingSequence = false;
+              this.loading = false;
+              // Machine was created successfully, just sequence update failed
+              this.messageService.add({
+                severity: 'success',
+                summary: 'Created',
+                detail:
+                  'Machine created and pending approval. Sequence generation failed - you can generate it manually.',
+              });
+              this.created.emit();
+            },
+          });
+      },
+      error: (error: any) => {
+        console.error('Error generating sequence:', error);
+        this.isGeneratingSequence = false;
+        this.loading = false;
+        // Machine was created successfully, just sequence generation failed
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Created',
+          detail:
+            'Machine created and pending approval. Sequence generation failed - you can generate it manually.',
+        });
+        this.created.emit();
+      },
+    });
+  }
 }

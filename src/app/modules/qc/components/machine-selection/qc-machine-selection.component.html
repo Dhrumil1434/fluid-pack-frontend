@@ -611,6 +611,14 @@
           {{ detailsMachine?.mobile_number || '-' }}
         </div>
         <div>
+          <span class="block text-xs text-gray-500 mb-1">Dispatch Date</span>
+          {{
+            detailsMachine?.dispatch_date
+              ? (detailsMachine?.dispatch_date | date: 'dd-MM-yyyy')
+              : '-'
+          }}
+        </div>
+        <div>
           <span class="block text-xs text-gray-500 mb-1">Category</span>
           {{
             detailsMachine?.category_id?.name ||

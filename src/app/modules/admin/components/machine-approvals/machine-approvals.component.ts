@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
 import { TablePaginationComponent } from '../user-management/table-pagination.component';
@@ -10,6 +12,9 @@ import { RejectReasonModalComponent } from '../../../dispatch/components/reject-
 import { ApprovalViewModalComponent } from '../../../dispatch/components/approval-view-modal/approval-view-modal.component';
 import { ApprovalsService } from '../../../dispatch/services/approvals.service';
 import { EditApprovalModalComponent } from './edit-approval-modal.component';
+import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
+import { ListFiltersComponent } from '../shared/list/list-filters.component';
+import { ListTableShellComponent } from '../shared/list/list-table-shell.component';
 
 interface ApprovalRow {
   _id: string;
@@ -17,7 +22,9 @@ interface ApprovalRow {
   status: string;
   createdAt: string;
   requestedBy?: { username?: string; email?: string } | string;
-  machineId?: { name?: string; _id?: string } | string;
+  machineId?:
+    | { name?: string; _id?: string; machine_sequence?: string }
+    | string;
 }
 
 @Component({
@@ -32,203 +39,341 @@ interface ApprovalRow {
     RejectReasonModalComponent,
     ApprovalViewModalComponent,
     EditApprovalModalComponent,
+    PageHeaderComponent,
+    ListFiltersComponent,
+    ListTableShellComponent,
   ],
   template: `
-    <app-admin-sidebar
-      [collapsed]="sidebarCollapsed"
-      (collapseChange)="sidebarCollapsed = $event"
-    ></app-admin-sidebar>
     <div
-      class="transition-all duration-300"
-      [class.ml-16]="sidebarCollapsed"
-      [class.ml-64]="!sidebarCollapsed"
+      class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
     >
-      <div class="p-6 space-y-6">
-        <p-toast></p-toast>
-        <header
-          class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-4 flex items-center justify-between"
-        >
-          <div class="flex items-center gap-3">
-            <button
-              class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 rounded-lg"
-              (click)="sidebarCollapsed = !sidebarCollapsed"
-            >
-              <i class="pi pi-bars"></i>
-            </button>
-            <h2 class="text-xl font-semibold">Machine Approvals</h2>
-          </div>
-          <button
-            class="p-2.5 rounded hover:bg-neutral-100"
-            (click)="refresh()"
-          >
-            <i class="pi pi-refresh"></i>
-          </button>
-        </header>
+      <app-admin-sidebar
+        [collapsed]="sidebarCollapsed"
+        (collapseChange)="onSidebarCollapseChange($event)"
+      ></app-admin-sidebar>
 
-        <section
-          class="bg-bg border border-neutral-300 rounded-xl shadow-medium"
+      <div
+        class="transition-all duration-300"
+        [class.ml-16]="sidebarCollapsed"
+        [class.ml-64]="!sidebarCollapsed"
+      >
+        <!-- Header -->
+        <app-page-header
+          title="Machine Approvals"
+          [sidebarCollapsed]="sidebarCollapsed"
+          (toggleSidebar)="toggleSidebar()"
+          [breadcrumbs]="[
+            { label: 'Dashboard', route: '/admin/dashboard' },
+            { label: 'Machine Approvals' },
+          ]"
         >
-          <div class="px-4 py-3 border-b border-neutral-200">
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
-              <input
-                class="border rounded px-2 py-1 md:col-span-2"
-                placeholder="Search subject / requester / machine"
-                [(ngModel)]="search"
-                (ngModelChange)="onSearch()"
-              />
+        </app-page-header>
+
+        <main class="p-6 space-y-4">
+          <p-toast></p-toast>
+
+          <app-list-filters
+            searchLabel="Search approvals"
+            searchPlaceholder="Machine name, requester, notes, created by..."
+            (searchChange)="onSearchChange($event)"
+            (apply)="reload()"
+            (clear)="clearFilters()"
+          >
+            <div filters-extra class="flex flex-wrap items-end gap-3">
+              <!-- Status Filter -->
               <select
-                class="border rounded px-2 py-1"
-                [(ngModel)]="status"
-                (change)="refresh()"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.status"
+                (change)="reload()"
               >
-                <option value="">All Status</option>
+                <option [ngValue]="undefined">All Status</option>
                 <option value="PENDING">Pending</option>
                 <option value="APPROVED">Approved</option>
                 <option value="REJECTED">Rejected</option>
               </select>
+
+              <!-- Approval Type Filter -->
               <select
-                class="border rounded px-2 py-1"
-                [(ngModel)]="type"
-                (change)="refresh()"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.approvalType"
+                (change)="reload()"
               >
-                <option value="">All Types</option>
+                <option [ngValue]="undefined">All Types</option>
                 <option value="MACHINE_CREATION">Creation</option>
                 <option value="MACHINE_EDIT">Edit</option>
                 <option value="MACHINE_DELETION">Deletion</option>
               </select>
+
+              <!-- Requested By Filter -->
+              <input
+                type="text"
+                class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+                placeholder="Requested By (username/email)"
+                [(ngModel)]="filters.requestedBy"
+                (input)="onRequestedByChange()"
+              />
+
+              <!-- Created By Filter -->
+              <input
+                type="text"
+                class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+                placeholder="Created By (username/email)"
+                [(ngModel)]="filters.createdBy"
+                (input)="onCreatedByChange()"
+              />
+
+              <!-- Machine Name Filter -->
+              <input
+                type="text"
+                class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+                placeholder="Machine Name"
+                [(ngModel)]="filters.machineName"
+                (input)="onMachineNameChange()"
+              />
+
+              <!-- Date From -->
+              <input
+                type="date"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                placeholder="Date From"
+                [(ngModel)]="filters.dateFrom"
+                (change)="reload()"
+              />
+
+              <!-- Date To -->
+              <input
+                type="date"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                placeholder="Date To"
+                [(ngModel)]="filters.dateTo"
+                (change)="reload()"
+              />
+
+              <!-- Sort By -->
               <select
-                class="border rounded px-2 py-1"
-                [(ngModel)]="sort"
-                (change)="refresh()"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.sortBy"
+                (change)="reload()"
               >
-                <option value="-createdAt">Newest</option>
-                <option value="createdAt">Oldest</option>
+                <option value="createdAt">Created Date</option>
+                <option value="status">Status</option>
+                <option value="approvalType">Type</option>
+              </select>
+
+              <!-- Sort Order -->
+              <select
+                *ngIf="filters.sortBy"
+                class="px-3 py-2 border border-neutral-300 rounded-md"
+                [(ngModel)]="filters.sortOrder"
+                (change)="reload()"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
               </select>
             </div>
-          </div>
-          <div class="p-4">
-            <div *ngIf="loading" class="text-text-muted">Loading...</div>
-            <div
-              *ngIf="!loading && (rows?.length || 0) === 0"
-              class="text-text-muted"
-            >
-              No approvals found.
+          </app-list-filters>
+
+          <app-list-table-shell title="Approval Requests">
+            <div *ngIf="loading" class="p-8 text-center text-gray-500">
+              <i class="pi pi-spinner pi-spin text-2xl mb-2"></i>
+              <p>Loading approvals...</p>
             </div>
-            <div
-              *ngIf="!loading && (rows?.length || 0) > 0"
-              class="overflow-x-auto"
+
+            <div *ngIf="!loading && rows.length === 0" class="p-12 text-center">
+              <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
+              <p class="text-sm font-medium text-gray-500">
+                No approvals found
+              </p>
+            </div>
+
+            <table
+              *ngIf="!loading && rows.length > 0"
+              class="min-w-full text-sm"
             >
-              <table class="min-w-full text-sm">
-                <thead>
-                  <tr class="text-left">
-                    <th class="px-3 py-2">Machine</th>
-                    <th class="px-3 py-2">Type</th>
-                    <th class="px-3 py-2">Requested By</th>
-                    <th class="px-3 py-2">Status</th>
-                    <th class="px-3 py-2">Created</th>
-                    <th class="px-3 py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    *ngFor="let a of rows"
-                    class="border-t border-neutral-200"
+              <thead>
+                <tr class="bg-gray-50 text-left border-b border-gray-200">
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
-                    <td class="px-3 py-2">{{ machineName(a) }}</td>
-                    <td class="px-3 py-2">{{ a.approvalType }}</td>
-                    <td class="px-3 py-2">{{ requesterName(a) }}</td>
-                    <td class="px-3 py-2">
-                      <span
-                        class="px-2 py-1 rounded text-xs"
-                        [ngClass]="{
-                          'bg-amber-100 text-amber-700': a.status === 'PENDING',
-                          'bg-green-100 text-green-700':
-                            a.status === 'APPROVED',
-                          'bg-red-100 text-red-700': a.status === 'REJECTED',
-                        }"
-                        >{{ a.status }}</span
-                      >
-                    </td>
-                    <td class="px-3 py-2">
-                      {{ a.createdAt | date: 'medium' }}
-                    </td>
-                    <td class="px-3 py-2 whitespace-nowrap">
+                    Machine
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Type
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Requested By
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Created
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
+                  >
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr
+                  *ngFor="let a of rows"
+                  class="hover:bg-gray-50 transition-colors duration-150"
+                >
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ machineName(a) }}
+                    </div>
+                    <div
+                      *ngIf="getMachineSequence(a)"
+                      class="text-xs text-gray-500 font-mono"
+                    >
+                      Seq: {{ getMachineSequence(a) }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      [ngClass]="{
+                        'bg-blue-100 text-blue-800':
+                          a.approvalType === 'MACHINE_CREATION',
+                        'bg-purple-100 text-purple-800':
+                          a.approvalType === 'MACHINE_EDIT',
+                        'bg-red-100 text-red-800':
+                          a.approvalType === 'MACHINE_DELETION',
+                      }"
+                    >
+                      {{ getApprovalTypeLabel(a.approvalType) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ requesterName(a) }}
+                    </div>
+                    <div
+                      *ngIf="getRequesterEmail(a)"
+                      class="text-xs text-gray-500"
+                    >
+                      {{ getRequesterEmail(a) }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      [ngClass]="{
+                        'bg-warning/20 text-warning': a.status === 'PENDING',
+                        'bg-success/20 text-success': a.status === 'APPROVED',
+                        'bg-error/20 text-error': a.status === 'REJECTED',
+                      }"
+                    >
+                      {{ a.status }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ a.createdAt | date: 'dd-MM-yyyy' }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      {{ a.createdAt | date: 'HH:mm' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
                       <button
-                        class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"
                         (click)="view(a)"
+                        title="View approval details"
                       >
+                        <i class="pi pi-eye text-xs mr-1"></i>
                         View
                       </button>
                       <ng-container
                         *ngIf="a.status === 'PENDING'; else noActions"
                       >
                         <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 cursor-pointer shadow-sm"
                           (click)="openEdit(a)"
+                          title="Edit approval"
                         >
+                          <i class="pi pi-pencil text-xs mr-1"></i>
                           Edit
                         </button>
                         <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 rounded-md hover:bg-success/20 hover:border-success/30 transition-all duration-150 cursor-pointer shadow-sm"
                           (click)="approve(a)"
+                          title="Approve request"
                         >
+                          <i class="pi pi-check text-xs mr-1"></i>
                           Approve
                         </button>
                         <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 text-error"
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm"
                           (click)="openReject(a)"
+                          title="Reject request"
                         >
+                          <i class="pi pi-times text-xs mr-1"></i>
                           Reject
                         </button>
                       </ng-container>
                       <ng-template #noActions>
-                        <span class="text-xs text-text-muted">No actions</span>
+                        <span class="text-xs text-gray-400">No actions</span>
                       </ng-template>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div table-footer class="w-full">
+              <app-table-pagination
+                [page]="page"
+                [pages]="pages"
+                [total]="total"
+                [limit]="limit"
+                (pageChange)="onPageChange($event)"
+                (limitChange)="onLimitChange($event)"
+              ></app-table-pagination>
             </div>
-            <app-table-pagination
-              [page]="page"
-              [pages]="pages"
-              [total]="total"
-              [limit]="limit"
-              (pageChange)="onPage($event)"
-              (limitChange)="onLimit($event)"
-            >
-            </app-table-pagination>
-          </div>
-        </section>
+          </app-list-table-shell>
 
-        <app-reject-reason-modal
-          [visible]="rejectVisible"
-          [proposedChanges]="selectedProposedChanges"
-          (cancel)="rejectVisible = false"
-          (submitReject)="confirmReject($event)"
-        >
-        </app-reject-reason-modal>
+          <app-reject-reason-modal
+            [visible]="rejectVisible"
+            [proposedChanges]="selectedProposedChanges"
+            (cancel)="rejectVisible = false"
+            (submitReject)="confirmReject($event)"
+          >
+          </app-reject-reason-modal>
 
-        <app-approval-view-modal
-          [visible]="viewVisible"
-          [approval]="selectedApproval"
-          [machine]="selectedMachine"
-          (close)="viewVisible = false"
-        >
-        </app-approval-view-modal>
+          <app-approval-view-modal
+            [visible]="viewVisible"
+            [approval]="selectedApproval"
+            [machine]="selectedMachine"
+            (close)="viewVisible = false"
+          >
+          </app-approval-view-modal>
 
-        <app-edit-approval-modal
-          [visible]="editVisible"
-          [roleOptions]="editRoleOptions"
-          [value]="editInitialValue()"
-          (cancel)="editVisible = false"
-          (submitEdit)="onSubmitEdit($event)"
-        ></app-edit-approval-modal>
+          <app-edit-approval-modal
+            [visible]="editVisible"
+            [roleOptions]="editRoleOptions"
+            [value]="editInitialValue()"
+            (cancel)="editVisible = false"
+            (submitEdit)="onSubmitEdit($event)"
+          ></app-edit-approval-modal>
+        </main>
       </div>
     </div>
   `,
 })
-export class AdminMachineApprovalsComponent implements OnInit {
+export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
   sidebarCollapsed = false;
   loading = false;
   rows: ApprovalRow[] = [];
@@ -236,10 +381,22 @@ export class AdminMachineApprovalsComponent implements OnInit {
   pages = 1;
   total = 0;
   limit = 10;
-  search = '';
-  status: '' | 'PENDING' | 'APPROVED' | 'REJECTED' = '';
-  type: '' | 'MACHINE_CREATION' | 'MACHINE_EDIT' | 'MACHINE_DELETION' = '';
-  sort: 'createdAt' | '-createdAt' = '-createdAt';
+
+  filters: {
+    search?: string;
+    status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+    approvalType?: 'MACHINE_CREATION' | 'MACHINE_EDIT' | 'MACHINE_DELETION';
+    requestedBy?: string;
+    createdBy?: string;
+    machineName?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    sortBy?: 'createdAt' | 'status' | 'approvalType';
+    sortOrder?: 'asc' | 'desc';
+  } = {
+    sortBy: 'createdAt',
+    sortOrder: 'desc', // Default: latest first
+  };
 
   // modals
   rejectVisible = false;
@@ -250,20 +407,130 @@ export class AdminMachineApprovalsComponent implements OnInit {
   editVisible = false;
   editRoleOptions: Array<{ _id: string; name: string }> = [];
 
+  // Search debounce
+  private searchInput$ = new Subject<string>();
+  private requestedByInput$ = new Subject<string>();
+  private createdByInput$ = new Subject<string>();
+  private machineNameInput$ = new Subject<string>();
+  private subs = new Subscription();
+
   constructor(
     private approvals: ApprovalsService,
     private message: MessageService
   ) {}
 
   ngOnInit(): void {
-    this.refresh();
+    // Setup debounced search
+    this.subs.add(
+      this.searchInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.reload();
+        })
+    );
+
+    this.subs.add(
+      this.requestedByInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.reload();
+        })
+    );
+
+    this.subs.add(
+      this.machineNameInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.reload();
+        })
+    );
+
+    this.subs.add(
+      this.createdByInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.reload();
+        })
+    );
+
+    this.reload();
   }
 
-  refresh(): void {
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
+  }
+
+  onSearchChange(value: string): void {
+    this.filters.search = value;
+    this.searchInput$.next(value);
+  }
+
+  onRequestedByChange(): void {
+    this.requestedByInput$.next(this.filters.requestedBy || '');
+  }
+
+  onMachineNameChange(): void {
+    this.machineNameInput$.next(this.filters.machineName || '');
+  }
+
+  onCreatedByChange(): void {
+    this.createdByInput$.next(this.filters.createdBy || '');
+  }
+
+  clearFilters(): void {
+    this.filters = {
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    };
+    this.page = 1;
+    this.reload();
+  }
+
+  reload(): void {
     this.loading = true;
-    const s = this.status ? (this.status.toLowerCase() as any) : 'pending';
+    const status = this.filters.status
+      ? (this.filters.status.toLowerCase() as
+          | 'pending'
+          | 'approved'
+          | 'rejected')
+      : undefined;
+
+    // Build sort string
+    const sortBy = this.filters.sortBy || 'createdAt';
+    const sortOrder = this.filters.sortOrder || 'desc';
+    const sort = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
+
+    // Build enhanced filters
+    const enhancedFilters: any = {};
+    if (this.filters.requestedBy) {
+      enhancedFilters.requestedBy = this.filters.requestedBy;
+    }
+    if (this.filters.createdBy) {
+      enhancedFilters.createdBy = this.filters.createdBy;
+    }
+    if (this.filters.machineName) {
+      enhancedFilters.machineName = this.filters.machineName;
+    }
+    if (this.filters.dateFrom) {
+      enhancedFilters.dateFrom = this.filters.dateFrom;
+    }
+    if (this.filters.dateTo) {
+      enhancedFilters.dateTo = this.filters.dateTo;
+    }
+
     this.approvals
-      .getPending(this.page, this.limit, this.search, s, this.sort)
+      .getPending(
+        this.page,
+        this.limit,
+        this.filters.search,
+        status || 'pending',
+        sort,
+        enhancedFilters
+      )
       .subscribe({
         next: res => {
           const d: any = res as any;
@@ -273,35 +540,46 @@ export class AdminMachineApprovalsComponent implements OnInit {
             Number(d?.pages) || Math.ceil(this.total / this.limit) || 1;
           this.loading = false;
         },
-        error: () => (this.loading = false),
+        error: () => {
+          this.loading = false;
+        },
       });
   }
 
-  onSearch(): void {
-    this.page = 1;
-    this.refresh();
-  }
-  onPage(p: number): void {
+  onPageChange(p: number): void {
     this.page = p;
-    this.refresh();
+    this.reload();
   }
-  onLimit(l: number): void {
+
+  onLimitChange(l: number): void {
     this.limit = l;
     this.page = 1;
-    this.refresh();
+    this.reload();
+  }
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  onSidebarCollapseChange(collapsed: boolean): void {
+    this.sidebarCollapsed = collapsed;
   }
 
   approve(a: ApprovalRow): void {
     this.approvals.processApproval(a._id, { approved: true }).subscribe({
       next: () => {
-        this.message.add({ severity: 'success', summary: 'Approved' });
-        this.refresh();
+        this.message.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Approval request approved successfully',
+        });
+        this.reload();
       },
       error: err => {
         this.message.add({
           severity: 'error',
           summary: 'Error',
-          detail: err?.error?.message || 'Failed',
+          detail: err?.error?.message || 'Failed to approve request',
         });
       },
     });
@@ -338,14 +616,18 @@ export class AdminMachineApprovalsComponent implements OnInit {
       })
       .subscribe({
         next: () => {
-          this.message.add({ severity: 'success', summary: 'Rejected' });
-          this.refresh();
+          this.message.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: 'Approval request rejected successfully',
+          });
+          this.reload();
         },
         error: err => {
           this.message.add({
             severity: 'error',
             summary: 'Error',
-            detail: err?.error?.message || 'Failed',
+            detail: err?.error?.message || 'Failed to reject request',
           });
         },
       });
@@ -365,7 +647,7 @@ export class AdminMachineApprovalsComponent implements OnInit {
           this.viewVisible = true;
           return;
         }
-        // fetch via same base API used globally (ApprovalsService uses BaseApiService)
+        // fetch via same base API used globally
         (this.approvals as any).api.get(`/machines/${mid}`).subscribe({
           next: (mres: any) => {
             const data = mres?.data || mres;
@@ -390,15 +672,35 @@ export class AdminMachineApprovalsComponent implements OnInit {
     return m?.name || '-';
   }
 
+  getMachineSequence(a: ApprovalRow): string | null {
+    const m = a.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    return m?.machine_sequence || null;
+  }
+
   requesterName(a: ApprovalRow): string {
     const r = a.requestedBy as any;
     if (!r) return '-';
     if (typeof r === 'string') return r;
-    return r?.username || r?.email || '-';
+    return r?.username || '-';
+  }
+
+  getRequesterEmail(a: ApprovalRow): string | null {
+    const r = a.requestedBy as any;
+    if (!r || typeof r === 'string') return null;
+    return r?.email || null;
+  }
+
+  getApprovalTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      MACHINE_CREATION: 'Creation',
+      MACHINE_EDIT: 'Edit',
+      MACHINE_DELETION: 'Deletion',
+    };
+    return labels[type] || type;
   }
 
   openEdit(a: ApprovalRow): void {
-    // Always reload the latest approval snapshot from server before editing
     const loadApproval$ = this.approvals.getById(a._id);
     const loadRoles$ = (this.approvals as any).api.get('/admin/roles');
 
@@ -450,9 +752,12 @@ export class AdminMachineApprovalsComponent implements OnInit {
     this.editVisible = false;
     this.approvals.updateApproval(id, payload).subscribe({
       next: () => {
-        this.message.add({ severity: 'success', summary: 'Updated' });
-        // Refresh table and selected approval snapshot for subsequent edits
-        this.refresh();
+        this.message.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Approval request updated successfully',
+        });
+        this.reload();
         this.approvals.getById(id).subscribe({
           next: (full: any) => (this.selectedApproval = full),
           error: () => {},
@@ -462,7 +767,7 @@ export class AdminMachineApprovalsComponent implements OnInit {
         this.message.add({
           severity: 'error',
           summary: 'Error',
-          detail: err?.error?.message || 'Failed to update',
+          detail: err?.error?.message || 'Failed to update approval',
         });
       },
     });

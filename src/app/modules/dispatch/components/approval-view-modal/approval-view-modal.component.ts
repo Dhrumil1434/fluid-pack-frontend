@@ -153,6 +153,19 @@ import { environment } from '../../../../../environments/environment';
                 <div>
                   <label
                     class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Dispatch Date</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{
+                      machine?.dispatch_date
+                        ? (machine?.dispatch_date | date: 'dd-MM-yyyy')
+                        : '-'
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
                     >Category</label
                   >
                   <p class="text-sm text-gray-900 mt-1">

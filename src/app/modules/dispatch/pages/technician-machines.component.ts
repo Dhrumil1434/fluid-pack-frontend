@@ -21,6 +21,9 @@ import {
 } from '../../../core/models/category.model';
 import { CreateMachineModalComponent } from '../components/create-machine-modal/create-machine-modal.component';
 import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
+import { ListFiltersComponent } from '../../admin/components/shared/list/list-filters.component';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 interface MachineRow {
   _id: string;
@@ -38,6 +41,7 @@ interface MachineRow {
   location?: string;
   mobile_number?: string;
   machine_sequence?: string;
+  dispatch_date?: string | Date;
   createdAt: string;
   updatedAt?: string;
   updatedBy?: { username?: string };
@@ -62,6 +66,7 @@ interface MachineRow {
     TablePaginationComponent,
     CreateMachineModalComponent,
     PageHeaderComponent,
+    ListFiltersComponent,
   ],
   template: `
     <app-technician-sidebar
@@ -104,44 +109,123 @@ interface MachineRow {
         ></app-create-machine-modal>
 
         <!-- Filters & Search -->
-        <div class="flex flex-col md:flex-row md:items-center gap-3">
-          <div
-            class="inline-flex rounded-md border border-neutral-300 overflow-hidden"
-          >
-            <button
-              class="px-3 py-1.5 text-sm"
-              [class.bg-neutral-200]="filter() === 'all'"
-              (click)="setFilter('all')"
+        <app-list-filters
+          searchLabel="Search machines"
+          searchPlaceholder="Name, party, location, metadata, created by..."
+          (searchChange)="onSearchChange($event)"
+          (apply)="refresh()"
+          (clear)="clearFilters()"
+        >
+          <div filters-extra class="flex flex-wrap items-end gap-3">
+            <div
+              class="inline-flex rounded-md border border-neutral-300 overflow-hidden"
             >
-              All
-            </button>
-            <button
-              class="px-3 py-1.5 text-sm"
-              [class.bg-neutral-200]="filter() === 'own'"
-              (click)="setFilter('own')"
+              <button
+                class="px-3 py-1.5 text-sm transition-colors"
+                [class.bg-primary]="filter() === 'all'"
+                [class.text-white]="filter() === 'all'"
+                [class.bg-neutral-200]="filter() === 'all'"
+                [class.bg-white]="filter() !== 'all'"
+                (click)="setFilter('all')"
+              >
+                All
+              </button>
+              <button
+                class="px-3 py-1.5 text-sm transition-colors"
+                [class.bg-primary]="filter() === 'own'"
+                [class.text-white]="filter() === 'own'"
+                [class.bg-neutral-200]="filter() === 'own'"
+                [class.bg-white]="filter() !== 'own'"
+                (click)="setFilter('own')"
+              >
+                My
+              </button>
+            </div>
+            <select
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+              [(ngModel)]="filters.category_id"
+              (change)="onCategoryFilterChange()"
             >
-              My
-            </button>
+              <option [ngValue]="undefined">All categories</option>
+              <option *ngFor="let cat of filterCategories" [value]="cat._id">
+                {{ getCategoryDisplayName(cat) }}
+              </option>
+            </select>
+            <!-- Metadata Key Autocomplete -->
+            <div class="relative">
+              <input
+                type="text"
+                class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                placeholder="Metadata Key"
+                [(ngModel)]="filters.metadata_key"
+                (input)="onMetadataKeyChange()"
+                (focus)="showMetadataKeySuggestions = true"
+                (blur)="hideMetadataSuggestions()"
+              />
+              <div
+                *ngIf="
+                  showMetadataKeySuggestions &&
+                  metadataKeySuggestions.length > 0
+                "
+                class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+              >
+                <div
+                  *ngFor="let key of metadataKeySuggestions"
+                  class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                  (mousedown)="selectMetadataKey(key)"
+                >
+                  {{ key }}
+                </div>
+              </div>
+            </div>
+            <!-- Metadata Value -->
+            <input
+              *ngIf="filters.metadata_key"
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Metadata Value"
+              [(ngModel)]="filters.metadata_value"
+              (input)="onMetadataValueChange()"
+            />
+            <!-- Dispatch Date From -->
+            <input
+              type="date"
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              placeholder="Dispatch Date From"
+              [(ngModel)]="filters.dispatch_date_from"
+              (change)="refresh()"
+            />
+            <!-- Dispatch Date To -->
+            <input
+              type="date"
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              placeholder="Dispatch Date To"
+              [(ngModel)]="filters.dispatch_date_to"
+              (change)="refresh()"
+            />
+            <!-- Sort By -->
+            <select
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              [(ngModel)]="filters.sortBy"
+              (change)="refresh()"
+            >
+              <option value="createdAt">Created Date</option>
+              <option value="name">Name</option>
+              <option value="category">Category</option>
+              <option value="dispatch_date">Dispatch Date</option>
+            </select>
+            <!-- Sort Order -->
+            <select
+              *ngIf="filters.sortBy"
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              [(ngModel)]="filters.sortOrder"
+              (change)="refresh()"
+            >
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
           </div>
-          <input
-            type="text"
-            class="border rounded px-3 py-2 w-full md:w-64"
-            placeholder="Search by name..."
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="onSearchChanged()"
-          />
-          <select
-            class="border rounded px-3 py-2 w-full md:w-56"
-            [(ngModel)]="sortKey"
-            (change)="applySort()"
-          >
-            <option value="created_desc">Newest first</option>
-            <option value="created_asc">Oldest first</option>
-            <option value="name_asc">Name A–Z</option>
-            <option value="name_desc">Name Z–A</option>
-            <option value="status">Status</option>
-          </select>
-        </div>
+        </app-list-filters>
 
         <!-- Table -->
         <section
@@ -219,6 +303,11 @@ interface MachineRow {
                       class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Contact
+                    </th>
+                    <th
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Dispatch Date
                     </th>
                     <th
                       class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -359,6 +448,17 @@ interface MachineRow {
                       <ng-template #noContact>
                         <span class="text-sm text-gray-400">-</span>
                       </ng-template>
+                    </td>
+
+                    <!-- Dispatch Date -->
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{
+                          m.dispatch_date
+                            ? (m.dispatch_date | date: 'dd-MM-yyyy')
+                            : '-'
+                        }}
+                      </div>
                     </td>
 
                     <!-- Media -->
@@ -953,6 +1053,16 @@ interface MachineRow {
                   }}</span>
                 </div>
                 <div class="md:col-span-1">
+                  <span class="block text-xs text-gray-500 mb-1"
+                    >Dispatch Date</span
+                  >
+                  <span class="text-sm text-gray-900">{{
+                    viewMachine?.dispatch_date
+                      ? (viewMachine?.dispatch_date | date: 'dd-MM-yyyy')
+                      : '-'
+                  }}</span>
+                </div>
+                <div class="md:col-span-1">
                   <span class="block text-xs text-gray-500 mb-1">Category</span>
                   <span class="text-sm text-gray-900">{{
                     getCategoryNameForView() || '-'
@@ -1190,13 +1300,33 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
   // Sequence configs
   sequenceConfigs: SequenceConfig[] = [];
-  sortKey:
-    | 'created_desc'
-    | 'created_asc'
-    | 'name_asc'
-    | 'name_desc'
-    | 'status' = 'created_desc';
-  private searchTimer: any;
+
+  // Enhanced filters
+  filters: {
+    search?: string;
+    category_id?: string;
+    metadata_key?: string;
+    metadata_value?: string;
+    dispatch_date_from?: string;
+    dispatch_date_to?: string;
+    sortBy?: 'createdAt' | 'name' | 'category' | 'dispatch_date';
+    sortOrder?: 'asc' | 'desc';
+  } = {
+    sortBy: 'createdAt',
+    sortOrder: 'desc', // Default: latest first
+  };
+
+  // Metadata key suggestions
+  metadataKeySuggestions: string[] = [];
+  allMetadataKeys: string[] = []; // Master list of all keys
+  showMetadataKeySuggestions = false;
+
+  // Categories for filter
+  filterCategories: Array<{ _id: string; name: string; level?: number }> = [];
+
+  // Search debounce
+  private searchInput$ = new Subject<string>();
+  private subs = new Subscription();
 
   // pagination state
   page = 1;
@@ -1226,6 +1356,21 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.checkCreatePermission();
     this.loadSequenceConfigs();
+    this.loadFilterCategories();
+
+    // Setup debounced search
+    this.subs.add(
+      this.searchInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.refresh();
+        })
+    );
+
+    // Load metadata keys from all machines
+    this.loadAllMetadataKeys();
+
     this.refresh();
     // Auto-open modal if query param specifies it
     this.route.queryParamMap.subscribe(params => {
@@ -1237,7 +1382,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Cleanup handled by CreateMachineModalComponent
+    this.subs.unsubscribe();
   }
 
   setFilter(f: 'all' | 'own'): void {
@@ -1263,12 +1408,44 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     this.loading = true;
     const user = this.auth.getCurrentUser();
     const params: Record<string, any> = { page: this.page, limit: this.limit };
+
+    // Apply filter (All/My)
     if (this.filter() === 'own' && user?._id) {
       params['created_by'] = user._id;
     }
-    if (this.searchTerm?.trim()) {
-      params['search'] = this.searchTerm.trim();
+
+    // Apply search
+    if (this.filters.search?.trim()) {
+      params['search'] = this.filters.search.trim();
     }
+
+    // Apply category filter
+    if (this.filters.category_id) {
+      params['category_id'] = this.filters.category_id;
+    }
+
+    // Apply metadata filters
+    if (this.filters.metadata_key) {
+      params['metadata_key'] = this.filters.metadata_key;
+      if (this.filters.metadata_value) {
+        params['metadata_value'] = this.filters.metadata_value;
+      }
+    }
+
+    // Apply dispatch date filters
+    if (this.filters.dispatch_date_from) {
+      params['dispatch_date_from'] = this.filters.dispatch_date_from;
+    }
+    if (this.filters.dispatch_date_to) {
+      params['dispatch_date_to'] = this.filters.dispatch_date_to;
+    }
+
+    // Apply sorting
+    if (this.filters.sortBy) {
+      params['sortBy'] = this.filters.sortBy;
+      params['sortOrder'] = this.filters.sortOrder || 'desc';
+    }
+
     this.baseApi.get<any>(API_ENDPOINTS.MACHINES, params).subscribe({
       next: res => {
         const data: any = (res as any).data || res;
@@ -1290,11 +1467,11 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
         // annotate rows with latest approval status for clarity
         this.annotateApprovalStatuses(mapped)
           .then(annotated => {
-            this.rows = this.sortRows(annotated);
+            this.rows = annotated; // Remove sortRows since backend handles sorting
             this.loading = false;
           })
           .catch(() => {
-            this.rows = this.sortRows(mapped);
+            this.rows = mapped;
             this.loading = false;
           });
       },
@@ -1604,42 +1781,139 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     this.previewIndex = i;
   }
 
-  onSearchChanged(): void {
-    clearTimeout(this.searchTimer);
-    this.searchTimer = setTimeout(() => this.refresh(), 300);
+  onSearchChange(value: string): void {
+    this.filters.search = value;
+    this.searchTerm = value; // Keep for backward compatibility
+    this.searchInput$.next(value || '');
   }
 
-  applySort(): void {
-    this.rows = this.sortRows(this.rows.slice());
+  clearFilters(): void {
+    this.filters = {
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    };
+    this.searchTerm = '';
+    this.filter.set('all');
+    this.page = 1;
+    this.refresh();
   }
 
-  private sortRows(rows: MachineRow[]): MachineRow[] {
-    switch (this.sortKey) {
-      case 'name_asc':
-        return rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      case 'name_desc':
-        return rows.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
-      case 'created_asc':
-        return rows.sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      case 'status':
-        return rows.sort((a, b) => {
-          const sa =
-            a.approvalStatus || (a.is_approved ? 'approved' : 'pending');
-          const sb =
-            b.approvalStatus || (b.is_approved ? 'approved' : 'pending');
-          const order = { approved: 2, pending: 1, rejected: 0 } as any;
-          return (order[sa] ?? -1) - (order[sb] ?? -1);
-        });
-      case 'created_desc':
-      default:
-        return rows.sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+  // Load filter categories
+  loadFilterCategories(): void {
+    this.categoryService
+      .getAllCategories({ includeInactive: false })
+      .subscribe({
+        next: (response: any) => {
+          const data = response?.data || response;
+          this.filterCategories = Array.isArray(data)
+            ? data
+            : data?.categories || [];
+        },
+        error: () => {
+          this.filterCategories = [];
+        },
+      });
+  }
+
+  getCategoryDisplayName(cat: { name?: string; level?: number }): string {
+    if (!cat.name) return '';
+    const indent = cat.level ? '  '.repeat(cat.level) : '';
+    return `${indent}${cat.name}`;
+  }
+
+  onCategoryFilterChange(): void {
+    this.page = 1;
+    this.refresh();
+  }
+
+  // Load ALL metadata keys from all machines (across all pages)
+  // This fetches from ALL machines regardless of current filter to get complete metadata key list
+  loadAllMetadataKeys(): void {
+    const keySet = new Set<string>();
+    const limit = 100; // Fetch 100 at a time
+
+    const fetchPage = (page: number): void => {
+      const params: Record<string, any> = { page, limit };
+      // Don't apply created_by filter here - we want ALL metadata keys from ALL machines
+
+      this.machineService.getAllMachines(params).subscribe({
+        next: (response: any) => {
+          const machines = response?.machines || response?.data?.machines || [];
+
+          // Extract metadata keys from this page
+          machines.forEach((machine: any) => {
+            if (machine.metadata && typeof machine.metadata === 'object') {
+              Object.keys(machine.metadata).forEach(key => {
+                if (key && key.trim()) {
+                  keySet.add(key.trim());
+                }
+              });
+            }
+          });
+
+          const total = response?.total || response?.data?.total || 0;
+          const totalPages = Math.ceil(total / limit);
+
+          // If there are more pages, fetch next page
+          if (page < totalPages && page < 10) {
+            // Limit to 10 pages (1000 machines) to avoid too many requests
+            fetchPage(page + 1);
+          } else {
+            // Done fetching, update the keys
+            this.allMetadataKeys = Array.from(keySet).sort();
+            this.updateMetadataKeySuggestions();
+          }
+        },
+        error: () => {
+          // On error, use whatever keys we've collected so far
+          this.allMetadataKeys = Array.from(keySet).sort();
+          this.updateMetadataKeySuggestions();
+        },
+      });
+    };
+
+    fetchPage(1);
+  }
+
+  // Update metadata key suggestions based on current input
+  updateMetadataKeySuggestions(): void {
+    if (!this.filters.metadata_key) {
+      this.metadataKeySuggestions = [...this.allMetadataKeys];
+      return;
     }
+
+    const input = this.filters.metadata_key.toLowerCase().trim();
+    this.metadataKeySuggestions = this.allMetadataKeys.filter(key =>
+      key.toLowerCase().includes(input)
+    );
+  }
+
+  onMetadataKeyChange(): void {
+    this.updateMetadataKeySuggestions();
+    // Don't reload on every keystroke, wait for blur or selection
+  }
+
+  onMetadataValueChange(): void {
+    // Debounce metadata value search
+    clearTimeout((this as any).metadataValueTimer);
+    (this as any).metadataValueTimer = setTimeout(() => {
+      this.page = 1;
+      this.refresh();
+    }, 500);
+  }
+
+  selectMetadataKey(key: string): void {
+    this.filters.metadata_key = key;
+    this.showMetadataKeySuggestions = false;
+    this.updateMetadataKeySuggestions();
+    this.page = 1;
+    this.refresh();
+  }
+
+  hideMetadataSuggestions(): void {
+    setTimeout(() => {
+      this.showMetadataKeySuggestions = false;
+    }, 200);
   }
 
   private async annotateApprovalStatuses(

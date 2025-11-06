@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApprovalsService } from '../services/approvals.service';
 import { RejectReasonModalComponent } from '../components/reject-reason-modal/reject-reason-modal.component';
@@ -14,6 +14,10 @@ import { BaseApiService } from '../../../core/services/base-api.service';
 import { API_ENDPOINTS } from '../../../core/constants/api.constants';
 import { CategoryService } from '../../../core/services/category.service';
 import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
+import { ListFiltersComponent } from '../../admin/components/shared/list/list-filters.component';
+import { ListTableShellComponent } from '../../admin/components/shared/list/list-table-shell.component';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 interface ApprovalRow {
   _id: string;
@@ -24,6 +28,7 @@ interface ApprovalRow {
   machineId?: {
     name?: string;
     machine_sequence?: string;
+    dispatch_date?: string | Date;
     category_id?: { _id?: string; name?: string } | string;
     metadata?: Record<string, unknown>;
   };
@@ -43,6 +48,8 @@ interface ApprovalRow {
     TechnicianSidebarComponent,
     ApprovalViewModalComponent,
     PageHeaderComponent,
+    ListFiltersComponent,
+    ListTableShellComponent,
   ],
   template: `
     <ng-container>
@@ -96,432 +103,332 @@ interface ApprovalRow {
         </div>
       </app-page-header>
 
-      <div class="p-6 space-y-6">
+      <main class="p-6 space-y-4">
         <p-toast></p-toast>
 
-        <section
-          class="bg-bg border border-neutral-300 rounded-xl shadow-medium"
+        <app-list-filters
+          searchLabel="Search approvals"
+          searchPlaceholder="Machine name, requester, notes, created by..."
+          (searchChange)="onSearchChange($event)"
+          (apply)="fetchPending()"
+          (clear)="clearFilters()"
         >
-          <!-- Filters Section -->
-          <div class="px-4 py-3 border-b border-neutral-200">
-            <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
-              <h3 class="font-medium">
-                {{
-                  status === 'pending'
-                    ? 'Pending'
-                    : status === 'approved'
-                      ? 'Approved'
-                      : 'Rejected'
-                }}
-                Approvals
-              </h3>
-              <div class="flex items-center gap-2 text-sm">
-                <button
-                  class="px-3 py-1.5 text-xs rounded border hover:bg-neutral-100 flex items-center gap-1"
-                  (click)="filtersExpanded = !filtersExpanded"
-                  [class.bg-blue-50]="filtersExpanded"
-                  [class.border-blue-300]="filtersExpanded"
-                >
-                  <i
-                    class="pi"
-                    [class.pi-filter]="!filtersExpanded"
-                    [class.pi-filter-slash]="filtersExpanded"
-                  ></i>
-                  {{ filtersExpanded ? 'Hide' : 'Show' }} Filters
-                </button>
-                <select
-                  class="border rounded px-2 py-1 text-sm"
-                  [(ngModel)]="status"
-                  (change)="refresh()"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-                <select
-                  class="border rounded px-2 py-1 text-sm"
-                  [(ngModel)]="sort"
-                  (change)="refresh()"
-                >
-                  <option value="-createdAt">Newest First</option>
-                  <option value="createdAt">Oldest First</option>
-                  <option value="-updatedAt">Recently Updated</option>
-                  <option value="updatedAt">Least Updated</option>
-                </select>
-                <button
-                  class="px-3 py-1.5 text-xs rounded border hover:bg-neutral-100 flex items-center gap-1"
-                  (click)="clearFilters()"
-                  title="Clear all filters"
-                >
-                  <i class="pi pi-times"></i>
-                  Clear
-                </button>
-                <button
-                  class="px-3 py-1.5 text-xs rounded bg-primary text-white hover:bg-primary/90"
-                  (click)="openCreate()"
-                >
-                  <i class="pi pi-plus mr-1"></i>
-                  Create Request
-                </button>
-              </div>
-            </div>
-
-            <!-- Enhanced Filters Panel -->
-            <div
-              *ngIf="filtersExpanded"
-              class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4"
+          <div filters-extra class="flex flex-wrap items-end gap-3">
+            <!-- Status Filter -->
+            <select
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              [(ngModel)]="status"
+              (change)="refresh()"
             >
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Sequence Search -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Sequence Number
-                  </label>
-                  <input
-                    type="text"
-                    class="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="e.g., MACH-001"
-                    [(ngModel)]="filters.sequence"
-                    (input)="onFilterChange()"
-                  />
-                </div>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
 
-                <!-- Requested By Search -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Requested By
-                  </label>
-                  <input
-                    type="text"
-                    class="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Username or email"
-                    [(ngModel)]="filters.requestedBy"
-                    (input)="onFilterChange()"
-                  />
-                </div>
+            <!-- Approval Type Filter -->
+            <select
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              [(ngModel)]="filters.approvalType"
+              (change)="onFilterChange()"
+            >
+              <option [ngValue]="undefined">All Types</option>
+              <option value="MACHINE_CREATION">Creation</option>
+              <option value="MACHINE_EDIT">Edit</option>
+              <option value="MACHINE_DELETION">Deletion</option>
+            </select>
 
-                <!-- Category Filter -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Category
-                  </label>
-                  <select
-                    class="w-full border rounded px-3 py-2 text-sm bg-white"
-                    [(ngModel)]="filters.categoryId"
-                    (change)="onFilterChange()"
-                  >
-                    <option value="">All Categories</option>
-                    <option *ngFor="let cat of categories" [value]="cat._id">
-                      {{ cat.name }}
-                    </option>
-                  </select>
-                </div>
+            <!-- Requested By Filter -->
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+              placeholder="Requested By (username/email)"
+              [(ngModel)]="filters.requestedBy"
+              (input)="onRequestedByChange()"
+            />
 
-                <!-- Date Range: From -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Date From
-                  </label>
-                  <input
-                    type="date"
-                    class="w-full border rounded px-3 py-2 text-sm"
-                    [(ngModel)]="filters.dateFrom"
-                    (change)="onFilterChange()"
-                  />
-                </div>
+            <!-- Created By Filter -->
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+              placeholder="Created By (username/email)"
+              [(ngModel)]="filters.createdBy"
+              (input)="onCreatedByChange()"
+            />
 
-                <!-- Date Range: To -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Date To
-                  </label>
-                  <input
-                    type="date"
-                    class="w-full border rounded px-3 py-2 text-sm"
-                    [(ngModel)]="filters.dateTo"
-                    (change)="onFilterChange()"
-                  />
-                </div>
+            <!-- Sequence Search -->
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Sequence Number"
+              [(ngModel)]="filters.sequence"
+              (input)="onSequenceChange()"
+            />
 
-                <!-- Metadata Key -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Metadata Key
-                    <span class="text-gray-400 text-xs ml-1">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    class="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Enter metadata key"
-                    [(ngModel)]="filters.metadataKey"
-                    (blur)="validateMetadataKey()"
-                    (input)="onFilterChange()"
-                  />
-                  <div
-                    *ngIf="metadataKeyError"
-                    class="text-xs text-red-600 mt-1"
-                  >
-                    {{ metadataKeyError }}
-                  </div>
-                </div>
+            <!-- Category Filter -->
+            <select
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+              [(ngModel)]="filters.categoryId"
+              (change)="onFilterChange()"
+            >
+              <option value="">All Categories</option>
+              <option *ngFor="let cat of categories" [value]="cat._id">
+                {{ cat.name }}
+              </option>
+            </select>
 
-                <!-- Metadata Value -->
-                <div>
-                  <label class="block text-xs font-medium text-gray-700 mb-1">
-                    Metadata Value
-                    <span class="text-gray-400 text-xs ml-1"
-                      >(required if key provided)</span
-                    >
-                  </label>
-                  <input
-                    type="text"
-                    class="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Enter metadata value"
-                    [(ngModel)]="filters.metadataValue"
-                    [disabled]="!filters.metadataKey"
-                    (input)="onFilterChange()"
-                  />
-                </div>
-              </div>
+            <!-- Date From -->
+            <input
+              type="date"
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              placeholder="Date From"
+              [(ngModel)]="filters.dateFrom"
+              (change)="onFilterChange()"
+            />
 
-              <!-- Active Filters Summary -->
-              <div
-                *ngIf="hasActiveFilters()"
-                class="flex flex-wrap gap-2 pt-2 border-t border-gray-200"
-              >
-                <span class="text-xs font-medium text-gray-600"
-                  >Active Filters:</span
-                >
-                <span
-                  *ngIf="filters.sequence"
-                  class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                >
-                  Sequence: {{ filters.sequence }}
-                  <button
-                    class="hover:bg-blue-200 rounded-full p-0.5"
-                    (click)="filters.sequence = ''; onFilterChange()"
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-                </span>
-                <span
-                  *ngIf="filters.categoryId"
-                  class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                >
-                  Category: {{ getCategoryName(filters.categoryId) }}
-                  <button
-                    class="hover:bg-blue-200 rounded-full p-0.5"
-                    (click)="filters.categoryId = ''; onFilterChange()"
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-                </span>
-                <span
-                  *ngIf="filters.requestedBy"
-                  class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                >
-                  Requested By: {{ filters.requestedBy }}
-                  <button
-                    class="hover:bg-blue-200 rounded-full p-0.5"
-                    (click)="filters.requestedBy = ''; onFilterChange()"
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-                </span>
-                <span
-                  *ngIf="filters.dateFrom || filters.dateTo"
-                  class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                >
-                  Date: {{ filters.dateFrom || '...' }} to
-                  {{ filters.dateTo || '...' }}
-                  <button
-                    class="hover:bg-blue-200 rounded-full p-0.5"
-                    (click)="
-                      filters.dateFrom = '';
-                      filters.dateTo = '';
-                      onFilterChange()
-                    "
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-                </span>
-                <span
-                  *ngIf="filters.metadataKey"
-                  class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                >
-                  Metadata: {{ filters.metadataKey }} =
-                  {{ filters.metadataValue || 'any' }}
-                  <button
-                    class="hover:bg-blue-200 rounded-full p-0.5"
-                    (click)="
-                      filters.metadataKey = '';
-                      filters.metadataValue = '';
-                      onFilterChange()
-                    "
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-                </span>
-              </div>
-            </div>
+            <!-- Date To -->
+            <input
+              type="date"
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              placeholder="Date To"
+              [(ngModel)]="filters.dateTo"
+              (change)="onFilterChange()"
+            />
+
+            <!-- Metadata Key -->
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Metadata Key"
+              [(ngModel)]="filters.metadataKey"
+              (input)="onFilterChange()"
+            />
+
+            <!-- Metadata Value -->
+            <input
+              *ngIf="filters.metadataKey"
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Metadata Value"
+              [(ngModel)]="filters.metadataValue"
+              (input)="onFilterChange()"
+            />
+
+            <!-- Sort By -->
+            <select
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              [(ngModel)]="filters.sortBy"
+              (change)="onFilterChange()"
+            >
+              <option value="createdAt">Created Date</option>
+              <option value="updatedAt">Updated Date</option>
+              <option value="status">Status</option>
+              <option value="approvalType">Type</option>
+            </select>
+
+            <!-- Sort Order -->
+            <select
+              *ngIf="filters.sortBy"
+              class="px-3 py-2 border border-neutral-300 rounded-md"
+              [(ngModel)]="filters.sortOrder"
+              (change)="onFilterChange()"
+            >
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
           </div>
-          <div class="p-4">
-            <div *ngIf="loading" class="text-text-muted">Loading...</div>
-            <div
-              *ngIf="!loading && (approvals?.length || 0) === 0"
-              class="text-text-muted"
+        </app-list-filters>
+
+        <app-list-table-shell
+          [title]="
+            status === 'pending'
+              ? 'Pending Approvals'
+              : status === 'approved'
+                ? 'Approved Approvals'
+                : 'Rejected Approvals'
+          "
+        >
+          <div table-actions class="flex items-center gap-2">
+            <button
+              class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer flex items-center gap-2 shadow-sm"
+              (click)="openCreate()"
+              title="Create new approval request"
             >
-              No pending approvals.
-            </div>
-            <div
-              *ngIf="!loading && (approvals?.length || 0) > 0"
-              class="overflow-x-auto"
-            >
-              <table class="min-w-full text-sm">
-                <thead class="bg-gray-50">
-                  <tr class="text-left">
-                    <th class="px-4 py-3 font-semibold text-gray-700">
-                      Sequence
-                    </th>
-                    <th class="px-4 py-3 font-semibold text-gray-700">
-                      Machine
-                    </th>
-                    <th class="px-4 py-3 font-semibold text-gray-700">
-                      Category
-                    </th>
-                    <th class="px-4 py-3 font-semibold text-gray-700">Type</th>
-                    <th class="px-4 py-3 font-semibold text-gray-700">
-                      Requested By
-                    </th>
-                    <th class="px-4 py-3 font-semibold text-gray-700">
-                      Created
-                    </th>
-                    <th class="px-4 py-3 font-semibold text-gray-700">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                  <tr
-                    *ngFor="let a of approvals || []"
-                    class="hover:bg-gray-50 transition-colors"
+              <i class="pi pi-plus text-sm"></i>
+              Create Request
+            </button>
+          </div>
+
+          <div *ngIf="loading" class="p-8 text-center text-gray-500">
+            <i class="pi pi-spinner pi-spin text-2xl mb-2"></i>
+            <p>Loading approvals...</p>
+          </div>
+
+          <div
+            *ngIf="!loading && approvals.length === 0"
+            class="p-12 text-center"
+          >
+            <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
+            <p class="text-sm font-medium text-gray-500">No approvals found</p>
+          </div>
+
+          <table
+            *ngIf="!loading && approvals.length > 0"
+            class="min-w-full text-sm"
+          >
+            <thead>
+              <tr class="bg-gray-50 text-left border-b border-gray-200">
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Sequence
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Machine
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Category
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Dispatch Date
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Type
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Requested By
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  Created
+                </th>
+                <th
+                  class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
+                >
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr
+                *ngFor="let a of approvals"
+                class="hover:bg-gray-50 transition-colors duration-150"
+              >
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span
+                    *ngIf="a.machineId?.machine_sequence"
+                    class="inline-flex items-center font-mono text-sm font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-md border border-primary/20"
                   >
-                    <!-- Sequence Column (First) -->
-                    <td class="px-4 py-3">
-                      <span
-                        *ngIf="a.machineId?.machine_sequence"
-                        class="font-mono text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded border border-blue-200"
-                        [title]="
-                          'Sequence: ' + (a.machineId?.machine_sequence || '')
-                        "
+                    {{ a.machineId?.machine_sequence }}
+                  </span>
+                  <span
+                    *ngIf="!a.machineId?.machine_sequence"
+                    class="text-gray-400 text-sm"
+                    >-</span
+                  >
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">
+                    {{ a.machineId?.name || '-' }}
+                  </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">
+                    {{ getCategoryNameForApproval(a) || '-' }}
+                  </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">
+                    {{
+                      a.machineId?.dispatch_date
+                        ? (a.machineId?.dispatch_date | date: 'dd-MM-yyyy')
+                        : '-'
+                    }}
+                  </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                    [ngClass]="{
+                      'bg-blue-100 text-blue-800':
+                        a.approvalType === 'MACHINE_CREATION',
+                      'bg-purple-100 text-purple-800':
+                        a.approvalType === 'MACHINE_EDIT',
+                      'bg-red-100 text-red-800':
+                        a.approvalType === 'MACHINE_DELETION',
+                    }"
+                  >
+                    {{ formatApprovalType(a.approvalType) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">
+                    {{ a.requestedBy?.username || a.requestedBy?.email || '-' }}
+                  </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">
+                    {{ a.createdAt | date: 'dd-MM-yyyy' }}
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    {{ a.createdAt | date: 'HH:mm' }}
+                  </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <div class="flex items-center gap-2">
+                    <button
+                      class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"
+                      (click)="view(a._id)"
+                      title="View approval details"
+                    >
+                      <i class="pi pi-eye text-xs mr-1"></i>
+                      View
+                    </button>
+                    <ng-container
+                      *ngIf="
+                        (a.status || '').toLowerCase() === 'pending';
+                        else noPending
+                      "
+                    >
+                      <button
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 rounded-md hover:bg-success/20 hover:border-success/30 transition-all duration-150 cursor-pointer shadow-sm"
+                        [disabled]="!canAct(a)"
+                        (click)="approve(a._id)"
+                        title="Approve request"
                       >
-                        {{ a.machineId?.machine_sequence }}
-                      </span>
-                      <span
-                        *ngIf="!a.machineId?.machine_sequence"
-                        class="text-gray-400 text-xs italic"
-                        >-</span
+                        <i class="pi pi-check text-xs mr-1"></i>
+                        Approve
+                      </button>
+                      <button
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm"
+                        [disabled]="!canAct(a)"
+                        (click)="openReject(a._id)"
+                        title="Reject request"
                       >
-                    </td>
-                    <!-- Machine Name -->
-                    <td class="px-4 py-3">
-                      <span class="font-medium text-gray-900">{{
-                        a.machineId?.name || '-'
-                      }}</span>
-                    </td>
-                    <!-- Category -->
-                    <td class="px-4 py-3">
-                      <span class="text-gray-700 text-sm">{{
-                        getCategoryNameForApproval(a) || '-'
-                      }}</span>
-                    </td>
-                    <!-- Approval Type -->
-                    <td class="px-4 py-3">
-                      <span
-                        class="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
-                        [class.bg-purple-100]="
-                          a.approvalType === 'MACHINE_CREATION'
-                        "
-                        [class.text-purple-800]="
-                          a.approvalType === 'MACHINE_CREATION'
-                        "
-                        [class.bg-yellow-100]="
-                          a.approvalType === 'MACHINE_EDIT'
-                        "
-                        [class.text-yellow-800]="
-                          a.approvalType === 'MACHINE_EDIT'
-                        "
-                        [class.bg-red-100]="
-                          a.approvalType === 'MACHINE_DELETION'
-                        "
-                        [class.text-red-800]="
-                          a.approvalType === 'MACHINE_DELETION'
-                        "
-                      >
-                        {{ formatApprovalType(a.approvalType) }}
-                      </span>
-                    </td>
-                    <!-- Requested By -->
-                    <td class="px-4 py-3">
-                      <span class="text-gray-700 text-sm">{{
-                        a.requestedBy?.username || a.requestedBy?.email || '-'
-                      }}</span>
-                    </td>
-                    <!-- Created Date -->
-                    <td class="px-4 py-3">
-                      <span class="text-gray-600 text-sm">{{
-                        a.createdAt | date: 'short'
-                      }}</span>
-                    </td>
-                    <!-- Actions -->
-                    <td class="px-4 py-3">
-                      <ng-container
-                        *ngIf="
-                          (a.status || '').toLowerCase() === 'pending';
-                          else noPending
-                        "
-                      >
-                        <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
-                          [disabled]="!canAct(a)"
-                          (click)="approve(a._id)"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 text-error mr-2"
-                          [disabled]="!canAct(a)"
-                          (click)="openReject(a._id)"
-                        >
-                          Reject
-                        </button>
-                        <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
-                          (click)="view(a._id)"
-                        >
-                          View
-                        </button>
-                        <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100"
-                          (click)="cancel(a._id)"
-                        >
-                          Cancel
-                        </button>
-                      </ng-container>
-                      <ng-template #noPending>
-                        <button
-                          class="px-2 py-1 text-sm rounded border hover:bg-neutral-100 mr-2"
-                          (click)="view(a._id)"
-                        >
-                          View
-                        </button>
-                        <span class="text-xs text-text-muted">No actions</span>
-                      </ng-template>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                        <i class="pi pi-times text-xs mr-1"></i>
+                        Reject
+                      </button>
+                    </ng-container>
+                    <ng-template #noPending>
+                      <span class="text-xs text-gray-400">No actions</span>
+                    </ng-template>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div table-footer class="w-full">
             <app-table-pagination
               [page]="page"
               [pages]="pages"
@@ -531,7 +438,7 @@ interface ApprovalRow {
               (limitChange)="onLimit($event)"
             ></app-table-pagination>
           </div>
-        </section>
+        </app-list-table-shell>
 
         <app-reject-reason-modal
           [visible]="rejectVisible"
@@ -546,11 +453,11 @@ interface ApprovalRow {
           [machine]="selectedMachine"
           (close)="viewVisible = false"
         ></app-approval-view-modal>
-      </div>
+      </main>
     </div>
   `,
 })
-export class ApprovalsDashboardComponent implements OnInit {
+export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
   approvals: ApprovalRow[] = [];
   loading = false;
   rejectVisible = false;
@@ -561,7 +468,6 @@ export class ApprovalsDashboardComponent implements OnInit {
   selectedMachine: any = null;
   search = '';
   status: 'pending' | 'approved' | 'rejected' = 'pending';
-  sort: string = '-createdAt';
   page = 1;
   limit = 10;
   pages = 1;
@@ -571,24 +477,34 @@ export class ApprovalsDashboardComponent implements OnInit {
   currentRoleId: string | null = null;
 
   // Enhanced filters
-  filtersExpanded = false;
   filters: {
+    approvalType?: 'MACHINE_CREATION' | 'MACHINE_EDIT' | 'MACHINE_DELETION';
     sequence?: string;
     categoryId?: string;
     dateFrom?: string;
     dateTo?: string;
     requestedBy?: string;
+    createdBy?: string;
     metadataKey?: string;
     metadataValue?: string;
-  } = {};
+    sortBy?: 'createdAt' | 'updatedAt' | 'status' | 'approvalType';
+    sortOrder?: 'asc' | 'desc';
+  } = {
+    sortBy: 'createdAt',
+    sortOrder: 'desc', // Default: latest first
+  };
   metadataKeyError = '';
 
   // Categories for dropdown
   categories: Array<{ _id: string; name: string }> = [];
   categoriesLoading = false;
 
-  // Search debounce timer
-  private searchTimer: any = null;
+  // Search debounce subjects
+  private searchInput$ = new Subject<string>();
+  private requestedByInput$ = new Subject<string>();
+  private createdByInput$ = new Subject<string>();
+  private sequenceInput$ = new Subject<string>();
+  private subs = new Subscription();
 
   constructor(
     private approvalsService: ApprovalsService,
@@ -605,8 +521,50 @@ export class ApprovalsDashboardComponent implements OnInit {
     this.isAdmin = roleName === 'admin' || roleName === 'manager';
     this.currentRoleId =
       typeof role === 'object' ? (role as any)?._id || null : null;
+
+    // Setup debounced search
+    this.subs.add(
+      this.searchInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.fetchPending();
+        })
+    );
+
+    this.subs.add(
+      this.requestedByInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.fetchPending();
+        })
+    );
+
+    this.subs.add(
+      this.createdByInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.fetchPending();
+        })
+    );
+
+    this.subs.add(
+      this.sequenceInput$
+        .pipe(debounceTime(500), distinctUntilChanged())
+        .subscribe(() => {
+          this.page = 1;
+          this.fetchPending();
+        })
+    );
+
     this.loadCategories();
     this.fetchPending();
+  }
+
+  ngOnDestroy(): void {
+    this.subs.unsubscribe();
   }
 
   loadCategories(): void {
@@ -627,14 +585,28 @@ export class ApprovalsDashboardComponent implements OnInit {
 
   fetchPending(): void {
     this.loading = true;
+
+    // Build sort string
+    const sortBy = this.filters.sortBy || 'createdAt';
+    const sortOrder = this.filters.sortOrder || 'desc';
+    const sort = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
+
+    // Build enhanced filters
+    const enhancedFilters: any = {
+      ...this.filters,
+    };
+    if (this.filters.createdBy) {
+      enhancedFilters.createdBy = this.filters.createdBy;
+    }
+
     this.approvalsService
       .getPending(
         this.page,
         this.limit,
         this.search,
         this.status,
-        this.sort,
-        this.filters
+        sort,
+        enhancedFilters
       )
       .subscribe({
         next: data => {
@@ -794,26 +766,26 @@ export class ApprovalsDashboardComponent implements OnInit {
     this.fetchPending();
   }
 
-  onSearch(): void {
-    this.page = 1;
-    // Debounce search to avoid too many API calls
-    if (this.searchTimer) {
-      clearTimeout(this.searchTimer);
-    }
-    this.searchTimer = setTimeout(() => {
-      this.fetchPending();
-    }, 500);
+  onSearchChange(value: string): void {
+    this.search = value;
+    this.searchInput$.next(value);
+  }
+
+  onRequestedByChange(): void {
+    this.requestedByInput$.next(this.filters.requestedBy || '');
+  }
+
+  onCreatedByChange(): void {
+    this.createdByInput$.next(this.filters.createdBy || '');
+  }
+
+  onSequenceChange(): void {
+    this.sequenceInput$.next(this.filters.sequence || '');
   }
 
   onFilterChange(): void {
     this.page = 1;
-    // Debounce filter changes
-    if (this.searchTimer) {
-      clearTimeout(this.searchTimer);
-    }
-    this.searchTimer = setTimeout(() => {
-      this.fetchPending();
-    }, 300);
+    this.fetchPending();
   }
 
   validateMetadataKey(): void {
@@ -836,23 +808,14 @@ export class ApprovalsDashboardComponent implements OnInit {
   }
 
   clearFilters(): void {
-    this.filters = {};
+    this.filters = {
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    };
     this.search = '';
     this.metadataKeyError = '';
     this.page = 1;
     this.fetchPending();
-  }
-
-  hasActiveFilters(): boolean {
-    return !!(
-      this.filters.sequence ||
-      this.filters.categoryId ||
-      this.filters.requestedBy ||
-      this.filters.dateFrom ||
-      this.filters.dateTo ||
-      this.filters.metadataKey ||
-      this.search
-    );
   }
 
   getCategoryName(categoryId: string): string {

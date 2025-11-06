@@ -202,6 +202,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
   loading = false;
 
   private destroy$ = new Subject<void>();
+  private unreadCountInterval?: ReturnType<typeof setInterval>;
 
   constructor(
     private notificationService: NotificationService,
@@ -238,13 +239,17 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
         this.unreadCount = count;
       });
 
-    // Update unread count periodically
-    setInterval(() => {
+    // Update unread count periodically (every 30 seconds)
+    this.unreadCountInterval = setInterval(() => {
       this.updateUnreadCount();
-    }, 30000); // Every 30 seconds
+    }, 30000);
   }
 
   ngOnDestroy(): void {
+    // Clear the interval to prevent memory leaks
+    if (this.unreadCountInterval) {
+      clearInterval(this.unreadCountInterval);
+    }
     this.destroy$.next();
     this.destroy$.complete();
   }

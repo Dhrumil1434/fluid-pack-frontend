@@ -9,8 +9,8 @@ export function loaderInterceptor(
 ): Observable<HttpEvent<any>> {
   const loaderService = inject(LoaderService);
 
-  // Skip loader for certain endpoints
-  if (shouldSkipLoader(req.url)) {
+  // Skip loader for certain requests
+  if (shouldSkipLoader(req)) {
     return next(req);
   }
 
@@ -28,16 +28,48 @@ export function loaderInterceptor(
 /**
  * Determine if loader should be skipped for this request
  */
-function shouldSkipLoader(url: string): boolean {
+function shouldSkipLoader(req: HttpRequest<any>): boolean {
+  // Skip OPTIONS requests (CORS preflight) - these are automatic browser requests
+  if (req.method === 'OPTIONS') {
+    return true;
+  }
+
+  const url = req.url;
+
   // Skip loader for these endpoints
   const skipPatterns = [
     '/api/health',
     '/api/ping',
     // User management views manage their own loaders
-    '/api/user',
     '/api/user/statistics',
-    // Add more patterns as needed
+    // Notification endpoints (polling/background)
+    '/api/notification',
+    '/api/notifications',
+    // Socket.IO connections
+    '/socket.io',
   ];
 
-  return skipPatterns.some(pattern => url.includes(pattern));
+  // Skip if URL matches any skip pattern
+  if (skipPatterns.some(pattern => url.includes(pattern))) {
+    return true;
+  }
+
+  // Skip for user list endpoints (they manage their own loaders)
+  // But allow other user endpoints like login, register, etc.
+  if (
+    url.includes('/api/user') &&
+    !url.includes('/user/login') &&
+    !url.includes('/user/register') &&
+    !url.includes('/user/refresh')
+  ) {
+    // Check if it's a list/statistics endpoint
+    if (
+      url.includes('/user') &&
+      (url.endsWith('/user') || url.includes('/user?'))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }

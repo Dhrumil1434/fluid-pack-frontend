@@ -1,14 +1,14 @@
 <div
   class="flex items-center justify-between px-4 py-3 border-t border-neutral-300 bg-bg"
 >
-  <div class="text-sm text-text-muted">
+  <div class="text-sm text-text-muted flex-shrink-0">
     <span *ngIf="total > 0"
-      >Showing {{ startIndex }}–{{ endIndex }} of {{ total }}</span
+      >Showing {{ startIndex }}–{{ endIndex }} of {{ total }} Rows</span
     >
     <span *ngIf="total === 0">No records</span>
   </div>
 
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-3 flex-shrink-0 ml-auto">
     <div class="flex items-center gap-2">
       <span class="text-sm text-text-muted">Rows</span>
       <select

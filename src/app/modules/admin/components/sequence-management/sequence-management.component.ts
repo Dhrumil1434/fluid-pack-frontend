@@ -20,9 +20,10 @@ import {
   SequenceResetRequest,
 } from '../../../../core/models/category.model';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { FormatChangeConfirmModalComponent } from './format-change-confirm-modal.component';
 
 @Component({
   selector: 'app-sequence-management',
@@ -36,6 +37,7 @@ import { ToastModule } from 'primeng/toast';
     AdminSidebarComponent,
     TablePaginationComponent,
     ToastModule,
+    FormatChangeConfirmModalComponent,
   ],
   providers: [MessageService],
   templateUrl: './sequence-management.component.html',
@@ -76,6 +78,11 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
   // Sidebar
   sidebarCollapsed = false;
 
+  // Format preview
+  formatPreview = '';
+  originalFormat = ''; // Track original format when editing
+  showFormatConfirmModal = false; // Show format change confirmation modal
+
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -96,13 +103,7 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
         ],
       ],
       startingNumber: [1, [Validators.required, Validators.min(1)]],
-      format: [
-        '',
-        [
-          Validators.required,
-          Validators.pattern(/.*\{category\}.*\{sequence\}.*/),
-        ],
-      ],
+      format: ['', [Validators.required, this.formatValidator.bind(this)]],
     });
 
     this.resetForm = this.fb.group({
@@ -114,6 +115,26 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
       .pipe(debounceTime(300), distinctUntilChanged())
       .subscribe(() => {
         this.reload();
+      });
+
+    // Setup format preview
+    this.form
+      .get('format')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.updateFormatPreview();
+      });
+    this.form
+      .get('categoryId')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.updateFormatPreview();
+      });
+    this.form
+      .get('subcategoryId')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.updateFormatPreview();
       });
   }
 
@@ -211,8 +232,9 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
       subcategoryId: '',
       sequencePrefix: '',
       startingNumber: 1,
-      format: '{category}-{sequence}',
+      format: '{sequence}-{category}',
     });
+    this.formatPreview = '';
     this.formVisible = true;
   }
 
@@ -232,6 +254,9 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
         ? config.subcategory_id._id
         : config.subcategory_id || '';
 
+    // Store original format to detect changes
+    this.originalFormat = config.format;
+
     this.form.patchValue({
       categoryId: categoryId,
       subcategoryId: subcategoryId,
@@ -239,14 +264,36 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
       startingNumber: config.starting_number,
       format: config.format,
     });
+
+    // When editing, we need to ensure disabled fields don't break validation
+    // Mark all fields as touched and update validity
+    this.form.get('categoryId')?.markAsTouched();
+    this.form.get('sequencePrefix')?.markAsTouched();
+    this.form.get('startingNumber')?.markAsTouched();
+    this.form.get('format')?.markAsTouched();
+
+    // Update validity for all fields
+    this.form.get('categoryId')?.updateValueAndValidity({ emitEvent: false });
+    this.form
+      .get('sequencePrefix')
+      ?.updateValueAndValidity({ emitEvent: false });
+    this.form
+      .get('startingNumber')
+      ?.updateValueAndValidity({ emitEvent: false });
+    this.form.get('format')?.updateValueAndValidity({ emitEvent: false });
+
     this.onCategoryChange();
     this.formVisible = true;
+    // Update preview after form is populated
+    setTimeout(() => this.updateFormatPreview(), 100);
   }
 
   closeForm(): void {
     this.formVisible = false;
     this.editing = false;
     this.selected = null;
+    this.originalFormat = '';
+    this.formatPreview = '';
     this.form.reset();
   }
 
@@ -260,36 +307,18 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
     const formValue = this.form.value;
 
     if (this.editing && this.selected) {
-      const updateData: UpdateSequenceConfigRequest = {
-        sequencePrefix: formValue.sequencePrefix,
-        startingNumber: formValue.startingNumber,
-        format: formValue.format,
-      };
+      // Check if format has changed
+      const formatChanged = this.originalFormat !== formValue.format;
 
-      this.categoryService
-        .updateSequenceConfig(this.selected._id, updateData)
-        .subscribe({
-          next: () => {
-            this.messageService.add({
-              severity: 'success',
-              summary: 'Success',
-              detail: 'Sequence configuration updated successfully',
-            });
-            this.closeForm();
-            this.loadSequenceConfigs();
-            this.submitting = false;
-          },
-          error: (error: any) => {
-            console.error('Error updating sequence config:', error);
-            this.messageService.add({
-              severity: 'error',
-              summary: 'Error',
-              detail:
-                error.message || 'Failed to update sequence configuration',
-            });
-            this.submitting = false;
-          },
-        });
+      // If format changed, show confirmation modal
+      if (formatChanged) {
+        this.showFormatConfirmModal = true;
+        this.submitting = false;
+        return;
+      }
+
+      // Proceed with update if format hasn't changed
+      this.performUpdate(formValue);
     } else {
       const createData: CreateSequenceConfigRequest = {
         categoryId: formValue.categoryId,
@@ -488,5 +517,179 @@ export class SequenceManagementComponent implements OnInit, OnDestroy {
 
   trackBySubcategoryId(_index: number, subcategory: Category): string {
     return subcategory._id;
+  }
+
+  trackByTemplate(
+    _index: number,
+    template: { value: string; label: string }
+  ): string {
+    return template.value;
+  }
+
+  /**
+   * Update format preview based on current form values
+   */
+  updateFormatPreview(): void {
+    const format = this.form.get('format')?.value || '';
+    const categoryId = this.form.get('categoryId')?.value;
+    const subcategoryId = this.form.get('subcategoryId')?.value;
+
+    if (!format || !categoryId) {
+      this.formatPreview = '';
+      return;
+    }
+
+    // Get category info
+    const category = this.categories.find(c => c._id === categoryId);
+    const categorySlug = category?.slug?.toUpperCase() || 'CATEGORY';
+
+    // Get subcategory info if exists
+    let subcategorySlug = '';
+    if (subcategoryId) {
+      const subcategory = this.categories.find(c => c._id === subcategoryId);
+      subcategorySlug = subcategory?.slug?.toUpperCase() || 'SUBCAT';
+    }
+
+    // Generate preview
+    let preview = format;
+
+    // Replace placeholders
+    preview = preview.replace(/{category}/g, categorySlug);
+    preview = preview.replace(/{subcategory}/g, subcategorySlug || '');
+    preview = preview.replace(/{sequence}/g, '001'); // Example sequence number
+
+    // Clean up double hyphens and trailing hyphens
+    preview = preview.replace(/-+/g, '-').replace(/^-|-$/g, '');
+
+    this.formatPreview = preview;
+  }
+
+  /**
+   * Apply a format template
+   */
+  applyFormatTemplate(template: string): void {
+    this.form.patchValue({ format: template });
+    // Mark format field as touched and update validity
+    this.form.get('format')?.markAsTouched();
+    this.form.get('format')?.updateValueAndValidity();
+    this.updateFormatPreview();
+  }
+
+  /**
+   * Get available format templates
+   */
+  getFormatTemplates(): Array<{
+    label: string;
+    value: string;
+    description: string;
+  }> {
+    return [
+      {
+        label: 'Sequence-Category',
+        value: '{sequence}-{category}',
+        description: '001-CATEGORY',
+      },
+      {
+        label: 'Category-Sequence',
+        value: '{category}-{sequence}',
+        description: 'CATEGORY-001',
+      },
+      {
+        label: 'Category-Subcategory-Sequence',
+        value: '{category}-{subcategory}-{sequence}',
+        description: 'CATEGORY-SUBCAT-001',
+      },
+      {
+        label: 'Sequence-Category-Subcategory',
+        value: '{sequence}-{category}-{subcategory}',
+        description: '001-CATEGORY-SUBCAT',
+      },
+    ];
+  }
+
+  /**
+   * Check if format is valid
+   */
+  isFormatValid(): boolean {
+    const formatControl = this.form.get('format');
+    return formatControl ? formatControl.valid && formatControl.touched : false;
+  }
+
+  /**
+   * Custom validator for format field
+   * Ensures format contains both {category} and {sequence} placeholders in any order
+   */
+  private formatValidator(control: any): { [key: string]: any } | null {
+    if (!control.value) {
+      return null; // Let required validator handle empty values
+    }
+
+    const format = control.value as string;
+    const hasCategory = format.includes('{category}');
+    const hasSequence = format.includes('{sequence}');
+
+    if (!hasCategory || !hasSequence) {
+      return { invalidFormat: true };
+    }
+
+    return null; // Valid
+  }
+
+  /**
+   * Handle format change confirmation
+   */
+  onFormatChangeConfirm(updateMachines: boolean): void {
+    this.showFormatConfirmModal = false;
+    const formValue = this.form.value;
+    this.submitting = true;
+    this.performUpdate(formValue, updateMachines);
+  }
+
+  /**
+   * Handle format change cancellation
+   */
+  onFormatChangeCancel(): void {
+    this.showFormatConfirmModal = false;
+    this.submitting = false;
+  }
+
+  /**
+   * Perform the actual update
+   */
+  private performUpdate(formValue: any, updateMachines: boolean = false): void {
+    const updateData: UpdateSequenceConfigRequest = {
+      sequencePrefix: formValue.sequencePrefix,
+      startingNumber: formValue.startingNumber,
+      format: formValue.format,
+      updateMachineSequences: updateMachines,
+    };
+
+    this.categoryService
+      .updateSequenceConfig(this.selected!._id, updateData)
+      .subscribe({
+        next: () => {
+          const message = updateMachines
+            ? 'Sequence configuration and all existing machine sequences updated successfully. New sequences will use the new format.'
+            : 'Sequence configuration updated successfully. Existing machine sequences remain unchanged. New sequences will use the new format.';
+
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Success',
+            detail: message,
+          });
+          this.closeForm();
+          this.loadSequenceConfigs();
+          this.submitting = false;
+        },
+        error: (error: any) => {
+          console.error('Error updating sequence config:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.message || 'Failed to update sequence configuration',
+          });
+          this.submitting = false;
+        },
+      });
   }
 }

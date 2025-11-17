@@ -109,6 +109,7 @@ export interface CreateSequenceConfigRequest {
 
 export interface UpdateSequenceConfigRequest {
   sequencePrefix?: string;
+  updateMachineSequences?: boolean;
   startingNumber?: number;
   format?: string;
   isActive?: boolean;

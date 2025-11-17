@@ -10,10 +10,22 @@ import { LoaderService } from '../../../../core/services/loader.service';
 import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import { QCEntryService } from '../../../../core/services/qc-entry.service';
 import { environment } from '../../../../../environments/environment';
+import { CategoryService } from '../../../../core/services/category.service';
 
 // Components
 import { QcSidebarComponent } from '../shared/qc-sidebar/qc-sidebar.component';
 import { TablePaginationComponent } from '../../../admin/components/user-management/table-pagination.component';
+import { ListFiltersComponent } from '../../../admin/components/shared/list/list-filters.component';
+import { ListTableShellComponent } from '../../../admin/components/shared/list/list-table-shell.component';
+import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
+
+interface MachineDocument {
+  _id?: string;
+  name: string;
+  file_path: string;
+  document_type?: string;
+  uploaded_at?: Date | string;
+}
 
 interface Machine {
   _id: string;
@@ -23,20 +35,35 @@ interface Machine {
     name: string;
     description?: string;
   } | null;
+  subcategory_id?: {
+    _id: string;
+    name: string;
+    description?: string;
+  } | null;
+  machine_sequence?: string;
   // Normalize metadata to array of key/value for client-side filtering,
   // while still accepting object from backend
-  metadata: Array<{
-    key: string;
-    value: string;
-  }>;
+  metadata:
+    | Array<{
+        key: string;
+        value: string;
+      }>
+    | Record<string, unknown>;
   images: string[];
+  documents?: MachineDocument[];
   created_by?: {
     _id?: string;
     username?: string;
     email?: string;
     name?: string;
   } | null;
+  updatedBy?: {
+    _id?: string;
+    username?: string;
+    email?: string;
+  } | null;
   createdAt: string;
+  updatedAt?: string;
   is_approved: boolean;
   approvalStatus?: string;
   is_active: boolean;
@@ -61,6 +88,9 @@ interface Category {
     RouterModule,
     QcSidebarComponent,
     TablePaginationComponent,
+    ListFiltersComponent,
+    ListTableShellComponent,
+    PageHeaderComponent,
   ],
   templateUrl: './qc-machine-selection.component.html',
   styleUrls: ['./qc-machine-selection.component.css'],
@@ -81,23 +111,29 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   imageIndexByMachineId: Record<string, number> = {};
   // Track machines that already have a non-rejected QC approval (block selection)
   private blockedApprovalMachineIds: Set<string> = new Set();
+  metadataKeySuggestions: string[] = [];
+  showMetadataKeySuggestions = false;
 
-  // Filters
-  searchTerm = '';
-  selectedCategory = '';
-  selectedStatus = '';
-  dateFrom = '';
-  dateTo = '';
-  sortBy = 'created_desc';
-  metadataKey = '';
-  metadataValue = '';
-  technicianId = '';
+  // Filters (matching admin structure)
+  filters: {
+    search?: string;
+    category_id?: string;
+    is_approved?: boolean;
+    metadata_key?: string;
+    metadata_value?: string;
+    dispatch_date_from?: string;
+    dispatch_date_to?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {
+    is_approved: true, // Only approved machines for QC
+  };
 
   // Pagination
-  currentPage = 1;
-  pageSize = 20;
-  totalCount = 0;
-  totalPages = 0;
+  page = 1;
+  limit = 20;
+  total = 0;
+  pages = 0;
 
   // Selection
   selectedMachines: Set<string> = new Set();
@@ -119,13 +155,14 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     private api: BaseApiService,
     private loaderService: LoaderService,
     private errorHandler: ErrorHandlerService,
-    private qcEntryService: QCEntryService
+    private qcEntryService: QCEntryService,
+    private categoryService: CategoryService
   ) {
     // Setup search debouncing
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(() => {
-        this.currentPage = 1;
+        this.page = 1;
         this.loadMachines();
       });
   }
@@ -141,18 +178,19 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   loadCategories(): void {
-    // Backend mounts categories at /api/admin/category
-    // Use active list for selection
-    this.api.get<any>('/admin/category/active').subscribe({
-      next: res => {
-        const data = res?.data || res;
-        // Support either { categories: [] } or [] directly
-        this.categories = Array.isArray(data) ? data : data?.categories || [];
-      },
-      error: error => {
-        console.error('Failed to load categories:', error);
-      },
-    });
+    // Use CategoryService to get active categories (same as admin components)
+    this.categoryService
+      .getAllCategories({ includeInactive: false })
+      .subscribe({
+        next: (res: any) => {
+          const data = res?.data || res;
+          // Support either { categories: [] } or [] directly
+          this.categories = Array.isArray(data) ? data : data?.categories || [];
+        },
+        error: (error: any) => {
+          console.error('Failed to load categories:', error);
+        },
+      });
   }
 
   loadMachines(): void {
@@ -160,26 +198,34 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     this.loaderService.showGlobalLoader('Loading machines...');
 
     const params: any = {
-      page: this.currentPage,
-      limit: this.pageSize,
+      page: this.page,
+      limit: this.limit,
       // Always restrict to approved machines for QC selection
       is_approved: true,
     };
 
-    if (this.searchTerm.trim()) {
-      params.search = this.searchTerm.trim();
+    if (this.filters.search?.trim()) {
+      params.search = this.filters.search.trim();
     }
-    if (this.selectedCategory) {
-      params.category_id = this.selectedCategory;
+    if (this.filters.category_id) {
+      params.category_id = this.filters.category_id;
     }
-    if (this.technicianId.trim()) {
-      params.created_by = this.technicianId.trim();
+    if (this.filters.metadata_key) {
+      params.metadata_key = this.filters.metadata_key;
     }
-
-    // Sorting: created/name with asc/desc (backend currently sorts internally; keep params for future support)
-    const [sortField, sortDir] = this.sortBy.split('_');
-    params.sortBy = sortField === 'name' ? 'name' : 'createdAt';
-    params.sortOrder = sortDir === 'asc' ? 'asc' : 'desc';
+    if (this.filters.metadata_value) {
+      params.metadata_value = this.filters.metadata_value;
+    }
+    if (this.filters.dispatch_date_from) {
+      params.dispatch_date_from = this.filters.dispatch_date_from;
+    }
+    if (this.filters.dispatch_date_to) {
+      params.dispatch_date_to = this.filters.dispatch_date_to;
+    }
+    if (this.filters.sortBy) {
+      params.sortBy = this.filters.sortBy;
+      params.sortOrder = this.filters.sortOrder || 'desc';
+    }
 
     // Use general machines endpoint with approved filter for pagination and server-side filtering
     this.api.get<any>('/machines', params).subscribe({
@@ -194,33 +240,6 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
         let refined = serverMachines
           .filter(m => !!m && m.is_approved === true)
           .map(m => this.normalizeMachine(m));
-        if (this.selectedStatus === 'active') {
-          refined = refined.filter(m => !!m.is_active);
-        } else if (this.selectedStatus === 'inactive') {
-          refined = refined.filter(m => !m.is_active);
-        }
-        if (this.dateFrom) {
-          const from = new Date(this.dateFrom);
-          refined = refined.filter(m => new Date(m.createdAt) >= from);
-        }
-        if (this.dateTo) {
-          const to = new Date(this.dateTo);
-          to.setHours(23, 59, 59, 999);
-          refined = refined.filter(m => new Date(m.createdAt) <= to);
-        }
-        if (this.metadataKey && this.metadataValue) {
-          const key = this.metadataKey.trim().toLowerCase();
-          const val = this.metadataValue.trim().toLowerCase();
-          refined = refined.filter(
-            m =>
-              Array.isArray(m.metadata) &&
-              m.metadata.some(
-                md =>
-                  (md.key || '').toLowerCase() === key &&
-                  (md.value || '').toLowerCase().includes(val)
-              )
-          );
-        }
 
         // Exclude machines that already have a non-rejected QC approval
         this.fetchBlockedApprovalsSet()
@@ -230,9 +249,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
             );
 
             this.machines = refined;
-            this.totalCount = data.total || refined.length;
-            this.totalPages =
-              data.pages || Math.ceil(this.totalCount / this.pageSize);
+            this.total = data.total || refined.length;
+            this.pages = data.pages || Math.ceil(this.total / this.limit);
             this.filteredMachines = [...this.machines];
             // init image indices for slider
             this.filteredMachines.forEach(m => {
@@ -246,9 +264,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
           .catch(() => {
             // If we failed to fetch approvals, proceed without exclusion
             this.machines = refined;
-            this.totalCount = data.total || refined.length;
-            this.totalPages =
-              data.pages || Math.ceil(this.totalCount / this.pageSize);
+            this.total = data.total || refined.length;
+            this.pages = data.pages || Math.ceil(this.total / this.limit);
             this.filteredMachines = [...this.machines];
             this.loading = false;
             this.loaderService.hideGlobalLoader();
@@ -263,43 +280,82 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     });
   }
 
-  onSearchChange(): void {
-    this.searchSubject.next(this.searchTerm);
+  onSearchChange(search: string): void {
+    this.filters.search = search;
+    this.searchSubject.next(search);
   }
 
-  onFilterChange(): void {
-    this.currentPage = 1;
-    this.loadMachines();
-  }
-
-  onSortChange(): void {
-    this.currentPage = 1;
+  reload(): void {
+    this.page = 1;
     this.loadMachines();
   }
 
   clearFilters(): void {
-    this.searchTerm = '';
-    this.selectedCategory = '';
-    this.selectedStatus = '';
-    this.dateFrom = '';
-    this.dateTo = '';
-    this.metadataKey = '';
-    this.metadataValue = '';
-    this.technicianId = '';
-    this.sortBy = 'created_desc';
-    this.currentPage = 1;
+    this.filters = {
+      is_approved: true, // Always keep approved filter
+    };
+    this.page = 1;
     this.loadMachines();
+  }
+
+  onCategoryFilterChange(): void {
+    this.reload();
+  }
+
+  onMetadataKeyChange(): void {
+    this.updateMetadataKeySuggestions();
+  }
+
+  onMetadataValueChange(): void {
+    this.reload();
+  }
+
+  updateMetadataKeySuggestions(): void {
+    if (!this.filters.metadata_key || this.filters.metadata_key.length < 1) {
+      this.metadataKeySuggestions = [];
+      return;
+    }
+    const key = this.filters.metadata_key.toLowerCase();
+    const allKeys = new Set<string>();
+    this.machines.forEach(m => {
+      if (Array.isArray(m.metadata)) {
+        m.metadata.forEach(md => {
+          if (md.key?.toLowerCase().includes(key)) {
+            allKeys.add(md.key);
+          }
+        });
+      } else if (m.metadata && typeof m.metadata === 'object') {
+        Object.keys(m.metadata).forEach(k => {
+          if (k.toLowerCase().includes(key)) {
+            allKeys.add(k);
+          }
+        });
+      }
+    });
+    this.metadataKeySuggestions = Array.from(allKeys).slice(0, 10);
+  }
+
+  selectMetadataKey(key: string): void {
+    this.filters.metadata_key = key;
+    this.showMetadataKeySuggestions = false;
+    this.reload();
+  }
+
+  hideMetadataSuggestions(): void {
+    setTimeout(() => {
+      this.showMetadataKeySuggestions = false;
+    }, 200);
   }
 
   // Pagination
   onPageChange(page: number): void {
-    this.currentPage = page;
+    this.page = page;
     this.loadMachines();
   }
 
-  onPageSizeChange(size: number): void {
-    this.pageSize = size;
-    this.currentPage = 1;
+  onLimitChange(limit: number): void {
+    this.limit = limit;
+    this.page = 1;
     this.loadMachines();
   }
 
@@ -631,6 +687,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     return machine?.category_id?.name || 'Unknown';
   }
 
+  getCategoryDisplayName(cat: any): string {
+    if (typeof cat === 'string') return cat;
+    if (cat?.name) return cat.name;
+    return 'Unknown';
+  }
+
   getStatusClass(machine: Machine): string {
     if (machine.is_approved && machine.is_active) {
       return 'bg-success text-white';
@@ -656,8 +718,15 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   getMetadataValue(machine: Machine, key: string): string {
-    const metadata = machine.metadata?.find(m => m.key === key);
-    return metadata?.value || '-';
+    if (Array.isArray(machine.metadata)) {
+      const metadata = machine.metadata.find((m: any) => m.key === key);
+      return metadata?.value || '-';
+    } else if (machine.metadata && typeof machine.metadata === 'object') {
+      return (
+        (machine.metadata as Record<string, unknown>)[key]?.toString() || '-'
+      );
+    }
+    return '-';
   }
 
   trackByMachineId(index: number, machine: Machine): string {
@@ -683,19 +752,18 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
-  // Details modal state and actions
-  showDetailsModal = false;
-  detailsMachine: Machine | null = null;
-  detailsImageIndex = 0;
+  // Details modal state and actions (matching admin structure)
+  viewVisible = false;
+  selected: Machine | null = null;
+  documentsVisible = false;
   // lightbox preview like admin
   lightboxImages: string[] = [];
   lightboxIndex = 0;
 
-  viewMachineDetails(machine: Machine): void {
+  openView(machine: Machine): void {
     // Open immediately with the row data, then refresh from server like admin does
-    this.detailsMachine = this.normalizeMachine(machine);
-    this.detailsImageIndex = 0;
-    this.showDetailsModal = true;
+    this.selected = this.normalizeMachine(machine);
+    this.viewVisible = true;
 
     const id = machine?._id;
     if (!id) return;
@@ -704,8 +772,7 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
         const data = res?.data || res;
         const full = data?.machine || data;
         if (full) {
-          this.detailsMachine = this.normalizeMachine(full as any);
-          this.detailsImageIndex = 0;
+          this.selected = this.normalizeMachine(full as any);
         }
       },
       error: () => {
@@ -714,40 +781,10 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     });
   }
 
-  closeDetails(): void {
-    this.showDetailsModal = false;
-    this.detailsMachine = null;
-    this.detailsImageIndex = 0;
-  }
-
-  prevDetailsImage(): void {
-    if (
-      !this.detailsMachine ||
-      !this.detailsMachine.images ||
-      this.detailsMachine.images.length === 0
-    )
-      return;
-    const total = this.detailsMachine.images.length;
-    this.detailsImageIndex = (this.detailsImageIndex - 1 + total) % total;
-  }
-
-  nextDetailsImage(): void {
-    if (
-      !this.detailsMachine ||
-      !this.detailsMachine.images ||
-      this.detailsMachine.images.length === 0
-    )
-      return;
-    const total = this.detailsMachine.images.length;
-    this.detailsImageIndex = (this.detailsImageIndex + 1) % total;
-  }
-
-  getDetailsImageUrl(): string {
-    const current =
-      this.detailsMachine && Array.isArray(this.detailsMachine.images)
-        ? this.detailsMachine.images[this.detailsImageIndex] || ''
-        : '';
-    return current;
+  getSubcategoryDisplayName(subcategory: any): string {
+    if (typeof subcategory === 'string') return subcategory;
+    if (subcategory?.name) return subcategory.name;
+    return '-';
   }
 
   // Lightbox helpers (mirror admin)
@@ -776,9 +813,11 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   // Normalize incoming machine to ensure metadata is key/value array
-  private normalizeMachine(m: Machine): Machine {
-    let normalizedMetadata: Array<{ key: string; value: string }>;
-    const md: any = (m as any).metadata;
+  private normalizeMachine(m: any): Machine {
+    let normalizedMetadata:
+      | Array<{ key: string; value: string }>
+      | Record<string, unknown>;
+    const md: any = m?.metadata;
     if (Array.isArray(md)) {
       normalizedMetadata = md
         .filter((x: any) => x && typeof x.key === 'string')
@@ -787,16 +826,56 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
           value: String(x.value ?? ''),
         }));
     } else if (md && typeof md === 'object') {
-      normalizedMetadata = Object.keys(md).map(k => ({
-        key: k,
-        value: String(md[k] ?? ''),
-      }));
+      // Keep as object for admin-style display
+      normalizedMetadata = md;
     } else {
-      normalizedMetadata = [];
+      normalizedMetadata = {};
     }
     return {
       ...m,
       metadata: normalizedMetadata,
     } as Machine;
+  }
+
+  trackByKey(_index: number, item: { key: string }): string {
+    return item.key;
+  }
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  onSidebarCollapseChange(collapsed: boolean): void {
+    this.sidebarCollapsed = collapsed;
+  }
+
+  // Documents modal methods (matching admin)
+  openDocumentsModal(): void {
+    this.documentsVisible = true;
+  }
+
+  downloadDocument(doc: any): void {
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a');
+    link.href = this.documentUrl(doc.file_path);
+    link.download = doc.name;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  previewDocument(doc: any): void {
+    // Open document in new tab for preview
+    const url = this.documentUrl(doc.file_path);
+    window.open(url, '_blank');
+  }
+
+  documentUrl(filePath: string): string {
+    // Construct the full URL for the document using environment baseUrl
+    const baseUrl = environment.apiUrl.replace(/\/?api\/?$/, '');
+    // Ensure filePath starts with / if it doesn't already
+    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `${baseUrl}${normalizedPath}`;
   }
 }

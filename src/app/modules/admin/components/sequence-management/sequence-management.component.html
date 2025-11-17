@@ -130,11 +130,12 @@
                   class="font-mono text-xs bg-gray-100 px-2 py-1 rounded"
                   [title]="config.format"
                 >
-                  {{
-                    config.format.length > 30
-                      ? config.format.substring(0, 30) + '...'
-                      : config.format
-                  }}
+                  <span *ngIf="config.format.length > 30"
+                    >{{ config.format.substring(0, 30) }}...</span
+                  >
+                  <span *ngIf="config.format.length <= 30">{{
+                    config.format
+                  }}</span>
                 </span>
               </td>
               <td class="px-4 py-2">
@@ -145,7 +146,8 @@
                   [class.text-green-800]="config.is_active"
                   [class.text-gray-800]="!config.is_active"
                 >
-                  {{ config.is_active ? 'Active' : 'Inactive' }}
+                  <span *ngIf="config.is_active">Active</span>
+                  <span *ngIf="!config.is_active">Inactive</span>
                 </span>
               </td>
               <td class="px-4 py-2">
@@ -213,11 +215,8 @@
             class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
           >
             <h3 class="text-lg font-semibold text-text">
-              {{
-                editing
-                  ? 'Edit Sequence Configuration'
-                  : 'Add Sequence Configuration'
-              }}
+              <span *ngIf="editing">Edit Sequence Configuration</span>
+              <span *ngIf="!editing">Add Sequence Configuration</span>
             </h3>
             <button
               class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
@@ -237,6 +236,7 @@
                 <select
                   class="w-full border rounded px-3 py-2"
                   formControlName="categoryId"
+                  [disabled]="editing"
                   (change)="onCategoryChange()"
                 >
                   <option value="">Select category</option>
@@ -326,29 +326,127 @@
                 </div>
               </div>
 
-              <div class="space-y-1">
-                <label class="text-sm">Format Pattern *</label>
-                <input
-                  type="text"
-                  class="w-full border rounded px-3 py-2 font-mono"
-                  formControlName="format"
-                  placeholder="{{ '{' }}category{{ '}' }}-{{ '{' }}sequence{{
-                    '}'
-                  }}"
-                />
-                <div class="text-xs text-gray-500">
-                  Use {{ '{' }}category{{ '}' }} for category name and
-                  {{ '{' }}sequence{{ '}' }} for sequence number
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="text-sm font-medium">Format Pattern *</label>
+                  <span
+                    class="text-xs px-2 py-1 rounded"
+                    [class.bg-green-100]="isFormatValid()"
+                    [class.text-green-700]="isFormatValid()"
+                    [class.bg-gray-100]="!isFormatValid()"
+                    [class.text-gray-600]="!isFormatValid()"
+                  >
+                    <i
+                      class="pi"
+                      [class.pi-check-circle]="isFormatValid()"
+                      [class.pi-info-circle]="!isFormatValid()"
+                    ></i>
+                    <span *ngIf="isFormatValid()">Valid Format</span>
+                    <span *ngIf="!isFormatValid()">Enter format pattern</span>
+                  </span>
                 </div>
+
+                <!-- Format Templates -->
+                <div class="space-y-1">
+                  <div class="text-xs text-gray-600 font-medium">
+                    Quick Templates:
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      *ngFor="
+                        let template of getFormatTemplates();
+                        trackBy: trackByTemplate
+                      "
+                      (click)="applyFormatTemplate(template.value)"
+                      class="px-3 py-1.5 text-xs border rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                      [class.bg-blue-50]="
+                        form.get('format')?.value === template.value
+                      "
+                      [class.border-blue-300]="
+                        form.get('format')?.value === template.value
+                      "
+                      [title]="template.description"
+                    >
+                      {{ template.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Format Input -->
+                <div class="relative">
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2 font-mono text-sm"
+                    [class.border-green-300]="isFormatValid()"
+                    [class.border-red-300]="
+                      form.controls['format'].touched &&
+                      form.controls['format'].invalid
+                    "
+                    [class.bg-green-50]="isFormatValid()"
+                    formControlName="format"
+                    placeholder="{sequence}-{category}"
+                  />
+                  <div
+                    class="absolute right-2 top-1/2 -translate-y-1/2"
+                    *ngIf="isFormatValid()"
+                  >
+                    <i class="pi pi-check text-green-600 text-sm"></i>
+                  </div>
+                </div>
+
+                <!-- Live Preview -->
                 <div
-                  class="text-xs text-error"
+                  *ngIf="formatPreview"
+                  class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-md"
+                >
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-eye text-blue-600"></i>
+                    <div class="flex-1">
+                      <div class="text-xs text-gray-600 mb-1">Preview:</div>
+                      <div
+                        class="font-mono text-sm font-semibold text-blue-800 bg-white px-3 py-1.5 rounded border border-blue-200 inline-block"
+                      >
+                        {{ formatPreview }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Helper Text -->
+                <div class="space-y-1">
+                  <div class="text-xs text-gray-600">
+                    <strong>Available placeholders:</strong>
+                  </div>
+                  <div class="flex flex-wrap gap-3 text-xs">
+                    <span class="font-mono bg-gray-100 px-2 py-1 rounded">
+                      &#123;category&#125;
+                    </span>
+                    <span class="font-mono bg-gray-100 px-2 py-1 rounded">
+                      &#123;subcategory&#125;
+                    </span>
+                    <span class="font-mono bg-gray-100 px-2 py-1 rounded">
+                      &#123;sequence&#125;
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    The sequence number will be automatically padded (e.g., 001,
+                    002, 003...)
+                  </div>
+                </div>
+
+                <!-- Error Message -->
+                <div
+                  class="text-xs text-red-600 flex items-center gap-1"
                   *ngIf="
                     form.controls['format'].touched &&
                     form.controls['format'].invalid
                   "
                 >
-                  Format must include {{ '{' }}category{{ '}' }} and
-                  {{ '{' }}sequence{{ '}' }} placeholders
+                  <i class="pi pi-exclamation-triangle"></i>
+                  <span>
+                    Format must include category and sequence placeholders
+                  </span>
                 </div>
               </div>
             </form>
@@ -366,12 +464,19 @@
             <button
               type="submit"
               class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-              [disabled]="form.invalid || submitting"
+              [disabled]="
+                (editing
+                  ? form.get('format')?.invalid ||
+                    form.get('sequencePrefix')?.invalid ||
+                    form.get('startingNumber')?.invalid
+                  : form.invalid) || submitting
+              "
               (click)="submitForm()"
             >
               <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
               <i *ngIf="!submitting" class="pi pi-save"></i>
-              <span>{{ editing ? 'Save Changes' : 'Create' }}</span>
+              <span *ngIf="editing">Save Changes</span>
+              <span *ngIf="!editing">Create</span>
             </button>
           </div>
         </div>
@@ -461,5 +566,16 @@
     </main>
   </div>
 </div>
+
+<!-- Format Change Confirmation Modal -->
+<app-format-change-confirm-modal
+  [visible]="showFormatConfirmModal"
+  [oldFormat]="originalFormat"
+  [newFormat]="form.get('format')?.value || ''"
+  [loading]="submitting"
+  (confirm)="onFormatChangeConfirm($event)"
+  (cancel)="onFormatChangeCancel()"
+  (visibleChange)="showFormatConfirmModal = $event"
+></app-format-change-confirm-modal>
 
 <p-toast></p-toast>

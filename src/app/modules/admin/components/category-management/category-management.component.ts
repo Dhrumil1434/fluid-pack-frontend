@@ -1140,7 +1140,7 @@ export class CategoryManagementComponent implements OnInit, OnDestroy {
       categoryId: category._id,
       sequencePrefix: category.name.substring(0, 3).toUpperCase(),
       startingNumber: 1,
-      format: '{prefix}-{number:04d}',
+      format: '{sequence}-{category}',
     });
     this.onSequenceCategoryChange();
     this.sequenceConfigVisible = true;

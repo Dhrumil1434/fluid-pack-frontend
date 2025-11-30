@@ -112,6 +112,7 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   // Track machines that already have a non-rejected QC approval (block selection)
   private blockedApprovalMachineIds: Set<string> = new Set();
   metadataKeySuggestions: string[] = [];
+  allMetadataKeys: string[] = []; // Master list of all keys (like admin)
   showMetadataKeySuggestions = false;
 
   // Filters (matching admin structure)
@@ -127,6 +128,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     sortOrder?: 'asc' | 'desc';
   } = {
     is_approved: true, // Only approved machines for QC
+    sortBy: 'createdAt', // Default sort (matching admin)
+    sortOrder: 'desc', // Default: latest first (matching admin)
   };
 
   // Pagination
@@ -158,10 +161,11 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     private qcEntryService: QCEntryService,
     private categoryService: CategoryService
   ) {
-    // Setup search debouncing
+    // Setup search debouncing (matching admin pattern)
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe(() => {
+      .subscribe((searchTerm: string) => {
+        this.filters.search = searchTerm;
         this.page = 1;
         this.loadMachines();
       });
@@ -170,6 +174,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadCategories();
     this.loadMachines();
+    // Load initial metadata keys from first page to build master list (like admin)
+    this.loadInitialMetadataKeys();
   }
 
   ngOnDestroy(): void {
@@ -222,10 +228,9 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (this.filters.dispatch_date_to) {
       params.dispatch_date_to = this.filters.dispatch_date_to;
     }
-    if (this.filters.sortBy) {
-      params.sortBy = this.filters.sortBy;
-      params.sortOrder = this.filters.sortOrder || 'desc';
-    }
+    // Always send sort parameters (matching admin pattern)
+    params.sortBy = this.filters.sortBy || 'createdAt';
+    params.sortOrder = this.filters.sortOrder || 'desc';
 
     // Use general machines endpoint with approved filter for pagination and server-side filtering
     this.api.get<any>('/machines', params).subscribe({
@@ -252,6 +257,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
             this.total = data.total || refined.length;
             this.pages = data.pages || Math.ceil(this.total / this.limit);
             this.filteredMachines = [...this.machines];
+            // Extract metadata keys for autocomplete (matching admin pattern)
+            this.extractMetadataKeys(refined);
             // init image indices for slider
             this.filteredMachines.forEach(m => {
               if (!(m._id in this.imageIndexByMachineId)) {
@@ -267,6 +274,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
             this.total = data.total || refined.length;
             this.pages = data.pages || Math.ceil(this.total / this.limit);
             this.filteredMachines = [...this.machines];
+            // Extract metadata keys for autocomplete (matching admin pattern)
+            this.extractMetadataKeys(refined);
             this.loading = false;
             this.loaderService.hideGlobalLoader();
           });
@@ -281,8 +290,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   onSearchChange(search: string): void {
-    this.filters.search = search;
-    this.searchSubject.next(search);
+    // Update search subject which will debounce and update filter
+    this.searchSubject.next(search || '');
   }
 
   reload(): void {
@@ -293,9 +302,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   clearFilters(): void {
     this.filters = {
       is_approved: true, // Always keep approved filter
+      sortBy: 'createdAt', // Default sort (matching admin)
+      sortOrder: 'desc', // Default: latest first (matching admin)
     };
     this.page = 1;
-    this.loadMachines();
+    this.showMetadataKeySuggestions = false;
+    this.reload();
   }
 
   onCategoryFilterChange(): void {
@@ -303,36 +315,86 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   onMetadataKeyChange(): void {
-    this.updateMetadataKeySuggestions();
+    // Filter suggestions based on input from master list (matching admin pattern)
+    if (this.filters.metadata_key) {
+      const input = this.filters.metadata_key.toLowerCase().trim();
+      this.metadataKeySuggestions = this.allMetadataKeys.filter(key =>
+        key.toLowerCase().includes(input)
+      );
+    } else {
+      this.metadataKeySuggestions = [...this.allMetadataKeys];
+    }
+    // Don't reload on every keystroke, wait for blur or selection
   }
 
   onMetadataValueChange(): void {
-    this.reload();
+    // Debounce metadata value search (matching admin pattern)
+    clearTimeout((this as any).metadataValueTimer);
+    (this as any).metadataValueTimer = setTimeout(() => {
+      this.page = 1;
+      this.reload();
+    }, 500);
   }
 
-  updateMetadataKeySuggestions(): void {
-    if (!this.filters.metadata_key || this.filters.metadata_key.length < 1) {
-      this.metadataKeySuggestions = [];
-      return;
-    }
-    const key = this.filters.metadata_key.toLowerCase();
-    const allKeys = new Set<string>();
-    this.machines.forEach(m => {
-      if (Array.isArray(m.metadata)) {
-        m.metadata.forEach(md => {
-          if (md.key?.toLowerCase().includes(key)) {
-            allKeys.add(md.key);
-          }
-        });
-      } else if (m.metadata && typeof m.metadata === 'object') {
-        Object.keys(m.metadata).forEach(k => {
-          if (k.toLowerCase().includes(key)) {
-            allKeys.add(k);
-          }
-        });
+  /**
+   * Extract metadata keys from machines to build master list (matching admin pattern)
+   */
+  extractMetadataKeys(machines: Machine[]): void {
+    const keySet = new Set<string>();
+    machines.forEach(machine => {
+      if (machine.metadata && typeof machine.metadata === 'object') {
+        if (Array.isArray(machine.metadata)) {
+          machine.metadata.forEach((md: any) => {
+            if (md?.key && typeof md.key === 'string' && md.key.trim()) {
+              keySet.add(md.key.trim());
+            }
+          });
+        } else {
+          Object.keys(machine.metadata).forEach(key => {
+            if (key && key.trim()) {
+              keySet.add(key.trim());
+            }
+          });
+        }
       }
     });
-    this.metadataKeySuggestions = Array.from(allKeys).slice(0, 10);
+    this.allMetadataKeys = Array.from(keySet).sort();
+    // Update suggestions based on current filter input
+    if (this.filters.metadata_key) {
+      const input = this.filters.metadata_key.toLowerCase().trim();
+      this.metadataKeySuggestions = this.allMetadataKeys.filter(key =>
+        key.toLowerCase().includes(input)
+      );
+    } else {
+      this.metadataKeySuggestions = [...this.allMetadataKeys];
+    }
+  }
+
+  /**
+   * Load initial metadata keys from first page to build master list
+   */
+  loadInitialMetadataKeys(): void {
+    const params: any = {
+      page: 1,
+      limit: 100, // Load first 100 machines to extract keys
+      is_approved: true,
+    };
+    this.api.get<any>('/machines', params).subscribe({
+      next: res => {
+        const data = res?.data || res;
+        const serverMachines: Machine[] = (data?.machines ||
+          data?.items ||
+          data ||
+          []) as Machine[];
+        const normalized = serverMachines
+          .filter(m => !!m && m.is_approved === true)
+          .map(m => this.normalizeMachine(m));
+        this.extractMetadataKeys(normalized);
+      },
+      error: () => {
+        // Silently fail - metadata suggestions will work from loaded machines
+      },
+    });
   }
 
   selectMetadataKey(key: string): void {

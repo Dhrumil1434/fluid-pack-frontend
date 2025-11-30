@@ -336,10 +336,37 @@ interface MachineRow {
                     *ngFor="let m of rows; let i = index"
                     class="hover:bg-gray-50 transition-colors"
                     [class.bg-gray-50]="i % 2 === 0"
+                    [ngClass]="getRowClass(m)"
                   >
                     <!-- Sequence -->
                     <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="flex items-center gap-2">
+                      <div
+                        class="flex items-center gap-2 group relative"
+                        *ngIf="m.machine_sequence && canEditSequence(m)"
+                      >
+                        <span
+                          class="font-mono text-sm font-semibold bg-blue-100 text-blue-800 px-3 py-1.5 rounded border border-blue-200 cursor-pointer hover:bg-blue-200 transition-colors"
+                          [title]="
+                            'Sequence: ' +
+                            m.machine_sequence +
+                            ' (Click to edit)'
+                          "
+                          (click)="openEditSequenceModal(m)"
+                        >
+                          {{ m.machine_sequence }}
+                        </span>
+                        <button
+                          class="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded hover:bg-primary/20"
+                          (click)="openEditSequenceModal(m)"
+                          title="Edit sequence"
+                        >
+                          <i class="pi pi-pencil text-sm"></i>
+                        </button>
+                      </div>
+                      <div
+                        class="flex items-center gap-2"
+                        *ngIf="!m.machine_sequence || !canEditSequence(m)"
+                      >
                         <span
                           *ngIf="m.machine_sequence"
                           class="font-mono text-sm font-semibold bg-blue-100 text-blue-800 px-3 py-1.5 rounded border border-blue-200"
@@ -1247,6 +1274,142 @@ interface MachineRow {
           </div>
         </div>
       </div>
+
+      <!-- Edit Sequence Modal -->
+      <div
+        *ngIf="editSequenceVisible"
+        class="fixed inset-0 z-[9999] flex items-center justify-center"
+        style="z-index: 9999"
+      >
+        <div
+          class="absolute inset-0 bg-black/50"
+          (click)="closeEditSequenceModal()"
+          role="button"
+          tabindex="0"
+        ></div>
+        <div
+          class="relative bg-white border border-neutral-300 rounded-xl shadow-2xl w-full max-w-2xl z-[10000]"
+          style="z-index: 10000"
+          (click)="$event.stopPropagation()"
+        >
+          <div
+            class="flex items-center justify-between p-6 border-b border-neutral-200 flex-shrink-0 bg-gradient-to-r from-primary/5 to-primary/10"
+          >
+            <div>
+              <h3 class="text-xl font-bold text-text">Edit Machine Sequence</h3>
+              <p class="text-sm text-text-muted mt-1">
+                Update the sequence for {{ editingMachine?.name }}
+              </p>
+            </div>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md transition-colors"
+              (click)="closeEditSequenceModal()"
+              type="button"
+            >
+              <i class="pi pi-times text-lg"></i>
+            </button>
+          </div>
+
+          <div class="p-6 space-y-6">
+            <!-- Format Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <i class="pi pi-info-circle text-blue-600 mt-0.5"></i>
+                <div class="flex-1">
+                  <h4 class="text-sm font-semibold text-blue-900 mb-1">
+                    Expected Format
+                  </h4>
+                  <p class="text-sm text-blue-800 font-mono mb-2">
+                    {{ sequenceFormat }}
+                  </p>
+                  <p class="text-xs text-blue-700">
+                    Example:
+                    <span class="font-mono font-semibold">{{
+                      sequenceFormatExample
+                    }}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sequence Suggestions -->
+            <div *ngIf="sequenceSuggestions.length > 0">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Suggested Sequences (Next Available)
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  *ngFor="let suggestion of sequenceSuggestions"
+                  type="button"
+                  class="inline-flex items-center px-3 py-2 text-sm font-mono bg-primary/10 text-primary border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150"
+                  (click)="selectSuggestion(suggestion)"
+                >
+                  <i class="pi pi-check-circle text-xs mr-2"></i>
+                  {{ suggestion }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Manual Input -->
+            <div>
+              <label
+                for="sequence-input"
+                class="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Enter Sequence Manually
+              </label>
+              <input
+                id="sequence-input"
+                type="text"
+                [(ngModel)]="editSequenceValue"
+                class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                [class.border-error]="sequenceError"
+                [class.border-neutral-300]="!sequenceError"
+                placeholder="Enter sequence (e.g., {{ sequenceFormatExample }})"
+                (input)="sequenceError = null"
+              />
+              <p
+                *ngIf="sequenceError"
+                class="mt-2 text-sm text-error flex items-center gap-1"
+              >
+                <i class="pi pi-exclamation-triangle"></i>
+                {{ sequenceError }}
+              </p>
+              <p class="mt-2 text-xs text-gray-500">
+                The sequence must follow the format:
+                <span class="font-mono">{{ sequenceFormat }}</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div
+            class="flex items-center justify-end gap-3 p-6 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              (click)="closeEditSequenceModal()"
+              [disabled]="isUpdatingSequence"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              (click)="updateSequence()"
+              [disabled]="isUpdatingSequence || !editSequenceValue.trim()"
+            >
+              <i
+                *ngIf="isUpdatingSequence"
+                class="pi pi-spin pi-spinner mr-2"
+              ></i>
+              <i *ngIf="!isUpdatingSequence" class="pi pi-check mr-2"></i>
+              {{ isUpdatingSequence ? 'Updating...' : 'Update Sequence' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [
@@ -1272,6 +1435,22 @@ interface MachineRow {
       }
       .hide-scrollbar::-webkit-scrollbar {
         display: none;
+      }
+      /* Rejected row styling - clean approach without column shift */
+      tbody tr.rejected-row td:first-child {
+        box-shadow: inset 3px 0 0 #ef4444;
+      }
+      tbody tr.rejected-row:hover {
+        background: linear-gradient(to right, #fef2f2 0%, #ffffff 20%);
+      }
+      tbody tr.rejected-row:hover td:first-child {
+        box-shadow: inset 4px 0 0 #dc2626;
+      }
+      tbody tr.rejected-row {
+        transition: background-color 0.2s ease;
+      }
+      tbody tr.rejected-row td:first-child {
+        transition: box-shadow 0.2s ease;
       }
     `,
   ],
@@ -1340,6 +1519,16 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   approverNotes: string | null = null;
   rejectMachine: any = null;
   rejectMetadata: Array<{ key: string; value: any; type?: string }> = [];
+
+  // Edit sequence modal state
+  editSequenceVisible = false;
+  editingMachine: MachineRow | null = null;
+  editSequenceValue = '';
+  sequenceSuggestions: string[] = [];
+  sequenceFormat = '';
+  sequenceFormatExample = '';
+  sequenceError: string | null = null;
+  isUpdatingSequence = false;
 
   constructor(
     private baseApi: BaseApiService,
@@ -2016,4 +2205,401 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
   trackByIndex = (i: number) => i;
   trackByKey = (_: number, item: { key: string; value: unknown }) => item.key;
+
+  // Get row class for styling (highlight rejected machines)
+  getRowClass(machine: MachineRow): string {
+    if (machine.approvalStatus === 'rejected') {
+      return 'rejected-row';
+    }
+    return '';
+  }
+
+  // Check if current user can edit sequence (must be creator)
+  canEditSequence(machine: MachineRow): boolean {
+    const user = this.auth.getCurrentUser();
+    if (!user?._id || !machine.created_by) return false;
+    const creatorId =
+      typeof machine.created_by === 'object'
+        ? (machine.created_by as any)?._id || machine.created_by
+        : machine.created_by;
+    return String(creatorId) === String(user._id);
+  }
+
+  // Open edit sequence modal
+  openEditSequenceModal(machine: MachineRow): void {
+    if (!this.canEditSequence(machine)) return;
+    this.editSequenceVisible = true;
+    this.editingMachine = machine;
+    this.editSequenceValue = machine.machine_sequence || '';
+    this.sequenceError = null;
+    this.loadSequenceConfigForEdit(machine);
+  }
+
+  // Load sequence config and generate suggestions
+  loadSequenceConfigForEdit(machine: MachineRow): void {
+    const categoryId =
+      typeof machine.category_id === 'object'
+        ? (machine.category_id as any)?._id
+        : machine.category_id;
+
+    if (!categoryId) {
+      this.sequenceError = 'Machine must have a category';
+      return;
+    }
+
+    const subcategoryId = machine.subcategory_id
+      ? typeof machine.subcategory_id === 'object'
+        ? (machine.subcategory_id as any)?._id
+        : machine.subcategory_id
+      : null;
+
+    // Find config - first try subcategory-specific, then category-only
+    let config = this.sequenceConfigs.find(c => {
+      const configCategoryId =
+        typeof c.category_id === 'object'
+          ? (c.category_id as any)?._id
+          : c.category_id;
+      const configSubcategoryId = c.subcategory_id
+        ? typeof c.subcategory_id === 'object'
+          ? (c.subcategory_id as any)?._id
+          : c.subcategory_id
+        : null;
+
+      return (
+        configCategoryId === categoryId &&
+        configSubcategoryId === subcategoryId &&
+        c.is_active !== false
+      );
+    });
+
+    // Fallback to category-only config if subcategory config not found
+    if (!config && subcategoryId) {
+      config = this.sequenceConfigs.find(c => {
+        const configCategoryId =
+          typeof c.category_id === 'object'
+            ? (c.category_id as any)?._id
+            : c.category_id;
+        const configSubcategoryId = c.subcategory_id
+          ? typeof c.subcategory_id === 'object'
+            ? (c.subcategory_id as any)?._id
+            : c.subcategory_id
+          : null;
+
+        return (
+          configCategoryId === categoryId &&
+          configSubcategoryId === null &&
+          c.is_active !== false
+        );
+      });
+    }
+
+    // If still not found, try simple match
+    if (!config) {
+      config = this.sequenceConfigs.find(c => {
+        const configCategoryId =
+          typeof c.category_id === 'object'
+            ? (c.category_id as any)?._id
+            : c.category_id;
+        return configCategoryId === categoryId && c.is_active !== false;
+      });
+    }
+
+    if (!config || !config.format) {
+      this.sequenceError = 'No sequence configuration found for this category';
+      // Try to fetch from API as fallback
+      this.fetchSequenceConfigFromAPI(machine, categoryId, subcategoryId);
+      return;
+    }
+
+    this.sequenceFormat = config.format;
+
+    // Generate example - use category/subcategory names or slugs
+    const category = this.filterCategories.find(c => c._id === categoryId);
+    const categoryName =
+      category?.name ||
+      (typeof machine.category_id === 'object'
+        ? (machine.category_id as any)?.name
+        : 'CATEGORY');
+    const categorySlug = categoryName.toUpperCase().replace(/\s+/g, '-');
+
+    const subcategoryName = machine.subcategory_id
+      ? typeof machine.subcategory_id === 'object'
+        ? (machine.subcategory_id as any)?.name
+        : ''
+      : '';
+    const subcategorySlug = subcategoryName
+      ? subcategoryName.toUpperCase().replace(/\s+/g, '-')
+      : '';
+
+    this.sequenceFormatExample = config.format
+      .replace('{category}', categorySlug)
+      .replace('{subcategory}', subcategorySlug)
+      .replace('{sequence}', '001')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    // Generate suggestions (next 3 non-assigned sequences)
+    this.generateSequenceSuggestions(machine, config);
+  }
+
+  // Fetch sequence config from API as fallback
+  fetchSequenceConfigFromAPI(
+    machine: MachineRow,
+    categoryId: string,
+    subcategoryId: string | null
+  ): void {
+    this.categoryService.getAllSequenceConfigs().subscribe({
+      next: (response: any) => {
+        const configs = Array.isArray(response)
+          ? response
+          : response?.data || [];
+
+        // Update local configs
+        this.sequenceConfigs = configs;
+
+        // Try to find config again
+        let config = configs.find((c: SequenceConfig) => {
+          const configCategoryId =
+            typeof c.category_id === 'object'
+              ? (c.category_id as any)?._id
+              : c.category_id;
+          const configSubcategoryId = c.subcategory_id
+            ? typeof c.subcategory_id === 'object'
+              ? (c.subcategory_id as any)?._id
+              : c.subcategory_id
+            : null;
+
+          return (
+            configCategoryId === categoryId &&
+            configSubcategoryId === subcategoryId &&
+            c.is_active !== false
+          );
+        });
+
+        if (!config && subcategoryId) {
+          config = configs.find((c: SequenceConfig) => {
+            const configCategoryId =
+              typeof c.category_id === 'object'
+                ? (c.category_id as any)?._id
+                : c.category_id;
+            const configSubcategoryId = c.subcategory_id
+              ? typeof c.subcategory_id === 'object'
+                ? (c.subcategory_id as any)?._id
+                : c.subcategory_id
+              : null;
+
+            return (
+              configCategoryId === categoryId &&
+              configSubcategoryId === null &&
+              c.is_active !== false
+            );
+          });
+        }
+
+        if (config && config.format) {
+          this.sequenceFormat = config.format;
+
+          const category = this.filterCategories.find(
+            c => c._id === categoryId
+          );
+          const categoryName =
+            category?.name ||
+            (typeof machine.category_id === 'object'
+              ? (machine.category_id as any)?.name
+              : 'CATEGORY');
+          const categorySlug = categoryName.toUpperCase().replace(/\s+/g, '-');
+
+          const subcategoryName = machine.subcategory_id
+            ? typeof machine.subcategory_id === 'object'
+              ? (machine.subcategory_id as any)?.name
+              : ''
+            : '';
+          const subcategorySlug = subcategoryName
+            ? subcategoryName.toUpperCase().replace(/\s+/g, '-')
+            : '';
+
+          this.sequenceFormatExample = config.format
+            .replace('{category}', categorySlug)
+            .replace('{subcategory}', subcategorySlug)
+            .replace('{sequence}', '001')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+
+          this.sequenceError = null;
+          this.generateSequenceSuggestions(machine, config);
+        } else {
+          this.sequenceError =
+            'No active sequence configuration found for this category';
+        }
+      },
+      error: error => {
+        console.error('Error fetching sequence configs:', error);
+        this.sequenceError = 'Failed to load sequence configuration';
+      },
+    });
+  }
+
+  // Generate sequence suggestions
+  async generateSequenceSuggestions(
+    machine: MachineRow,
+    _config: SequenceConfig
+  ): Promise<void> {
+    const categoryId =
+      typeof machine.category_id === 'object'
+        ? (machine.category_id as any)?._id
+        : machine.category_id;
+    const subcategoryId = machine.subcategory_id
+      ? typeof machine.subcategory_id === 'object'
+        ? (machine.subcategory_id as any)?._id
+        : machine.subcategory_id
+      : undefined;
+
+    const suggestions: string[] = [];
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (suggestions.length < 3 && attempts < maxAttempts) {
+      try {
+        const request: SequenceGenerationRequest = {
+          categoryId: categoryId as string,
+          subcategoryId: subcategoryId as string | undefined,
+        };
+
+        const response: any = await this.categoryService
+          .generateSequence(request)
+          .toPromise();
+        const generated = response?.data?.sequence;
+
+        if (generated && !suggestions.includes(generated)) {
+          suggestions.push(generated);
+        }
+        attempts++;
+      } catch (error) {
+        console.error('Error generating suggestion:', error);
+        attempts++;
+      }
+    }
+
+    this.sequenceSuggestions = suggestions;
+  }
+
+  // Validate sequence format
+  validateSequenceFormat(sequence: string): boolean {
+    if (!this.sequenceFormat || !this.editingMachine) return false;
+
+    const categoryId =
+      typeof this.editingMachine.category_id === 'object'
+        ? (this.editingMachine.category_id as any)?._id
+        : this.editingMachine.category_id;
+
+    const category = this.filterCategories.find(c => c._id === categoryId);
+    const categorySlug =
+      category?.name?.toUpperCase().replace(/\s+/g, '-') || '[A-Z0-9-]+';
+    const subcategorySlug = this.editingMachine.subcategory_id
+      ? typeof this.editingMachine.subcategory_id === 'object'
+        ? (this.editingMachine.subcategory_id as any)?.name
+            ?.toUpperCase()
+            .replace(/\s+/g, '-')
+        : ''
+      : '[A-Z0-9-]*';
+
+    // Build regex pattern
+    let pattern = this.sequenceFormat
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\\\{category\\\}/g, categorySlug)
+      .replace(/\\\{subcategory\\\}/g, subcategorySlug)
+      .replace(/\\\{sequence\\\}/g, '\\d+');
+
+    pattern = pattern.replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const regex = new RegExp(`^${pattern}$`, 'i');
+
+    return regex.test(sequence);
+  }
+
+  // Close edit sequence modal
+  closeEditSequenceModal(): void {
+    this.editSequenceVisible = false;
+    this.editingMachine = null;
+    this.editSequenceValue = '';
+    this.sequenceSuggestions = [];
+    this.sequenceFormat = '';
+    this.sequenceFormatExample = '';
+    this.sequenceError = null;
+  }
+
+  // Select suggestion
+  selectSuggestion(suggestion: string): void {
+    this.editSequenceValue = suggestion;
+    this.sequenceError = null;
+  }
+
+  // Update sequence
+  async updateSequence(): Promise<void> {
+    if (!this.editingMachine || !this.editSequenceValue.trim()) {
+      this.sequenceError = 'Please enter a sequence';
+      return;
+    }
+
+    const sequence = this.editSequenceValue.trim();
+
+    // Validate format
+    if (!this.validateSequenceFormat(sequence)) {
+      this.sequenceError = `Invalid format. Expected format: ${this.sequenceFormat}. Example: ${this.sequenceFormatExample}`;
+      return;
+    }
+
+    // Check if machine was approved before update
+    const wasApproved =
+      this.editingMachine.is_approved ||
+      this.editingMachine.approvalStatus === 'approved';
+
+    this.isUpdatingSequence = true;
+    this.sequenceError = null;
+
+    try {
+      const response: any = await this.machineService
+        .updateMachineSequence(this.editingMachine._id, sequence)
+        .toPromise();
+
+      const responseMessage =
+        response?.message ||
+        (wasApproved
+          ? 'Machine sequence updated successfully. Machine has been unapproved and sent for review.'
+          : 'Machine sequence updated successfully');
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Sequence Updated',
+        detail: responseMessage,
+        life: 5000, // Show for 5 seconds since it's important
+      });
+
+      // If machine was approved, show additional info message
+      if (wasApproved) {
+        setTimeout(() => {
+          this.messageService.add({
+            severity: 'info',
+            summary: 'Approval Required',
+            detail:
+              'The machine has been unapproved and a QC approval request has been created. Approvers have been notified.',
+            life: 6000,
+          });
+        }, 500);
+      }
+
+      this.closeEditSequenceModal();
+      this.refresh();
+    } catch (error: any) {
+      const errorMessage =
+        error?.error?.message || error?.message || 'Failed to update sequence';
+      this.sequenceError = errorMessage;
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Update Failed',
+        detail: errorMessage,
+      });
+    } finally {
+      this.isUpdatingSequence = false;
+    }
+  }
 }

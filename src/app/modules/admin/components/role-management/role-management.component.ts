@@ -7,7 +7,6 @@ import { RoleFormModalComponent } from './modals/role-form-modal.component';
 import { DepartmentRoleService } from '../../../../core/services/department-role.service';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -17,7 +16,6 @@ import { FormsModule } from '@angular/forms';
     CommonModule,
     FormsModule,
     ToastModule,
-    ConfirmDialogModule,
     AdminSidebarComponent,
     RoleFiltersComponent,
     RoleTableComponent,
@@ -25,15 +23,7 @@ import { FormsModule } from '@angular/forms';
   ],
   template: `
     <p-toast></p-toast>
-    <p-confirmDialog
-      [style]="{ width: '28rem' }"
-      styleClass="rounded-xl shadow-high"
-      [dismissableMask]="true"
-      [closable]="true"
-      [defaultFocus]="'reject'"
-      acceptButtonStyleClass="p-button-danger p-button-sm"
-      rejectButtonStyleClass="p-button-text p-button-sm"
-    ></p-confirmDialog>
+
     <app-admin-sidebar
       [collapsed]="sidebarCollapsed"
       (collapseChange)="sidebarCollapsed = $event"

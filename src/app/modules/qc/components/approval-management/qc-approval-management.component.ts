@@ -28,6 +28,7 @@ interface QCApproval {
   machineId: {
     _id: string;
     name: string;
+    machine_sequence?: string;
     category_id: {
       _id: string;
       name: string;
@@ -58,8 +59,12 @@ interface QCApproval {
   approvalDate?: string;
   rejectionReason?: string;
   approverNotes?: string;
+  requestNotes?: string;
   machineActivated?: boolean;
   activationDate?: string;
+  qcEntryId?: {
+    files?: string[];
+  };
   documents?: Array<{
     _id?: string;
     filename: string;
@@ -166,6 +171,28 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   detailsApproval: QCApproval | null = null;
   lightboxImages: string[] = [];
   lightboxIndex = 0;
+
+  // Rejection Details Modal
+  showRejectionDetailsModal = false;
+  rejectionDetailsApproval: QCApproval | null = null;
+
+  // Edit modal
+  showEditModal = false;
+  editForm: FormGroup;
+  editingApproval: QCApproval | null = null;
+  editLoading = false;
+  editSelectedFiles: File[] = [];
+  editUploading = false;
+  editExistingDocuments: Array<{
+    _id?: string;
+    filename: string;
+    originalName: string;
+    path: string;
+    size?: number;
+    uploadedAt?: string;
+  }> = [];
+  deletingDocumentId: string | null = null;
+
   // trackBy helpers
   trackByIndex = (i: number) => i;
   trackByUserId = (_: number, u: { _id?: string; username?: string }) =>
@@ -189,8 +216,18 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       qualityScoreMax: [''],
       machineName: [''],
       requestedBy: [''],
+      category: [''],
       sortBy: ['createdAt'],
       sortOrder: ['desc'],
+    });
+
+    // Edit form
+    this.editForm = this.fb.group({
+      qcNotes: [''],
+      qualityScore: [null],
+      inspectionDate: [''],
+      nextInspectionDate: [''],
+      requestNotes: [''],
     });
 
     // Setup search debouncing
@@ -331,6 +368,9 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     }
     if (formValue.requestedBy?.trim()) {
       params.requestedBy = formValue.requestedBy.trim();
+    }
+    if (formValue.category?.trim()) {
+      params.category = formValue.category.trim();
     }
     if (formValue.sortBy) {
       params.sortBy = formValue.sortBy;
@@ -697,6 +737,10 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     }
   }
 
+  getDocumentName(file: string): string {
+    return this.extractName(file);
+  }
+
   // Utility methods
   getStatusClass(status: string): string {
     const classes = {
@@ -706,6 +750,19 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       CANCELLED: 'bg-gray-500 text-white',
     };
     return classes[status as keyof typeof classes] || 'bg-gray-500 text-white';
+  }
+
+  getRowClass(approval: QCApproval): string {
+    if (approval.status === 'REJECTED') {
+      return 'rejected-row';
+    }
+    return 'hover:bg-gray-50 transition-colors duration-200';
+  }
+
+  onViewRejectionDetails(approval: QCApproval): void {
+    if (approval.status !== 'REJECTED') return;
+    this.rejectionDetailsApproval = approval;
+    this.showRejectionDetailsModal = true;
   }
 
   getStatusText(status: string): string {
@@ -760,7 +817,22 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
 
   // Action gating helpers
   canUpdate(approval: QCApproval): boolean {
-    return approval.status === 'REJECTED';
+    return approval.status === 'PENDING' || approval.status === 'REJECTED';
+  }
+
+  canEdit(approval: QCApproval): boolean {
+    // QC users can edit their own PENDING or REJECTED approvals
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !approval.requestedBy) return false;
+
+    const isOwnRequest =
+      approval.requestedBy._id === currentUser._id ||
+      approval.requestedBy.username === currentUser.username;
+
+    return (
+      isOwnRequest &&
+      (approval.status === 'PENDING' || approval.status === 'REJECTED')
+    );
   }
 
   trackByApprovalId(index: number, approval: QCApproval): string {
@@ -772,10 +844,274 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     return new Date(dateString).toLocaleDateString();
   }
 
+  formatDateTime(dateString: string | undefined): string {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  }
+
+  // Helper methods for QC sequence
+  getApprovalMachineSequence(approval: QCApproval | null): string | null {
+    if (!approval?.machineId) return null;
+    if (
+      typeof approval.machineId === 'object' &&
+      approval.machineId.machine_sequence
+    ) {
+      return approval.machineId.machine_sequence;
+    }
+    return null;
+  }
+
+  formatSequenceWithQC(sequence: string | null | undefined): string {
+    if (!sequence) return '-';
+    return `${sequence}-QC`;
+  }
+
   // Removed unsafe helper; previews open in new tab via onPreviewDocument
 
   get Math() {
     return Math;
+  }
+
+  // Edit functionality
+  onEditApproval(approval: QCApproval): void {
+    if (!this.canEdit(approval)) {
+      this.errorHandler.showWarning(
+        'You can only edit your own PENDING or REJECTED approvals'
+      );
+      return;
+    }
+
+    this.editingApproval = approval;
+    this.editForm.patchValue({
+      qcNotes: approval.qcNotes || '',
+      qualityScore: approval.qualityScore || null,
+      inspectionDate: approval.inspectionDate
+        ? new Date(approval.inspectionDate).toISOString().split('T')[0]
+        : '',
+      nextInspectionDate: approval.nextInspectionDate
+        ? new Date(approval.nextInspectionDate).toISOString().split('T')[0]
+        : '',
+      requestNotes: approval.requestNotes || '',
+    });
+
+    // Load existing documents
+    this.editExistingDocuments = [];
+    if (approval._id) {
+      this.qcEntryService.getQCApprovalById(approval._id).subscribe({
+        next: res => {
+          const fullApproval = (res as any)?.data || res;
+          // Get documents from approval.documents or qcEntryId.files
+          const docs = fullApproval?.documents || [];
+          const entryFiles = fullApproval?.qcEntryId?.files || [];
+
+          this.editExistingDocuments = [
+            ...docs.map((d: any) => ({
+              _id: d._id,
+              filename: d.filename,
+              originalName: d.originalName || d.filename,
+              path: d.path || d.filename,
+              size: d.size,
+              uploadedAt: d.uploadedAt,
+            })),
+            ...entryFiles.map((f: string) => ({
+              filename: this.extractName(f),
+              originalName: this.extractName(f),
+              path: f,
+            })),
+          ];
+        },
+        error: () => {
+          // Fallback to approval.documents if available
+          if (approval.documents) {
+            this.editExistingDocuments = approval.documents.map(d => ({
+              _id: d._id,
+              filename: d.filename,
+              originalName: d.originalName || d.filename,
+              path: d.path || d.filename,
+              size: d.size,
+              uploadedAt: d.uploadedAt,
+            }));
+          }
+        },
+      });
+    }
+
+    this.showEditModal = true;
+  }
+
+  onCancelEdit(): void {
+    this.showEditModal = false;
+    this.editingApproval = null;
+    this.editForm.reset();
+    this.editSelectedFiles = [];
+    this.editUploading = false;
+    this.editExistingDocuments = [];
+    this.deletingDocumentId = null;
+  }
+
+  onDeleteEditDocument(documentId: string | undefined): void {
+    if (!documentId || !this.editingApproval?._id) return;
+
+    // Confirm deletion
+    if (
+      !confirm(
+        'Are you sure you want to delete this document? This action cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    this.deletingDocumentId = documentId;
+    this.qcEntryService
+      .deleteApprovalDocument(this.editingApproval._id, documentId)
+      .subscribe({
+        next: () => {
+          // Remove from local list
+          this.editExistingDocuments = this.editExistingDocuments.filter(
+            d => d._id !== documentId
+          );
+          this.deletingDocumentId = null;
+          this.errorHandler.showSuccess('Document deleted successfully');
+
+          // Refresh the approval data to get updated document list
+          if (this.editingApproval?._id) {
+            this.qcEntryService
+              .getQCApprovalById(this.editingApproval._id)
+              .subscribe({
+                next: res => {
+                  const fullApproval = (res as any)?.data || res;
+                  const docs = fullApproval?.documents || [];
+                  const entryFiles = fullApproval?.qcEntryId?.files || [];
+
+                  this.editExistingDocuments = [
+                    ...docs.map((d: any) => ({
+                      _id: d._id,
+                      filename: d.filename,
+                      originalName: d.originalName || d.filename,
+                      path: d.path || d.filename,
+                      size: d.size,
+                      uploadedAt: d.uploadedAt,
+                    })),
+                    ...entryFiles.map((f: string) => ({
+                      filename: this.extractName(f),
+                      originalName: this.extractName(f),
+                      path: f,
+                    })),
+                  ];
+                },
+                error: () => {},
+              });
+          }
+        },
+        error: error => {
+          console.error('Error deleting document:', error);
+          this.deletingDocumentId = null;
+          this.errorHandler.showServerError();
+        },
+      });
+  }
+
+  onPreviewEditDocument(doc: { path?: string; filename?: string }): void {
+    const path = doc.path || doc.filename || '';
+    if (!path) return;
+    const url = this.imageUrl(path);
+    window.open(url, '_blank');
+  }
+
+  onEditFileSelected(event: any): void {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      this.editSelectedFiles = Array.from(files);
+    }
+  }
+
+  onSaveEdit(): void {
+    if (!this.editingApproval || !this.editingApproval._id) return;
+
+    this.editLoading = true;
+    const formValue = this.editForm.value;
+
+    const updateData: any = {
+      qcNotes: formValue.qcNotes || undefined,
+      qualityScore: formValue.qualityScore || undefined,
+      inspectionDate: formValue.inspectionDate || undefined,
+      nextInspectionDate: formValue.nextInspectionDate || undefined,
+      requestNotes: formValue.requestNotes || undefined,
+    };
+
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined || updateData[key] === '') {
+        delete updateData[key];
+      }
+    });
+
+    // First update the approval data
+    this.qcEntryService
+      .updateQCApproval(this.editingApproval._id, updateData)
+      .subscribe({
+        next: res => {
+          // If there are files to upload, upload them
+          if (this.editSelectedFiles.length > 0) {
+            this.editUploading = true;
+            const formData = new FormData();
+            this.editSelectedFiles.forEach(file => {
+              formData.append('documents', file);
+            });
+
+            this.qcEntryService
+              .uploadApprovalDocuments(this.editingApproval!._id!, formData)
+              .subscribe({
+                next: () => {
+                  this.errorHandler.showSuccess(
+                    res.message ||
+                      'QC approval updated successfully with documents'
+                  );
+                  this.editUploading = false;
+                  this.editSelectedFiles = [];
+                  this.showEditModal = false;
+                  this.editingApproval = null;
+                  this.editForm.reset();
+                  this.loadApprovals();
+                  this.loadStats();
+                  this.editLoading = false;
+                },
+                error: error => {
+                  console.error('Error uploading documents:', error);
+                  this.errorHandler.showWarning(
+                    'Approval updated but document upload failed'
+                  );
+                  this.editUploading = false;
+                  this.editSelectedFiles = [];
+                  this.showEditModal = false;
+                  this.editingApproval = null;
+                  this.editForm.reset();
+                  this.loadApprovals();
+                  this.loadStats();
+                  this.editLoading = false;
+                },
+              });
+          } else {
+            // No files to upload, just close
+            this.errorHandler.showSuccess(
+              res.message || 'QC approval updated successfully'
+            );
+            this.showEditModal = false;
+            this.editingApproval = null;
+            this.editForm.reset();
+            this.editSelectedFiles = [];
+            this.loadApprovals();
+            this.loadStats();
+            this.editLoading = false;
+          }
+        },
+        error: error => {
+          console.error('Error updating QC approval:', error);
+          this.errorHandler.showServerError();
+          this.editLoading = false;
+        },
+      });
   }
 }
 

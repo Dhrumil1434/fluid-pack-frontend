@@ -14,6 +14,7 @@ import { BaseApiService } from '../../../../core/services/base-api.service';
 import { LoaderService } from '../../../../core/services/loader.service';
 import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import { QCEntryService } from '../../../../core/services/qc-entry.service';
+import { CategoryService } from '../../../../core/services/category.service';
 import { environment } from '../../../../../environments/environment';
 
 // Components
@@ -149,6 +150,9 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   showApprovalDialog = false;
   showRejectionDialog = false;
   showDocumentDialog = false;
+  showEditDialog = false;
+  showDeleteDialog = false;
+  showCreateQCEntryModal = false;
   viewVisible = false;
   selectedApproval: QCApproval | null = null;
   selectedMachine: any = null; // Full machine data for view modal
@@ -160,11 +164,52 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   lightboxImages: string[] = [];
   lightboxIndex = 0;
 
+  // Create QC Entry Modal State
+  machines: any[] = [];
+  filteredMachines: any[] = [];
+  categories: any[] = [];
+  machineFilters: {
+    search?: string;
+    category_id?: string;
+    is_approved?: boolean;
+    metadata_key?: string;
+    metadata_value?: string;
+    dispatch_date_from?: string;
+    dispatch_date_to?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {
+    is_approved: true,
+  };
+  machinePage = 1;
+  machineLimit = 20;
+  machineTotal = 0;
+  machinePages = 0;
+  selectedMachineForQC: any = null;
+  qcEntryForm: FormGroup;
+  selectedFiles: File[] = [];
+  uploadingQC = false;
+  qcEntryNotes = '';
+  qcEntryQualityScore: number | null = null;
+  qcEntryInspectionDate = '';
+  qcEntryNextInspectionDate = '';
+  qcEntryReportLink = '';
+  reportLinkTouched = false;
+  reportLinkErrorMsg: string | null = null;
+  metadataKeySuggestions: string[] = [];
+  showMetadataKeySuggestions = false;
+  private blockedApprovalMachineIds: Set<string> = new Set();
+  private machineSearchSubject = new Subject<string>();
+
+  // Edit Modal State
+  editForm: FormGroup;
+
   constructor(
     private api: BaseApiService,
     private loaderService: LoaderService,
     private errorHandler: ErrorHandlerService,
     private qcEntryService: QCEntryService,
+    private categoryService: CategoryService,
     private fb: FormBuilder
   ) {
     this.filtersForm = this.fb.group({
@@ -181,6 +226,23 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       sortOrder: ['desc'],
     });
 
+    this.qcEntryForm = this.fb.group({
+      machineId: ['', []],
+      qcNotes: [''],
+      qualityScore: [null],
+      inspectionDate: [''],
+      nextInspectionDate: [''],
+      reportLink: [''],
+    });
+
+    this.editForm = this.fb.group({
+      qcNotes: [''],
+      qualityScore: [null],
+      inspectionDate: [''],
+      nextInspectionDate: [''],
+      requestNotes: [''],
+    });
+
     // Setup search debouncing
     this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
@@ -188,12 +250,21 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         this.page = 1;
         this.loadApprovals();
       });
+
+    // Setup machine search debouncing
+    this.machineSearchSubject
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.machinePage = 1;
+        this.loadMachinesForQC();
+      });
   }
 
   ngOnInit(): void {
     this.loadStats();
     this.loadApprovals();
     this.setupFormListeners();
+    this.loadCategories();
   }
 
   ngOnDestroy(): void {
@@ -1026,5 +1097,424 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   // trackBy helpers used in template
   trackByIndex(index: number): number {
     return index;
+  }
+
+  // Load categories for machine search
+  loadCategories(): void {
+    this.categoryService
+      .getAllCategories({ includeInactive: false })
+      .subscribe({
+        next: (res: any) => {
+          const data = res?.data || res;
+          this.categories = Array.isArray(data) ? data : data?.categories || [];
+        },
+        error: (error: any) => {
+          console.error('Failed to load categories:', error);
+        },
+      });
+  }
+
+  // Create QC Entry Modal Methods
+  openCreateQCEntryModal(): void {
+    this.showCreateQCEntryModal = true;
+    this.machineFilters = {
+      is_approved: true,
+    };
+    this.machinePage = 1;
+    this.selectedMachineForQC = null;
+    this.selectedFiles = [];
+    this.qcEntryNotes = '';
+    this.qcEntryQualityScore = null;
+    this.qcEntryInspectionDate = '';
+    this.qcEntryNextInspectionDate = '';
+    this.qcEntryReportLink = '';
+    this.reportLinkTouched = false;
+    this.reportLinkErrorMsg = null;
+    this.metadataKeySuggestions = [];
+    this.showMetadataKeySuggestions = false;
+    this.loadMachinesForQC();
+  }
+
+  closeCreateQCEntryModal(): void {
+    this.showCreateQCEntryModal = false;
+    this.selectedMachineForQC = null;
+    this.selectedFiles = [];
+  }
+
+  loadMachinesForQC(): void {
+    this.loading = true;
+    this.loaderService.showGlobalLoader('Loading machines...');
+
+    const params: any = {
+      page: this.machinePage,
+      limit: this.machineLimit,
+      is_approved: true,
+    };
+
+    if (this.machineFilters.search?.trim()) {
+      params.search = this.machineFilters.search.trim();
+    }
+    if (this.machineFilters.category_id) {
+      params.category_id = this.machineFilters.category_id;
+    }
+    if (this.machineFilters.metadata_key) {
+      params.metadata_key = this.machineFilters.metadata_key;
+    }
+    if (this.machineFilters.metadata_value) {
+      params.metadata_value = this.machineFilters.metadata_value;
+    }
+    if (this.machineFilters.dispatch_date_from) {
+      params.dispatch_date_from = this.machineFilters.dispatch_date_from;
+    }
+    if (this.machineFilters.dispatch_date_to) {
+      params.dispatch_date_to = this.machineFilters.dispatch_date_to;
+    }
+    if (this.machineFilters.sortBy) {
+      params.sortBy = this.machineFilters.sortBy;
+      params.sortOrder = this.machineFilters.sortOrder || 'desc';
+    }
+
+    this.api.get<any>('/machines', params).subscribe({
+      next: (res: any) => {
+        const data = res?.data || res;
+        const serverMachines: any[] = (data?.machines ||
+          data?.items ||
+          data ||
+          []) as any[];
+
+        // Normalize and enforce approved-only
+        let refined = serverMachines
+          .filter(m => !!m && m.is_approved === true)
+          .map(m => this.normalizeMachineForQC(m));
+
+        // Exclude machines that already have a non-rejected QC approval
+        this.fetchBlockedApprovalsSet()
+          .then(() => {
+            refined = refined.filter(
+              m => !this.blockedApprovalMachineIds.has(m._id)
+            );
+
+            this.machines = refined;
+            this.machineTotal = data.total || refined.length;
+            this.machinePages =
+              data.pages || Math.ceil(this.machineTotal / this.machineLimit);
+            this.filteredMachines = [...this.machines];
+            this.loading = false;
+            this.loaderService.hideGlobalLoader();
+          })
+          .catch(() => {
+            this.machines = refined;
+            this.machineTotal = data.total || refined.length;
+            this.machinePages =
+              data.pages || Math.ceil(this.machineTotal / this.machineLimit);
+            this.filteredMachines = [...this.machines];
+            this.loading = false;
+            this.loaderService.hideGlobalLoader();
+          });
+      },
+      error: (error: any) => {
+        console.error('Error loading machines:', error);
+        this.errorHandler.showServerError();
+        this.machines = [];
+        this.filteredMachines = [];
+        this.loading = false;
+        this.loaderService.hideGlobalLoader();
+      },
+    });
+  }
+
+  private fetchBlockedApprovalsSet(): Promise<void> {
+    return new Promise(resolve => {
+      this.qcEntryService.getQCApprovals({ page: 1, limit: 1000 }).subscribe({
+        next: res => {
+          const approvals = (res as any)?.data?.approvals || [];
+          const ids = new Set<string>();
+          approvals.forEach((a: any) => {
+            const mid =
+              a?.machineId && typeof a.machineId === 'object'
+                ? a.machineId._id
+                : a?.machineId;
+            // Block if status is not REJECTED (i.e., PENDING/APPROVED/CANCELLED)
+            if (mid && a?.status !== 'REJECTED') ids.add(String(mid));
+          });
+          this.blockedApprovalMachineIds = ids;
+          resolve();
+        },
+        error: () => {
+          this.blockedApprovalMachineIds = new Set();
+          resolve();
+        },
+      });
+    });
+  }
+
+  private normalizeMachineForQC(m: any): any {
+    let normalizedMetadata: Record<string, unknown>;
+    const md: any = m?.metadata;
+    if (md && typeof md === 'object' && !Array.isArray(md)) {
+      normalizedMetadata = md;
+    } else {
+      normalizedMetadata = {};
+    }
+    return {
+      ...m,
+      metadata: normalizedMetadata,
+    };
+  }
+
+  onMachineSearchChange(search: string): void {
+    this.machineFilters.search = search;
+    this.machineSearchSubject.next(search);
+  }
+
+  onMachineCategoryFilterChange(): void {
+    this.machinePage = 1;
+    this.loadMachinesForQC();
+  }
+
+  onMachineMetadataKeyChange(): void {
+    this.updateMachineMetadataKeySuggestions();
+  }
+
+  onMachineMetadataValueChange(): void {
+    this.machinePage = 1;
+    this.loadMachinesForQC();
+  }
+
+  updateMachineMetadataKeySuggestions(): void {
+    if (
+      !this.machineFilters.metadata_key ||
+      this.machineFilters.metadata_key.length < 1
+    ) {
+      this.metadataKeySuggestions = [];
+      return;
+    }
+    const key = this.machineFilters.metadata_key.toLowerCase();
+    const allKeys = new Set<string>();
+    this.machines.forEach(m => {
+      if (m.metadata && typeof m.metadata === 'object') {
+        Object.keys(m.metadata).forEach(k => {
+          if (k.toLowerCase().includes(key)) {
+            allKeys.add(k);
+          }
+        });
+      }
+    });
+    this.metadataKeySuggestions = Array.from(allKeys).slice(0, 10);
+  }
+
+  selectMachineMetadataKey(key: string): void {
+    this.machineFilters.metadata_key = key;
+    this.showMetadataKeySuggestions = false;
+    this.machinePage = 1;
+    this.loadMachinesForQC();
+  }
+
+  hideMachineMetadataSuggestions(): void {
+    setTimeout(() => {
+      this.showMetadataKeySuggestions = false;
+    }, 200);
+  }
+
+  clearMachineFilters(): void {
+    this.machineFilters = {
+      is_approved: true,
+    };
+    this.machinePage = 1;
+    this.loadMachinesForQC();
+  }
+
+  onMachinePageChange(page: number): void {
+    this.machinePage = page;
+    this.loadMachinesForQC();
+  }
+
+  onMachineLimitChange(limit: number): void {
+    this.machineLimit = limit;
+    this.machinePage = 1;
+    this.loadMachinesForQC();
+  }
+
+  selectMachineForQC(machine: any): void {
+    this.selectedMachineForQC = machine;
+  }
+
+  trackByMachineId(index: number, machine: any): string {
+    return machine._id || '';
+  }
+
+  trackById(_index: number, item: { _id?: string }): string {
+    return item?._id || '';
+  }
+
+  onQCFileSelected(event: any): void {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      this.selectedFiles = Array.from(files);
+    }
+  }
+
+  onQCReportLinkInput(value: string): void {
+    this.qcEntryReportLink = value || '';
+    this.reportLinkTouched = true;
+    this.reportLinkErrorMsg = this.validateOptionalUrl(this.qcEntryReportLink);
+  }
+
+  private validateOptionalUrl(value: string): string | null {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return null;
+    try {
+      const u = new URL(trimmed);
+      if (!/^https?:$/i.test(u.protocol))
+        return 'URL must start with http or https';
+      return null;
+    } catch {
+      return 'Enter a valid URL (e.g., https://...)';
+    }
+  }
+
+  submitQCEntry(): void {
+    if (!this.selectedMachineForQC) {
+      this.errorHandler.showWarning('Please select a machine');
+      return;
+    }
+
+    if (this.selectedFiles.length === 0) {
+      this.errorHandler.showWarning('Please upload at least one document');
+      return;
+    }
+
+    if (this.qcEntryReportLink.trim()) {
+      const msg = this.validateOptionalUrl(this.qcEntryReportLink);
+      if (msg) {
+        this.reportLinkTouched = true;
+        this.reportLinkErrorMsg = msg;
+        return;
+      }
+    }
+
+    this.uploadingQC = true;
+    const formData = new FormData();
+    formData.append('machine_id', this.selectedMachineForQC._id);
+    if (this.qcEntryReportLink.trim()) {
+      formData.append('report_link', this.qcEntryReportLink.trim());
+    }
+    this.selectedFiles.forEach(file => formData.append('files', file));
+    if (this.qcEntryNotes.trim()) {
+      formData.append(
+        'metadata',
+        JSON.stringify({ note: this.qcEntryNotes.trim() })
+      );
+    }
+
+    this.api.post<any>('/qc-machines', formData).subscribe({
+      next: () => {
+        this.uploadingQC = false;
+        this.showCreateQCEntryModal = false;
+        this.errorHandler.showSuccess(
+          'QC entry created and approval requested successfully'
+        );
+        this.loadApprovals();
+        this.loadStats();
+      },
+      error: () => {
+        this.uploadingQC = false;
+        this.errorHandler.showServerError();
+      },
+    });
+  }
+
+  // Edit Modal Methods
+  openEditModal(approval: QCApproval): void {
+    if (approval.status !== 'PENDING') {
+      this.errorHandler.showWarning('Only pending QC approvals can be edited');
+      return;
+    }
+
+    this.selectedApproval = approval;
+    this.editForm.patchValue({
+      qcNotes: approval.qcNotes || '',
+      qualityScore: approval.qualityScore || null,
+      inspectionDate: approval.inspectionDate
+        ? new Date(approval.inspectionDate).toISOString().split('T')[0]
+        : '',
+      nextInspectionDate: approval.nextInspectionDate
+        ? new Date(approval.nextInspectionDate).toISOString().split('T')[0]
+        : '',
+      requestNotes: approval.requestNotes || '',
+    });
+    this.showEditDialog = true;
+  }
+
+  closeEditModal(): void {
+    this.showEditDialog = false;
+    this.selectedApproval = null;
+    this.editForm.reset();
+  }
+
+  submitEdit(): void {
+    if (!this.selectedApproval?._id) return;
+
+    this.actionLoading = true;
+    const updateData: any = {};
+
+    const formValue = this.editForm.value;
+    if (formValue.qcNotes !== undefined) updateData.qcNotes = formValue.qcNotes;
+    if (formValue.qualityScore !== undefined && formValue.qualityScore !== null)
+      updateData.qualityScore = formValue.qualityScore;
+    if (formValue.inspectionDate)
+      updateData.inspectionDate = formValue.inspectionDate;
+    if (formValue.nextInspectionDate)
+      updateData.nextInspectionDate = formValue.nextInspectionDate;
+    if (formValue.requestNotes !== undefined)
+      updateData.requestNotes = formValue.requestNotes;
+
+    this.qcEntryService
+      .updateQCApproval(this.selectedApproval._id, updateData)
+      .subscribe({
+        next: () => {
+          this.actionLoading = false;
+          this.showEditDialog = false;
+          this.selectedApproval = null;
+          this.errorHandler.showSuccess('QC approval updated successfully');
+          this.loadApprovals();
+          this.loadStats();
+        },
+        error: () => {
+          this.actionLoading = false;
+          this.errorHandler.showServerError();
+        },
+      });
+  }
+
+  // Delete Modal Methods
+  openDeleteModal(approval: QCApproval): void {
+    this.selectedApproval = approval;
+    this.showDeleteDialog = true;
+  }
+
+  closeDeleteModal(): void {
+    this.showDeleteDialog = false;
+    this.selectedApproval = null;
+  }
+
+  confirmDelete(): void {
+    if (!this.selectedApproval?._id) return;
+
+    this.actionLoading = true;
+    this.qcEntryService.deleteQCApproval(this.selectedApproval._id).subscribe({
+      next: () => {
+        this.actionLoading = false;
+        this.showDeleteDialog = false;
+        this.selectedApproval = null;
+        this.errorHandler.showSuccess('QC approval deleted successfully');
+        this.loadApprovals();
+        this.loadStats();
+      },
+      error: () => {
+        this.actionLoading = false;
+        this.errorHandler.showServerError();
+      },
+    });
   }
 }

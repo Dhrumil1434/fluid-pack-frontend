@@ -1,12 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-approve-reject-dialog',
   standalone: true,
-  imports: [CommonModule, DialogModule, ButtonModule],
+  imports: [CommonModule],
   templateUrl: './approve-reject-dialog.component.html',
   styleUrls: ['./approve-reject-dialog.component.css'],
 })

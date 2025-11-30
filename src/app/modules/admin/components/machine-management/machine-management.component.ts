@@ -31,6 +31,7 @@ import {
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-machine-management',
@@ -407,6 +408,7 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
               <tbody class="bg-white divide-y divide-gray-200">
                 <tr
                   *ngFor="let m of machines"
+                  [attr.data-machine-id]="m._id"
                   class="hover:bg-gray-50 transition-colors duration-150"
                   [ngClass]="{
                     'bg-primary/5': selectedMachineIds.has(m._id),
@@ -2055,6 +2057,26 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
       .bulk-delete-btn:hover {
         background-color: #c0392b !important;
       }
+      /* Highlight machine row when navigating from notification */
+      .highlight-machine {
+        animation: highlightPulse 3s ease-in-out;
+        background-color: #fef3c7 !important;
+        border-left: 4px solid #f59e0b;
+      }
+      @keyframes highlightPulse {
+        0% {
+          background-color: #fef3c7;
+          border-left-color: #f59e0b;
+        }
+        50% {
+          background-color: #fde68a;
+          border-left-color: #d97706;
+        }
+        100% {
+          background-color: transparent;
+          border-left-color: transparent;
+        }
+      }
     `,
   ],
 })
@@ -2170,7 +2192,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     private machineService: MachineService,
     private fb: FormBuilder,
     private categoryService: CategoryService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     this.form = this.fb.group({
       name: [
@@ -2232,7 +2256,30 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.reload();
+    // Check for machineId query param to filter/scroll to specific machine
+    this.route.queryParamMap.subscribe(params => {
+      const machineId = params.get('machineId');
+      if (machineId) {
+        // Set search filter to machineId (backend now supports searching by _id)
+        this.filters.search = machineId;
+        this.page = 1;
+        // Reload to show the machine
+        this.reload();
+        // After data loads, scroll to the machine row
+        setTimeout(() => {
+          this.scrollToMachine(machineId);
+          // Clear the query param after scrolling
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { machineId: null },
+            queryParamsHandling: 'merge',
+          });
+        }, 1500);
+      } else {
+        this.reload();
+      }
+    });
+
     this.loadCategories();
     this.loadFilterCategories();
     this.loadSequenceConfigs();
@@ -2311,6 +2358,19 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.showMetadataKeySuggestions = false;
     }, 200);
+  }
+
+  // Scroll to specific machine row by ID
+  scrollToMachine(machineId: string): void {
+    const element = document.querySelector(`[data-machine-id="${machineId}"]`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the row temporarily
+      (element as HTMLElement).classList.add('highlight-machine');
+      setTimeout(() => {
+        (element as HTMLElement).classList.remove('highlight-machine');
+      }, 3000);
+    }
   }
 
   extractMetadataKeys(machines: Machine[]): void {

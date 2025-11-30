@@ -1,14 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
-import { TagModule } from 'primeng/tag';
 import { User } from '../../../../core/models/user.model';
 
 @Component({
   selector: 'app-user-details-modal',
   standalone: true,
-  imports: [CommonModule, DialogModule, ButtonModule, TagModule],
+  imports: [CommonModule],
   templateUrl: './user-details-modal.component.html',
   styleUrls: ['./user-details-modal.component.css'],
 })

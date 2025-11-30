@@ -1,172 +1,223 @@
-<p-dialog
-  header="User Details"
-  [visible]="visible"
-  (visibleChange)="visibleChange.emit($event)"
-  [modal]="true"
-  [closable]="true"
-  [draggable]="false"
-  [resizable]="false"
-  styleClass="fp-dialog"
-  [style]="{ width: '600px' }"
-  [contentStyle]="{ background: 'var(--color-bg)' }"
-  (keydown.escape)="onClose()"
+<div
+  *ngIf="visible"
+  class="fixed inset-0 z-[9999] flex items-center justify-center"
+  style="z-index: 9999"
 >
-  <div *ngIf="user" class="space-y-6">
-    <!-- User Header -->
-    <div class="flex items-start gap-4">
-      <div
-        class="w-16 h-16 rounded-full bg-neutral-200 flex items-center justify-center"
+  <div
+    class="absolute inset-0 bg-black/40"
+    (click)="onClose()"
+    role="button"
+    tabindex="0"
+    (keydown.enter)="onClose()"
+    (keydown.space)="onClose()"
+  ></div>
+  <div
+    class="relative bg-white border border-neutral-300 rounded-xl shadow-medium w-full max-w-2xl max-h-[90vh] flex flex-col z-[10000]"
+    style="z-index: 10000"
+    (click)="$event.stopPropagation()"
+    (keydown.escape)="onClose()"
+  >
+    <!-- Header -->
+    <div
+      class="flex items-center justify-between p-6 border-b border-neutral-200 flex-shrink-0"
+    >
+      <h3 class="text-xl font-semibold text-text">User Details</h3>
+      <button
+        class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+        (click)="onClose()"
+        type="button"
       >
-        <i class="pi pi-user text-2xl text-text-muted"></i>
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <div *ngIf="user" class="space-y-6">
+        <!-- User Header -->
+        <div class="flex items-start gap-4">
+          <div
+            class="w-16 h-16 rounded-full bg-neutral-200 flex items-center justify-center"
+          >
+            <i class="pi pi-user text-2xl text-text-muted"></i>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-xl font-semibold text-text">{{ user.username }}</h3>
+            <p class="text-text-muted">{{ user.email }}</p>
+            <span
+              [class]="
+                user.isApproved
+                  ? 'inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-800 text-sm mt-2'
+                  : 'inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-800 text-sm mt-2'
+              "
+            >
+              <i
+                [class]="user.isApproved ? 'pi pi-check-circle' : 'pi pi-clock'"
+              ></i>
+              {{ getStatusLabel() }}
+            </span>
+          </div>
+        </div>
+
+        <!-- User Information Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Basic Info -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
+              Basic Information
+            </h4>
+            <div class="space-y-2">
+              <div>
+                <span class="text-sm text-text-muted">User ID:</span>
+                <p class="text-sm text-text font-mono">{{ user._id }}</p>
+              </div>
+              <div>
+                <span class="text-sm text-text-muted">Username:</span>
+                <p class="text-sm text-text">{{ user.username }}</p>
+              </div>
+              <div>
+                <span class="text-sm text-text-muted">Email:</span>
+                <p class="text-sm text-text">{{ user.email }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Role & Department -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
+              Organization
+            </h4>
+            <div class="space-y-2">
+              <div>
+                <span class="text-sm text-text-muted">Role:</span>
+                <p class="text-sm text-text">
+                  {{ user.role ? user.role.name : 'Not assigned' }}
+                </p>
+              </div>
+              <div>
+                <span class="text-sm text-text-muted">Department:</span>
+                <p class="text-sm text-text">
+                  {{ user.department ? user.department.name : 'Not assigned' }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timestamps -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
+              Timestamps
+            </h4>
+            <div class="space-y-2">
+              <div>
+                <span class="text-sm text-text-muted">Created:</span>
+                <p class="text-sm text-text">
+                  {{ formatDate(user.createdAt) }}
+                </p>
+              </div>
+              <div>
+                <span class="text-sm text-text-muted">Last Updated:</span>
+                <p class="text-sm text-text">
+                  {{ formatDate(user.updatedAt) }}
+                </p>
+              </div>
+              <div *ngIf="user.lastLogin">
+                <span class="text-sm text-text-muted">Last Login:</span>
+                <p class="text-sm text-text">
+                  {{ formatDate(user.lastLogin) }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status & Actions -->
+          <div class="space-y-3">
+            <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
+              Status
+            </h4>
+            <div class="space-y-2">
+              <div>
+                <span class="text-sm text-text-muted">Approval Status:</span>
+                <span
+                  [class]="
+                    user.isApproved
+                      ? 'inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-800 text-sm ml-2'
+                      : 'inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-800 text-sm ml-2'
+                  "
+                >
+                  <i
+                    [class]="
+                      user.isApproved ? 'pi pi-check-circle' : 'pi pi-clock'
+                    "
+                  ></i>
+                  {{ getStatusLabel() }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="flex-1">
-        <h3 class="text-xl font-semibold text-text">{{ user.username }}</h3>
-        <p class="text-text-muted">{{ user.email }}</p>
-        <p-tag
-          [value]="getStatusLabel()"
-          [severity]="getStatusSeverity()"
-          [icon]="user.isApproved ? 'pi pi-check-circle' : 'pi pi-clock'"
-          class="mt-2"
-        ></p-tag>
+
+      <div *ngIf="!user" class="text-center py-8">
+        <i class="pi pi-user text-4xl text-text-muted mb-4"></i>
+        <p class="text-text-muted">No user selected</p>
       </div>
     </div>
 
-    <!-- User Information Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Basic Info -->
-      <div class="space-y-3">
-        <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
-          Basic Information
-        </h4>
-        <div class="space-y-2">
-          <div>
-            <span class="text-sm text-text-muted">User ID:</span>
-            <p class="text-sm text-text font-mono">{{ user._id }}</p>
-          </div>
-          <div>
-            <span class="text-sm text-text-muted">Username:</span>
-            <p class="text-sm text-text">{{ user.username }}</p>
-          </div>
-          <div>
-            <span class="text-sm text-text-muted">Email:</span>
-            <p class="text-sm text-text">{{ user.email }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Role & Department -->
-      <div class="space-y-3">
-        <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
-          Organization
-        </h4>
-        <div class="space-y-2">
-          <div>
-            <span class="text-sm text-text-muted">Role:</span>
-            <p class="text-sm text-text">
-              {{ user.role ? user.role.name : 'Not assigned' }}
-            </p>
-          </div>
-          <div>
-            <span class="text-sm text-text-muted">Department:</span>
-            <p class="text-sm text-text">
-              {{ user.department ? user.department.name : 'Not assigned' }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Timestamps -->
-      <div class="space-y-3">
-        <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
-          Timestamps
-        </h4>
-        <div class="space-y-2">
-          <div>
-            <span class="text-sm text-text-muted">Created:</span>
-            <p class="text-sm text-text">{{ formatDate(user.createdAt) }}</p>
-          </div>
-          <div>
-            <span class="text-sm text-text-muted">Last Updated:</span>
-            <p class="text-sm text-text">{{ formatDate(user.updatedAt) }}</p>
-          </div>
-          <div *ngIf="user.lastLogin">
-            <span class="text-sm text-text-muted">Last Login:</span>
-            <p class="text-sm text-text">{{ formatDate(user.lastLogin) }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Status & Actions -->
-      <div class="space-y-3">
-        <h4 class="text-sm font-semibold text-text uppercase tracking-wide">
-          Status
-        </h4>
-        <div class="space-y-2">
-          <div>
-            <span class="text-sm text-text-muted">Approval Status:</span>
-            <p-tag
-              [value]="getStatusLabel()"
-              [severity]="getStatusSeverity()"
-              [icon]="user.isApproved ? 'pi pi-check-circle' : 'pi pi-clock'"
-              class="ml-2"
-            ></p-tag>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div *ngIf="!user" class="text-center py-8">
-    <i class="pi pi-user text-4xl text-text-muted mb-4"></i>
-    <p class="text-text-muted">No user selected</p>
-  </div>
-
-  <ng-template pTemplate="footer">
-    <div class="flex justify-between w-full items-center">
+    <!-- Footer -->
+    <div
+      class="flex items-center justify-between p-6 border-t border-neutral-200 flex-shrink-0"
+    >
       <div class="flex gap-2">
-        <p-button
-          label="Delete"
-          icon="pi pi-trash"
-          severity="danger"
-          [outlined]="true"
+        <button
+          type="button"
           (click)="onRemove()"
           [disabled]="!user || loading"
-        ></p-button>
+          class="px-4 py-2 rounded-md border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <i class="pi pi-trash"></i>
+          Delete
+        </button>
       </div>
       <div class="flex gap-2">
-        <p-button
-          label="Edit User"
-          icon="pi pi-pencil"
-          [outlined]="true"
+        <button
+          type="button"
           (click)="onEdit()"
           [disabled]="!user || loading"
-        ></p-button>
-        <p-button
+          class="px-4 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <i class="pi pi-pencil"></i>
+          Edit User
+        </button>
+        <button
           *ngIf="user && !user.isApproved"
-          label="Approve"
-          icon="pi pi-check"
-          severity="success"
-          [outlined]="true"
+          type="button"
           (click)="onApprove()"
           [disabled]="loading"
-        ></p-button>
-        <p-button
+          class="px-4 py-2 rounded-md border border-green-300 text-green-700 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <i class="pi pi-check"></i>
+          Approve
+        </button>
+        <button
           *ngIf="user && !user.isApproved"
-          label="Reject"
-          icon="pi pi-times"
-          severity="danger"
-          [outlined]="true"
+          type="button"
           (click)="onReject()"
           [disabled]="loading"
-        ></p-button>
-        <p-button
-          label="Close"
-          icon="pi pi-times"
-          [text]="true"
+          class="px-4 py-2 rounded-md border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <i class="pi pi-times"></i>
+          Reject
+        </button>
+        <button
+          type="button"
           (click)="onClose()"
           [disabled]="loading"
-        ></p-button>
+          class="px-4 py-2 rounded-md text-text-muted hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Close
+        </button>
       </div>
     </div>
-  </ng-template>
-</p-dialog>
+  </div>
+</div>

@@ -73,6 +73,40 @@
   background-color: #f8fafc;
 }
 
+/* Rejected row styling - clean approach without column shift */
+/* Use box-shadow inset which doesn't affect layout at all */
+tbody tr td:first-child {
+  padding-left: 1rem;
+  position: relative;
+}
+
+/* Rejected rows - show red indicator using box-shadow inset */
+tbody tr.rejected-row {
+  background: #ffffff;
+}
+
+tbody tr.rejected-row td:first-child {
+  box-shadow: inset 3px 0 0 #ef4444;
+}
+
+/* Subtle hover effect for rejected rows */
+tbody tr.rejected-row:hover {
+  background: linear-gradient(to right, #fef2f2 0%, #ffffff 20%);
+}
+
+tbody tr.rejected-row:hover td:first-child {
+  box-shadow: inset 4px 0 0 #dc2626;
+}
+
+/* Smooth transitions */
+tbody tr.rejected-row {
+  transition: background-color 0.2s ease;
+}
+
+tbody tr.rejected-row td:first-child {
+  transition: box-shadow 0.2s ease;
+}
+
 /* Action buttons */
 .action-btn {
   transition: all 0.2s ease;

@@ -2,8 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService } from 'primeng/api';
 import { PermissionService } from '../../../../core/services/permission.service';
 import { FormsModule } from '@angular/forms';
 import { PermissionFiltersComponent } from './permission-filters.component';
@@ -21,7 +20,6 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
     CommonModule,
     FormsModule,
     ToastModule,
-    ConfirmDialogModule,
     AdminSidebarComponent,
     PermissionFiltersComponent,
     PermissionTableComponent,
@@ -30,15 +28,6 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
   ],
   template: `
     <p-toast></p-toast>
-    <p-confirmDialog
-      [style]="{ width: '28rem' }"
-      styleClass="rounded-xl shadow-high"
-      [dismissableMask]="true"
-      [closable]="true"
-      [defaultFocus]="'reject'"
-      acceptButtonStyleClass="p-button-danger p-button-sm"
-      rejectButtonStyleClass="p-button-text p-button-sm"
-    ></p-confirmDialog>
     <app-admin-sidebar
       [collapsed]="sidebarCollapsed"
       (collapseChange)="sidebarCollapsed = $event"
@@ -129,9 +118,96 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
       [data]="viewData"
       (close)="onCloseView()"
     ></app-rule-view-modal>
+
+    <!-- Custom Delete Confirmation Modal -->
+    <div
+      *ngIf="showDeleteDialog"
+      class="fixed inset-0 z-[9999] flex items-center justify-center"
+      style="z-index: 9999"
+    >
+      <div
+        class="absolute inset-0 bg-black/50"
+        (click)="closeDeleteDialog()"
+        role="button"
+        tabindex="0"
+      ></div>
+      <div
+        class="relative bg-white border border-neutral-300 rounded-xl shadow-2xl w-full max-w-md z-[10000]"
+        style="z-index: 10000; width: 28rem"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="closeDeleteDialog()"
+      >
+        <div
+          class="flex items-center justify-between p-6 border-b border-neutral-200 bg-gradient-to-r from-error/5 to-error/10"
+        >
+          <div>
+            <h3 class="text-xl font-bold text-text">Delete Permission Rule</h3>
+            <p class="text-sm text-text-muted mt-1">
+              This action cannot be undone
+            </p>
+          </div>
+          <button
+            class="p-2 text-text-muted hover:bg-neutral-100 rounded-md transition-colors"
+            (click)="closeDeleteDialog()"
+            type="button"
+          >
+            <i class="pi pi-times text-lg"></i>
+          </button>
+        </div>
+
+        <div class="p-6">
+          <div class="flex items-start gap-4 mb-4">
+            <div
+              class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0"
+            >
+              <i class="pi pi-exclamation-triangle text-error text-2xl"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-gray-900">
+                Are you sure you want to delete this permission rule?
+              </p>
+              <p class="text-sm text-gray-600 mt-1">
+                Rule: {{ ruleToDelete?.name || 'Unknown' }}
+              </p>
+            </div>
+          </div>
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p class="text-sm text-yellow-800">
+              <i class="pi pi-info-circle mr-2"></i>
+              This will permanently delete the permission rule and all
+              associated data.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="flex items-center justify-end gap-3 p-6 border-t border-neutral-200 bg-gray-50"
+        >
+          <button
+            type="button"
+            (click)="closeDeleteDialog()"
+            [disabled]="deleteLoading"
+            class="px-3 py-1.5 rounded-md text-text hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            (click)="confirmDeleteRule()"
+            [disabled]="deleteLoading"
+            class="px-3 py-1.5 rounded-md bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors text-sm"
+          >
+            <i *ngIf="deleteLoading" class="pi pi-spin pi-spinner"></i>
+            <i *ngIf="!deleteLoading" class="pi pi-trash"></i>
+            <span *ngIf="!deleteLoading">Delete</span>
+            <span *ngIf="deleteLoading">Deleting...</span>
+          </button>
+        </div>
+      </div>
+    </div>
   `,
   styles: [':host { display: block; }'],
-  providers: [MessageService, ConfirmationService],
+  providers: [MessageService],
 })
 export class PermissionManagementComponent {
   sidebarCollapsed = false;
@@ -144,6 +220,11 @@ export class PermissionManagementComponent {
   showForm = false;
   showView = false;
   viewData: any = null;
+
+  // Delete confirmation modal
+  showDeleteDialog = false;
+  ruleToDelete: PermissionRuleRow | null = null;
+  deleteLoading = false;
   dialogMode: 'create' | 'edit' = 'create';
   dialogForm: {
     name: string;
@@ -182,8 +263,7 @@ export class PermissionManagementComponent {
 
   constructor(
     private permissionService: PermissionService,
-    private messageService: MessageService,
-    private confirm: ConfirmationService
+    private messageService: MessageService
   ) {
     this.loadRules();
   }
@@ -313,38 +393,41 @@ export class PermissionManagementComponent {
     });
   }
   onDeleteRule(r: PermissionRuleRow): void {
-    const id = r.id;
-    if (!id) return;
-    this.confirm.confirm({
-      header: 'Delete Permission Rule',
-      message: `Are you sure you want to delete "${r.name}"? This action cannot be undone.`,
-      icon: 'pi pi-exclamation-triangle text-red-500',
-      acceptIcon: 'pi pi-trash',
-      rejectIcon: 'pi pi-times',
-      acceptLabel: 'Delete',
-      rejectLabel: 'Cancel',
-      defaultFocus: 'reject',
-      acceptButtonStyleClass: 'p-button-danger p-button-sm',
-      rejectButtonStyleClass: 'p-button-text p-button-sm',
-      accept: () => {
-        this.permissionService.deletePermissionConfig(id).subscribe({
-          next: dres => {
-            this.messageService.add({
-              severity: 'success',
-              summary: 'Deleted',
-              detail: dres?.message || 'Rule deleted',
-            });
-            this.loadRules();
-          },
-          error: err =>
-            this.messageService.add({
-              severity: 'error',
-              summary: 'Failed',
-              detail: err?.error?.message || 'Failed to delete rule',
-            }),
-        });
-      },
-    });
+    this.ruleToDelete = r;
+    this.showDeleteDialog = true;
+  }
+
+  closeDeleteDialog(): void {
+    this.showDeleteDialog = false;
+    this.ruleToDelete = null;
+    this.deleteLoading = false;
+  }
+
+  confirmDeleteRule(): void {
+    if (!this.ruleToDelete?.id) return;
+
+    this.deleteLoading = true;
+    this.permissionService
+      .deletePermissionConfig(this.ruleToDelete.id)
+      .subscribe({
+        next: dres => {
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Deleted',
+            detail: dres?.message || 'Rule deleted',
+          });
+          this.closeDeleteDialog();
+          this.loadRules();
+        },
+        error: err => {
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Failed',
+            detail: err?.error?.message || 'Failed to delete rule',
+          });
+          this.deleteLoading = false;
+        },
+      });
   }
 
   onDialogCancel(): void {

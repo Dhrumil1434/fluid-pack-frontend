@@ -340,7 +340,20 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
     // Navigate based on actionUrl
     if (notification.actionUrl) {
-      this.router.navigate([notification.actionUrl]);
+      // Parse query params from actionUrl if present
+      const urlParts = notification.actionUrl.split('?');
+      const path = urlParts[0];
+      const queryParams: Record<string, string> = {};
+
+      if (urlParts.length > 1) {
+        const params = new URLSearchParams(urlParts[1]);
+        params.forEach((value, key) => {
+          queryParams[key] = value;
+        });
+      }
+
+      // Navigate with query params
+      this.router.navigate([path], { queryParams });
       this.closeDropdown();
     } else {
       // Default navigation based on type
@@ -353,7 +366,15 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
         notification.type === 'MACHINE_APPROVED' ||
         notification.type === 'MACHINE_REJECTED'
       ) {
-        this.router.navigate(['/dispatch/machines']);
+        // If we have machineId in metadata, navigate with it
+        const machineId = notification.metadata?.['machineId'] as string;
+        if (machineId) {
+          this.router.navigate(['/admin/machines'], {
+            queryParams: { machineId },
+          });
+        } else {
+          this.router.navigate(['/dispatch/machines']);
+        }
       }
       this.closeDropdown();
     }

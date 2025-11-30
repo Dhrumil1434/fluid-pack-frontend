@@ -1,41 +1,68 @@
-<p-dialog
-  [visible]="visible"
-  (visibleChange)="cancel.emit()"
-  [modal]="true"
-  [closable]="true"
-  [draggable]="false"
-  [resizable]="false"
-  styleClass="fp-dialog"
-  [style]="{ width: '420px' }"
-  (keydown.enter)="onConfirm()"
-  (keydown.escape)="onCancel()"
-  [header]="mode === 'approve' ? 'Approve User' : 'Reject User'"
+<div
+  *ngIf="visible"
+  class="fixed inset-0 z-[9999] flex items-center justify-center"
+  style="z-index: 9999"
 >
-  <div class="space-y-3">
-    <p class="text-text">Are you sure you want to {{ mode }} this user?</p>
-  </div>
+  <div
+    class="absolute inset-0 bg-black/40"
+    (click)="onCancel()"
+    role="button"
+    tabindex="0"
+    (keydown.enter)="onCancel()"
+    (keydown.space)="onCancel()"
+  ></div>
+  <div
+    class="relative bg-white border border-neutral-300 rounded-xl shadow-medium w-full max-w-md p-5 z-[10000]"
+    style="z-index: 10000; position: relative"
+    (click)="$event.stopPropagation()"
+    (keydown.escape)="onCancel()"
+  >
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-text">
+        {{ mode === 'approve' ? 'Approve User' : 'Reject User' }}
+      </h3>
+      <button
+        class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+        (click)="onCancel()"
+        type="button"
+      >
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
 
-  <div class="flex items-center justify-end gap-2 mt-4">
-    <button
-      pButton
-      type="button"
-      label="Cancel"
-      icon="pi pi-times"
-      [outlined]="true"
-      severity="secondary"
-      (click)="onCancel()"
-      [disabled]="loading"
-    ></button>
+    <div class="mb-4">
+      <p class="text-text">Are you sure you want to {{ mode }} this user?</p>
+    </div>
 
-    <button
-      pButton
-      type="button"
-      [label]="mode === 'approve' ? 'Approve' : 'Reject'"
-      [icon]="mode === 'approve' ? 'pi pi-check' : 'pi pi-times'"
-      [severity]="mode === 'approve' ? 'success' : 'danger'"
-      (click)="onConfirm()"
-      [loading]="loading"
-      [disabled]="loading"
-    ></button>
+    <div class="flex items-center justify-end gap-2">
+      <button
+        type="button"
+        (click)="onCancel()"
+        [disabled]="loading"
+        class="px-4 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        (click)="onConfirm()"
+        [disabled]="loading"
+        [class]="
+          mode === 'approve'
+            ? 'px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+            : 'px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2'
+        "
+      >
+        <i *ngIf="loading" class="pi pi-spin pi-spinner"></i>
+        <i
+          *ngIf="!loading"
+          [class]="mode === 'approve' ? 'pi pi-check' : 'pi pi-times'"
+        ></i>
+        <span *ngIf="!loading">{{
+          mode === 'approve' ? 'Approve' : 'Reject'
+        }}</span>
+        <span *ngIf="loading">Processing...</span>
+      </button>
+    </div>
   </div>
-</p-dialog>
+</div>

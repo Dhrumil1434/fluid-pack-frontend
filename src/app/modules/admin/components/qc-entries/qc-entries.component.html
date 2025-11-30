@@ -22,6 +22,15 @@
         { label: 'QC Entries' },
       ]"
     >
+      <button
+        headerActions
+        class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.98]"
+        (click)="openCreateQCEntryModal()"
+        title="Create New QC Entry"
+      >
+        <i class="pi pi-plus mr-2"></i>
+        Create QC Entry
+      </button>
     </app-page-header>
 
     <main class="p-6 space-y-4">
@@ -394,36 +403,60 @@
                     View
                   </button>
 
-                  <!-- Approve/Reject Actions -->
-                  <button
-                    *ngIf="approval.status === 'PENDING'"
-                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 rounded-md hover:bg-success/20 hover:border-success/30 transition-all duration-150 cursor-pointer shadow-sm"
-                    (click)="onApproveApproval(approval)"
-                    title="Approve"
-                  >
-                    <i class="pi pi-check text-xs"></i>
-                  </button>
-                  <button
-                    *ngIf="approval.status === 'PENDING'"
-                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm"
-                    (click)="onRejectApproval(approval)"
-                    title="Reject"
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
-
-                  <!-- Activate Machine -->
-                  <button
-                    *ngIf="
-                      approval.status === 'APPROVED' &&
-                      !approval.machineActivated
-                    "
-                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 cursor-pointer shadow-sm"
-                    (click)="onActivateMachine(approval)"
-                    title="Activate Machine"
-                  >
-                    <i class="pi pi-power-off text-xs"></i>
-                  </button>
+                  <!-- Action Buttons -->
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <!-- Approve Action -->
+                    <button
+                      *ngIf="approval.status === 'PENDING'"
+                      class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 rounded-md hover:bg-success/20 hover:border-success/30 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                      (click)="onApproveApproval(approval)"
+                      title="Approve"
+                    >
+                      <i class="pi pi-check text-xs mr-1"></i>
+                      Approve
+                    </button>
+                    <!-- Reject Action -->
+                    <button
+                      *ngIf="approval.status === 'PENDING'"
+                      class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                      (click)="onRejectApproval(approval)"
+                      title="Reject"
+                    >
+                      <i class="pi pi-times text-xs mr-1"></i>
+                      Reject
+                    </button>
+                    <!-- Edit Action -->
+                    <button
+                      *ngIf="approval.status === 'PENDING'"
+                      class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded-md hover:bg-warning/20 hover:border-warning/30 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                      (click)="openEditModal(approval)"
+                      title="Edit"
+                    >
+                      <i class="pi pi-pencil text-xs mr-1"></i>
+                      Edit
+                    </button>
+                    <!-- Delete Action -->
+                    <button
+                      class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                      (click)="openDeleteModal(approval)"
+                      title="Delete"
+                    >
+                      <i class="pi pi-trash text-xs mr-1"></i>
+                      Delete
+                    </button>
+                    <!-- Activate Machine (Approve Tick Icon) -->
+                    <button
+                      *ngIf="
+                        approval.status === 'APPROVED' &&
+                        !approval.machineActivated
+                      "
+                      class="inline-flex items-center justify-center w-8 h-8 text-success bg-success/10 border border-success/20 rounded-md hover:bg-success/20 hover:border-success/30 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                      (click)="onActivateMachine(approval)"
+                      title="Activate Machine"
+                    >
+                      <i class="pi pi-check text-sm"></i>
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -1389,6 +1422,754 @@
               (click)="showDocumentDialog = false"
             >
               Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create QC Entry Modal -->
+      <div
+        *ngIf="showCreateQCEntryModal"
+        class="fixed inset-0 z-[9999] flex items-center justify-center"
+        style="z-index: 9999"
+      >
+        <div
+          class="absolute inset-0 bg-black/50"
+          (click)="closeCreateQCEntryModal()"
+          (keyup.enter)="closeCreateQCEntryModal()"
+          (keyup.escape)="closeCreateQCEntryModal()"
+          role="button"
+          tabindex="0"
+        ></div>
+        <div
+          class="relative bg-white border border-neutral-300 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-[10000]"
+          style="z-index: 10000"
+          (click)="$event.stopPropagation()"
+          (keydown.enter)="$event.stopPropagation()"
+          (keydown.space)="$event.stopPropagation()"
+        >
+          <div
+            class="flex items-center justify-between p-6 border-b border-neutral-200 flex-shrink-0 bg-gradient-to-r from-primary/5 to-primary/10"
+          >
+            <div>
+              <h3 class="text-xl font-bold text-text">Create QC Entry</h3>
+              <p class="text-sm text-text-muted mt-1">
+                Search and select a machine to create a QC entry
+              </p>
+            </div>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md transition-colors"
+              (click)="closeCreateQCEntryModal()"
+              type="button"
+            >
+              <i class="pi pi-times text-lg"></i>
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-6">
+            <!-- Filters Section - Matching QC Machine Selection -->
+            <app-list-filters
+              searchLabel="Search machines"
+              searchPlaceholder="Name, metadata, created by..."
+              (searchChange)="onMachineSearchChange($event)"
+              (apply)="loadMachinesForQC()"
+              (clear)="clearMachineFilters()"
+            >
+              <div filters-extra class="flex flex-wrap items-end gap-3">
+                <select
+                  class="px-3 py-2 border border-neutral-300 rounded-md"
+                  [(ngModel)]="machineFilters.category_id"
+                  (change)="onMachineCategoryFilterChange()"
+                >
+                  <option [ngValue]="undefined">All categories</option>
+                  <option
+                    *ngFor="let cat of categories; trackBy: trackById"
+                    [value]="cat._id"
+                  >
+                    {{ cat.name }}
+                  </option>
+                </select>
+                <!-- Metadata Key Autocomplete -->
+                <div class="relative">
+                  <input
+                    type="text"
+                    class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                    placeholder="Metadata Key"
+                    [(ngModel)]="machineFilters.metadata_key"
+                    (input)="onMachineMetadataKeyChange()"
+                    (focus)="showMetadataKeySuggestions = true"
+                    (blur)="hideMachineMetadataSuggestions()"
+                  />
+                  <div
+                    *ngIf="
+                      showMetadataKeySuggestions &&
+                      metadataKeySuggestions.length > 0
+                    "
+                    class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                  >
+                    <div
+                      *ngFor="
+                        let key of metadataKeySuggestions;
+                        let i = index;
+                        trackBy: trackByIndex
+                      "
+                      class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                      (mousedown)="selectMachineMetadataKey(key)"
+                    >
+                      {{ key }}
+                    </div>
+                  </div>
+                </div>
+                <!-- Metadata Value -->
+                <input
+                  *ngIf="machineFilters.metadata_key"
+                  type="text"
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                  placeholder="Metadata Value"
+                  [(ngModel)]="machineFilters.metadata_value"
+                  (input)="onMachineMetadataValueChange()"
+                />
+                <!-- Dispatch Date From -->
+                <input
+                  type="date"
+                  class="px-3 py-2 border border-neutral-300 rounded-md"
+                  placeholder="Dispatch Date From"
+                  [(ngModel)]="machineFilters.dispatch_date_from"
+                  (change)="loadMachinesForQC()"
+                />
+                <!-- Dispatch Date To -->
+                <input
+                  type="date"
+                  class="px-3 py-2 border border-neutral-300 rounded-md"
+                  placeholder="Dispatch Date To"
+                  [(ngModel)]="machineFilters.dispatch_date_to"
+                  (change)="loadMachinesForQC()"
+                />
+                <!-- Sort By -->
+                <select
+                  class="px-3 py-2 border border-neutral-300 rounded-md"
+                  [(ngModel)]="machineFilters.sortBy"
+                  (change)="loadMachinesForQC()"
+                >
+                  <option [ngValue]="undefined">Sort By</option>
+                  <option value="createdAt">Created Date</option>
+                  <option value="name">Name</option>
+                  <option value="category">Category</option>
+                  <option value="dispatch_date">Dispatch Date</option>
+                </select>
+                <!-- Sort Order -->
+                <select
+                  *ngIf="machineFilters.sortBy"
+                  class="px-3 py-2 border border-neutral-300 rounded-md"
+                  [(ngModel)]="machineFilters.sortOrder"
+                  (change)="loadMachinesForQC()"
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </div>
+            </app-list-filters>
+
+            <!-- Table Section - Matching QC Machine Selection -->
+            <app-list-table-shell title="Select Machine">
+              <table class="min-w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-50 text-left border-b border-gray-200">
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      QC Sequence
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Name
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Category
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Subcategory
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Party
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Location
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Mobile
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Dispatch Date
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Created By
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center"
+                    >
+                      Docs
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                    >
+                      Approved
+                    </th>
+                    <th
+                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-32"
+                    >
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr
+                    *ngFor="
+                      let m of filteredMachines;
+                      trackBy: trackByMachineId
+                    "
+                    class="hover:bg-gray-50 transition-colors duration-150"
+                    [ngClass]="{
+                      'bg-primary/5': selectedMachineForQC?._id === m._id,
+                    }"
+                  >
+                    <!-- QC Sequence Column -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="flex items-center">
+                        <span
+                          *ngIf="m.machine_sequence"
+                          class="inline-flex items-center font-mono text-sm font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-md border border-primary/20"
+                          [title]="
+                            'QC Sequence: ' +
+                            formatSequenceWithQC(m.machine_sequence)
+                          "
+                        >
+                          {{ formatSequenceWithQC(m.machine_sequence) }}
+                        </span>
+                        <span
+                          *ngIf="!m.machine_sequence"
+                          class="text-gray-400 text-sm"
+                          >-</span
+                        >
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ m.name }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{ m.category_id?.name || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span
+                        *ngIf="m.subcategory_id"
+                        class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
+                      >
+                        {{ getSubcategoryDisplayName(m.subcategory_id) }}
+                      </span>
+                      <span
+                        *ngIf="!m.subcategory_id"
+                        class="text-gray-400 text-sm"
+                        >-</span
+                      >
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{ m.party_name || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{ m.location || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{ m.mobile_number || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{
+                          m.dispatch_date
+                            ? (m.dispatch_date | date: 'dd-MM-yyyy')
+                            : '-'
+                        }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {{ m.created_by?.username || '-' }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center">
+                      <span
+                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                      >
+                        {{ m.documents?.length || 0 }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span
+                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                        [ngClass]="{
+                          'bg-success/20 text-success': m.is_approved,
+                          'bg-warning/20 text-warning': !m.is_approved,
+                        }"
+                      >
+                        {{ m.is_approved ? 'Yes' : 'No' }}
+                      </span>
+                    </td>
+                    <!-- Action Column - Select Machine -->
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <button
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                        [ngClass]="
+                          selectedMachineForQC?._id === m._id
+                            ? 'text-white bg-primary border border-primary hover:bg-primary/90'
+                            : 'text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:border-primary/30'
+                        "
+                        (click)="selectMachineForQC(m)"
+                        [title]="
+                          selectedMachineForQC?._id === m._id
+                            ? 'Selected'
+                            : 'Select this machine'
+                        "
+                      >
+                        <i
+                          [class]="
+                            selectedMachineForQC?._id === m._id
+                              ? 'pi pi-check text-xs mr-1'
+                              : 'pi pi-check-circle text-xs mr-1'
+                          "
+                        ></i>
+                        <span>{{
+                          selectedMachineForQC?._id === m._id
+                            ? 'Selected'
+                            : 'Select'
+                        }}</span>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr *ngIf="filteredMachines.length === 0 && !loading">
+                    <td
+                      colspan="12"
+                      class="px-4 py-12 text-center text-gray-500"
+                    >
+                      <div class="flex flex-col items-center justify-center">
+                        <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
+                        <p class="text-sm font-medium">No machines found</p>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div table-footer class="w-full">
+                <app-table-pagination
+                  [page]="machinePage"
+                  [pages]="machinePages"
+                  [total]="machineTotal"
+                  [limit]="machineLimit"
+                  (pageChange)="onMachinePageChange($event)"
+                  (limitChange)="onMachineLimitChange($event)"
+                ></app-table-pagination>
+              </div>
+            </app-list-table-shell>
+
+            <!-- QC Entry Form -->
+            <div *ngIf="selectedMachineForQC" class="space-y-6">
+              <div class="border-t border-gray-200 pt-6">
+                <h4 class="text-lg font-semibold text-gray-900 mb-4">
+                  QC Entry Details
+                </h4>
+
+                <!-- QC Notes -->
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >QC Notes</label
+                  >
+                  <textarea
+                    [(ngModel)]="qcEntryNotes"
+                    placeholder="Enter QC inspection notes, findings, or recommendations..."
+                    rows="3"
+                    class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  ></textarea>
+                </div>
+
+                <!-- Quality Score -->
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Quality Score (0-100)</label
+                  >
+                  <input
+                    type="number"
+                    [(ngModel)]="qcEntryQualityScore"
+                    min="0"
+                    max="100"
+                    placeholder="Enter quality score"
+                    class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
+                <!-- Inspection Dates -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                      >Inspection Date</label
+                    >
+                    <input
+                      type="date"
+                      [(ngModel)]="qcEntryInspectionDate"
+                      class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                      >Next Inspection Date</label
+                    >
+                    <input
+                      type="date"
+                      [(ngModel)]="qcEntryNextInspectionDate"
+                      class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <!-- File Upload -->
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Upload Documents</label
+                  >
+                  <label
+                    class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <i class="pi pi-upload text-primary mr-2 text-xl"></i>
+                    <span class="text-sm text-gray-700"
+                      >Click to select files</span
+                    >
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"
+                      (change)="onQCFileSelected($event)"
+                      class="hidden"
+                    />
+                  </label>
+                  <p class="text-xs text-gray-500 mt-1">
+                    Supported formats: PDF, DOC, DOCX, JPG, PNG, XLSX (Max 10MB
+                    per file)
+                  </p>
+                  <div *ngIf="selectedFiles.length > 0" class="mt-2 space-y-2">
+                    <div
+                      *ngFor="
+                        let file of selectedFiles;
+                        let i = index;
+                        trackBy: trackByIndex
+                      "
+                      class="flex items-center justify-between p-2 bg-gray-50 rounded"
+                    >
+                      <span class="text-sm text-gray-700">{{ file.name }}</span>
+                      <button
+                        type="button"
+                        (click)="selectedFiles.splice(i, 1)"
+                        class="text-red-500 hover:text-red-700"
+                      >
+                        <i class="pi pi-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Report Link -->
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-2"
+                    >Report Link (Optional)</label
+                  >
+                  <input
+                    type="url"
+                    [(ngModel)]="qcEntryReportLink"
+                    (ngModelChange)="onQCReportLinkInput($event)"
+                    placeholder="https://link-to-report-or-drive"
+                    class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                  <div
+                    *ngIf="reportLinkTouched && reportLinkErrorMsg"
+                    class="mt-1 text-xs text-error"
+                  >
+                    {{ reportLinkErrorMsg }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="flex items-center justify-end gap-3 p-6 border-t border-neutral-200 flex-shrink-0 bg-gray-50"
+          >
+            <button
+              type="button"
+              (click)="closeCreateQCEntryModal()"
+              [disabled]="uploadingQC"
+              class="px-4 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              (click)="submitQCEntry()"
+              [disabled]="
+                uploadingQC ||
+                !selectedMachineForQC ||
+                selectedFiles.length === 0 ||
+                !!reportLinkErrorMsg
+              "
+              class="px-4 py-2 rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            >
+              <i *ngIf="uploadingQC" class="pi pi-spin pi-spinner"></i>
+              <i *ngIf="!uploadingQC" class="pi pi-check"></i>
+              <span *ngIf="!uploadingQC">Create QC Entry</span>
+              <span *ngIf="uploadingQC">Creating...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Modal -->
+      <div
+        *ngIf="showEditDialog"
+        class="fixed inset-0 z-[9999] flex items-center justify-center"
+        style="z-index: 9999"
+      >
+        <div
+          class="absolute inset-0 bg-black/50"
+          (click)="closeEditModal()"
+          (keyup.enter)="closeEditModal()"
+          (keyup.escape)="closeEditModal()"
+          role="button"
+          tabindex="0"
+        ></div>
+        <div
+          class="relative bg-white border border-neutral-300 rounded-xl shadow-2xl w-full max-w-2xl z-[10000]"
+          style="z-index: 10000"
+          (click)="$event.stopPropagation()"
+          (keydown.enter)="$event.stopPropagation()"
+          (keydown.space)="$event.stopPropagation()"
+        >
+          <div
+            class="flex items-center justify-between p-6 border-b border-neutral-200 bg-gradient-to-r from-warning/5 to-warning/10"
+          >
+            <div>
+              <h3 class="text-xl font-bold text-text">Edit QC Approval</h3>
+              <p class="text-sm text-text-muted mt-1">
+                Update QC approval details
+              </p>
+            </div>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md transition-colors"
+              (click)="closeEditModal()"
+              type="button"
+            >
+              <i class="pi pi-times text-lg"></i>
+            </button>
+          </div>
+
+          <form [formGroup]="editForm" class="p-6 space-y-4">
+            <!-- QC Notes -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >QC Notes</label
+              >
+              <textarea
+                formControlName="qcNotes"
+                placeholder="Enter QC inspection notes..."
+                rows="4"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              ></textarea>
+            </div>
+
+            <!-- Quality Score -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Quality Score (0-100)</label
+              >
+              <input
+                type="number"
+                formControlName="qualityScore"
+                min="0"
+                max="100"
+                placeholder="Enter quality score"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            <!-- Inspection Dates -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Inspection Date</label
+                >
+                <input
+                  type="date"
+                  formControlName="inspectionDate"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Next Inspection Date</label
+                >
+                <input
+                  type="date"
+                  formControlName="nextInspectionDate"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <!-- Request Notes -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Request Notes</label
+              >
+              <textarea
+                formControlName="requestNotes"
+                placeholder="Enter request notes..."
+                rows="3"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              ></textarea>
+            </div>
+          </form>
+
+          <div
+            class="flex items-center justify-end gap-3 p-6 border-t border-neutral-200 bg-gray-50"
+          >
+            <button
+              type="button"
+              (click)="closeEditModal()"
+              [disabled]="actionLoading"
+              class="px-4 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              (click)="submitEdit()"
+              [disabled]="actionLoading"
+              class="px-4 py-2 rounded-md bg-warning text-white hover:bg-warning/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            >
+              <i *ngIf="actionLoading" class="pi pi-spin pi-spinner"></i>
+              <i *ngIf="!actionLoading" class="pi pi-check"></i>
+              <span *ngIf="!actionLoading">Update</span>
+              <span *ngIf="actionLoading">Updating...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div
+        *ngIf="showDeleteDialog"
+        class="fixed inset-0 z-[9999] flex items-center justify-center"
+        style="z-index: 9999"
+      >
+        <div
+          class="absolute inset-0 bg-black/50"
+          (click)="closeDeleteModal()"
+          (keyup.enter)="closeDeleteModal()"
+          (keyup.escape)="closeDeleteModal()"
+          role="button"
+          tabindex="0"
+        ></div>
+        <div
+          class="relative bg-white border border-neutral-300 rounded-xl shadow-2xl w-full max-w-md z-[10000]"
+          style="z-index: 10000"
+          (click)="$event.stopPropagation()"
+          (keydown.enter)="$event.stopPropagation()"
+          (keydown.space)="$event.stopPropagation()"
+        >
+          <div
+            class="flex items-center justify-between p-6 border-b border-neutral-200 bg-gradient-to-r from-error/5 to-error/10"
+          >
+            <div>
+              <h3 class="text-xl font-bold text-text">Delete QC Approval</h3>
+              <p class="text-sm text-text-muted mt-1">
+                This action cannot be undone
+              </p>
+            </div>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md transition-colors"
+              (click)="closeDeleteModal()"
+              type="button"
+            >
+              <i class="pi pi-times text-lg"></i>
+            </button>
+          </div>
+
+          <div class="p-6">
+            <div class="flex items-center gap-4 mb-4">
+              <div
+                class="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0"
+              >
+                <i class="pi pi-exclamation-triangle text-error text-2xl"></i>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-900">
+                  Are you sure you want to delete this QC approval?
+                </p>
+                <p class="text-sm text-gray-600 mt-1">
+                  Machine:
+                  {{ getApprovalMachineName(selectedApproval) || 'Unknown' }}
+                </p>
+              </div>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p class="text-sm text-yellow-800">
+                <i class="pi pi-info-circle mr-2"></i>
+                This will permanently delete the QC approval and all associated
+                data.
+              </p>
+            </div>
+          </div>
+
+          <div
+            class="flex items-center justify-end gap-3 p-6 border-t border-neutral-200 bg-gray-50"
+          >
+            <button
+              type="button"
+              (click)="closeDeleteModal()"
+              [disabled]="actionLoading"
+              class="px-4 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              (click)="confirmDelete()"
+              [disabled]="actionLoading"
+              class="px-4 py-2 rounded-md bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            >
+              <i *ngIf="actionLoading" class="pi pi-spin pi-spinner"></i>
+              <i *ngIf="!actionLoading" class="pi pi-trash"></i>
+              <span *ngIf="!actionLoading">Delete</span>
+              <span *ngIf="actionLoading">Deleting...</span>
             </button>
           </div>
         </div>

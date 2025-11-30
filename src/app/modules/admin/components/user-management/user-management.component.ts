@@ -12,8 +12,7 @@ import { EditUserModalComponent } from './edit-user-modal.component';
 import { UserDetailsModalComponent } from './user-details-modal.component';
 import { User } from '../../../../core/models/user.model';
 import { ToastModule } from 'primeng/toast';
-import { MessageService, ConfirmationService } from 'primeng/api';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService } from 'primeng/api';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
 
 @Component({
@@ -30,10 +29,9 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
     EditUserModalComponent,
     UserDetailsModalComponent,
     ToastModule,
-    ConfirmDialogModule,
     PageHeaderComponent,
   ],
-  providers: [MessageService, ConfirmationService],
+  providers: [MessageService],
   templateUrl: './user-management.component.html',
   styleUrls: ['./user-management.component.css'],
 })
@@ -73,6 +71,11 @@ export class UserManagementComponent implements OnInit {
 
   showUserDetails = false;
 
+  // Delete confirmation modal
+  showDeleteDialog = false;
+  userToDelete: User | null = null;
+  deleteLoading = false;
+
   // Row-level processing state for button loaders
   rowProcessing: {
     userId: string | null;
@@ -83,7 +86,6 @@ export class UserManagementComponent implements OnInit {
     private userService: UserService,
     private fb: FormBuilder,
     private messageService: MessageService,
-    private confirmationService: ConfirmationService,
     private route: ActivatedRoute,
     private router: Router
   ) {
@@ -400,37 +402,42 @@ export class UserManagementComponent implements OnInit {
   }
 
   onDeleteUser(user: User): void {
-    this.confirmationService.confirm({
-      header: 'Delete User',
-      message: `Are you sure you want to delete ${user.username}? This action cannot be undone.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptIcon: 'pi pi-trash',
-      acceptLabel: 'Delete',
-      rejectLabel: 'Cancel',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => {
-        this.userService.deleteUser(user._id).subscribe({
-          next: res => {
-            const msg = res.message || 'User removed successfully.';
-            this.showUserDetails = false;
-            this.selectedUser = null;
-            this.refreshTable();
-            this.loadStats();
-            this.messageService.add({
-              severity: 'success',
-              summary: 'Deleted',
-              detail: msg,
-            });
-          },
-          error: err => {
-            const msg = err?.error?.message || 'Failed to delete user.';
-            this.messageService.add({
-              severity: 'error',
-              summary: 'Failed',
-              detail: msg,
-            });
-          },
+    this.userToDelete = user;
+    this.showDeleteDialog = true;
+  }
+
+  closeDeleteDialog(): void {
+    this.showDeleteDialog = false;
+    this.userToDelete = null;
+    this.deleteLoading = false;
+  }
+
+  confirmDeleteUser(): void {
+    if (!this.userToDelete?._id) return;
+
+    this.deleteLoading = true;
+    this.userService.deleteUser(this.userToDelete._id).subscribe({
+      next: res => {
+        const msg = res.message || 'User removed successfully.';
+        this.showUserDetails = false;
+        this.selectedUser = null;
+        this.closeDeleteDialog();
+        this.refreshTable();
+        this.loadStats();
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Deleted',
+          detail: msg,
         });
+      },
+      error: err => {
+        const msg = err?.error?.message || 'Failed to delete user.';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Failed',
+          detail: msg,
+        });
+        this.deleteLoading = false;
       },
     });
   }

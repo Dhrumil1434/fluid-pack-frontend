@@ -14,23 +14,12 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { SelectModule } from 'primeng/select';
 import { User } from '../../../../core/models/user.model';
 
 @Component({
   selector: 'app-edit-user-modal',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    DialogModule,
-    ButtonModule,
-    InputTextModule,
-    SelectModule,
-  ],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './edit-user-modal.component.html',
   styleUrls: ['./edit-user-modal.component.css'],
 })

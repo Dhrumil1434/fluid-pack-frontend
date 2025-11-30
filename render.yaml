@@ -1,7 +1,9 @@
 services:
   - type: web
+    runtime: node
     name: fluid-pack-frontend
-    env: static
-    buildCommand: npm run build
-    staticPublishPath: dist/fluidpack-frontend/browser
-
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production

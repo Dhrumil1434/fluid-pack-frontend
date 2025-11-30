@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: fluid-pack-frontend
+    env: static
+    buildCommand: npm run build
+    staticPublishPath: dist/fluidpack-frontend/browser
+

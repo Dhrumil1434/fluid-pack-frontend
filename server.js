@@ -3,21 +3,60 @@ const path = require('path');
 const fs = require('fs');
 const app = express();
 
-// Get the dist path
-const distPath = path.join(__dirname, 'dist/fluidpack-frontend/browser');
-const indexPath = path.join(distPath, 'index.html');
+// Get the dist path - try multiple possible locations
+const possiblePaths = [
+  path.join(__dirname, 'dist/fluidpack-frontend/browser'),
+  path.join(__dirname, 'dist/fluidpack-frontend'),
+  path.join(process.cwd(), 'dist/fluidpack-frontend/browser'),
+  path.join(process.cwd(), 'dist/fluidpack-frontend'),
+];
 
-// Verify that the dist directory exists
-if (!fs.existsSync(distPath)) {
-  console.error(`ERROR: Dist directory not found at: ${distPath}`);
-  console.error('Please ensure the build completed successfully.');
-  process.exit(1);
+let distPath = null;
+let indexPath = null;
+
+// Find the correct dist path
+for (const possiblePath of possiblePaths) {
+  const possibleIndexPath = path.join(possiblePath, 'index.html');
+  if (fs.existsSync(possiblePath) && fs.existsSync(possibleIndexPath)) {
+    distPath = possiblePath;
+    indexPath = possibleIndexPath;
+    break;
+  }
 }
 
-// Verify that index.html exists
-if (!fs.existsSync(indexPath)) {
-  console.error(`ERROR: index.html not found at: ${indexPath}`);
-  console.error('Please ensure the build completed successfully.');
+// If not found, try to list what's in dist
+if (!distPath) {
+  console.error('ERROR: Could not find dist directory or index.html');
+  console.error('Current working directory:', process.cwd());
+  console.error('__dirname:', __dirname);
+
+  // Try to list dist directory if it exists
+  const distDir = path.join(__dirname, 'dist');
+  if (fs.existsSync(distDir)) {
+    console.error('\nContents of dist directory:');
+    try {
+      const contents = fs.readdirSync(distDir, { withFileTypes: true });
+      contents.forEach(item => {
+        const itemPath = path.join(distDir, item.name);
+        if (item.isDirectory()) {
+          console.error(`  📁 ${item.name}/`);
+          try {
+            const subContents = fs.readdirSync(itemPath);
+            subContents.forEach(subItem => {
+              console.error(`    - ${subItem}`);
+            });
+          } catch (e) {
+            console.error(`    (cannot read)`);
+          }
+        } else {
+          console.error(`  📄 ${item.name}`);
+        }
+      });
+    } catch (e) {
+      console.error('  (cannot read dist directory)');
+    }
+  }
+
   process.exit(1);
 }
 
@@ -32,7 +71,7 @@ app.get('/health', (req, res) => {
 // Serve static files from the Angular app (CSS, JS, images, etc.)
 app.use(
   express.static(distPath, {
-    // Don't serve index.html for static file requests
+    // Don't serve index.html automatically for directory requests
     index: false,
     // Set proper cache headers for static assets
     maxAge: '1y',
@@ -40,8 +79,30 @@ app.use(
     lastModified: true,
     // Add fallthrough to allow catch-all route to handle non-existent files
     fallthrough: true,
-  }),
+  })
 );
+
+// Explicitly handle root route
+app.get('/', (req, res) => {
+  res.sendFile(indexPath, err => {
+    if (err) {
+      console.error('Error sending index.html for root:', err);
+      res.status(500).send('Error loading application');
+    }
+  });
+});
+
+// Explicitly handle /index.html route
+app.get('/index.html', (req, res) => {
+  res.sendFile(indexPath, err => {
+    if (err) {
+      console.error('Error sending index.html:', err);
+      console.error('Request path:', req.path);
+      console.error('Index path:', indexPath);
+      res.status(500).send('Error loading application');
+    }
+  });
+});
 
 // API routes or other backend routes should be handled before the catch-all
 // Add any API proxy routes here if needed
@@ -59,6 +120,11 @@ app.get('*', (req, res, next) => {
     return next();
   }
 
+  // Skip if it's a static file request (has extension)
+  if (req.path.match(/\.[a-zA-Z0-9]+$/)) {
+    return next();
+  }
+
   // Send index.html for all other routes (SPA fallback)
   res.sendFile(indexPath, err => {
     if (err) {
@@ -66,8 +132,6 @@ app.get('*', (req, res, next) => {
       console.error('Request path:', req.path);
       console.error('Index path:', indexPath);
       res.status(500).send('Error loading application');
-    } else {
-      console.log(`Served index.html for route: ${req.path}`);
     }
   });
 });
@@ -77,5 +141,7 @@ app.listen(port, () => {
   console.log(`🚀 Server is running on port ${port}`);
   console.log(`📁 Serving static files from: ${distPath}`);
   console.log(`📄 Index file path: ${indexPath}`);
-  console.log(`🌐 Application should be accessible at: http://localhost:${port}`);
+  console.log(
+    `🌐 Application should be accessible at: http://localhost:${port}`
+  );
 });

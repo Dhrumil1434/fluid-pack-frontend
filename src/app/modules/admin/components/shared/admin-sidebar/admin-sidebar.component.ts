@@ -150,11 +150,17 @@ export class AdminSidebarComponent implements OnInit {
     // Get user data from auth service
     this.authService.currentUser$.subscribe((user: any) => {
       if (user) {
+        // Extract role name properly (role is an object with name property)
+        const roleName =
+          typeof user.role === 'string'
+            ? user.role
+            : user.role?.name || 'Admin';
+
         this.currentUser = {
-          name: user.username || 'Admin User',
+          name: user.name || user.username || 'Admin User',
           email: user.email || 'admin@fluidpack.com',
-          role: user.role?.name || 'Admin',
-          avatar: null,
+          role: roleName,
+          avatar: user.avatar || null,
         };
       } else {
         // Fallback data if no user is logged in
@@ -262,5 +268,13 @@ export class AdminSidebarComponent implements OnInit {
       // Navigate to route for items without children
       this.navigateTo(item.route);
     }
+  }
+
+  /**
+   * Toggle sidebar collapse state and emit event
+   */
+  toggleCollapse(): void {
+    this.collapsed = !this.collapsed;
+    this.collapseChange.emit(this.collapsed);
   }
 }

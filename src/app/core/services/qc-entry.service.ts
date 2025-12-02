@@ -3,16 +3,39 @@ import { Observable } from 'rxjs';
 import { BaseApiService } from './base-api.service';
 import { ApiResponse } from '../models';
 
+export interface QCDocument {
+  name: string;
+  file_path: string;
+  document_type?: string;
+  uploaded_at?: string;
+}
+
 export interface QCEntry {
   _id?: string;
   machineId: string;
   addedBy: string;
+
+  // Machine fields
+  name?: string;
+  category_id?: string;
+  subcategory_id?: string;
+  machine_sequence?: string;
+  party_name?: string;
+  location?: string;
+  mobile_number?: string;
+  dispatch_date?: string;
+  images?: string[];
+  documents?: QCDocument[];
+
+  // QC-specific fields
   qcNotes?: string;
   qualityScore?: number;
   inspectionDate?: string;
+  qc_date?: string;
   nextInspectionDate?: string;
   files?: string[];
   reportLink?: string;
+
   createdAt?: string;
   updatedAt?: string;
 }
@@ -104,6 +127,16 @@ export class QCEntryService {
   }
 
   /**
+   * Update QC entry with FormData (for file uploads)
+   */
+  updateQCEntryWithFormData(
+    id: string,
+    formData: FormData
+  ): Observable<ApiResponse<QCEntry>> {
+    return this.api.put<QCEntry>(`/qc-machines/${id}`, formData);
+  }
+
+  /**
    * Delete QC entry
    */
   deleteQCEntry(id: string): Observable<ApiResponse<void>> {
@@ -191,8 +224,12 @@ export class QCEntryService {
   /**
    * Get QC approval statistics
    */
-  getQCApprovalStatistics(): Observable<ApiResponse<any>> {
-    return this.api.get<any>('/qc-approvals/statistics');
+  getQCApprovalStatistics(requestedBy?: string): Observable<ApiResponse<any>> {
+    const params: any = {};
+    if (requestedBy) {
+      params.requestedBy = requestedBy;
+    }
+    return this.api.get<any>('/qc-approvals/statistics', params);
   }
 
   /**
@@ -217,6 +254,23 @@ export class QCEntryService {
     ApiResponse<{ approvals: QCApproval[]; total: number; pages: number }>
   > {
     return this.api.get<any>(`/qc-approvals/user/${userId}`, params);
+  }
+
+  /**
+   * Get search suggestions for autocomplete
+   */
+  getSearchSuggestions(
+    field: 'requestedBy' | 'partyName' | 'location',
+    query?: string
+  ): Observable<ApiResponse<{ suggestions: string[] }>> {
+    const params: any = { field };
+    if (query) {
+      params.query = query;
+    }
+    return this.api.get<{ suggestions: string[] }>(
+      '/qc-approvals/suggestions/search',
+      params
+    );
   }
 
   /**

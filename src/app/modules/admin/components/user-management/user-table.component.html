@@ -164,6 +164,21 @@
                 "
                 (click)="onRejectClick(u)"
               ></button>
+
+              <!-- Delete -->
+              <button
+                pButton
+                type="button"
+                class="cursor-pointer"
+                icon="pi pi-trash"
+                label="Delete"
+                severity="danger"
+                class="p-button-sm"
+                [loading]="
+                  processing.userId === u._id && processing.action === 'delete'
+                "
+                (click)="onDeleteClick(u)"
+              ></button>
             </div>
           </td>
         </tr>

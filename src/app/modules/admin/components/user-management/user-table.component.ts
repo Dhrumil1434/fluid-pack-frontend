@@ -27,13 +27,14 @@ export class UserTableComponent implements OnChanges {
   @Input() initialSortOrder?: 'asc' | 'desc';
   @Input() processing: {
     userId: string | null;
-    action: 'approve' | 'reject' | 'edit' | 'view' | null;
+    action: 'approve' | 'reject' | 'edit' | 'view' | 'delete' | null;
   } = { userId: null, action: null };
 
   @Output() view = new EventEmitter<User>();
   @Output() approve = new EventEmitter<User>();
   @Output() reject = new EventEmitter<User>();
   @Output() edit = new EventEmitter<User>();
+  @Output() delete = new EventEmitter<User>();
   @Output() pageChange = new EventEmitter<{ page: number; limit: number }>();
   @Output() sortChange = new EventEmitter<{
     sortBy: string;
@@ -188,6 +189,10 @@ export class UserTableComponent implements OnChanges {
 
   onEditClick(user: User): void {
     this.edit.emit(user);
+  }
+
+  onDeleteClick(user: User): void {
+    this.delete.emit(user);
   }
 
   getAvatarUrl(nameOrEmail: string | undefined | null): string {

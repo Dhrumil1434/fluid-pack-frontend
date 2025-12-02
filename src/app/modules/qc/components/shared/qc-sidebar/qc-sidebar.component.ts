@@ -123,7 +123,32 @@ export class QcSidebarComponent implements OnInit {
   loadCurrentUser() {
     // Load current user data from localStorage
     const userData = localStorage.getItem('userData');
-    this.currentUser = userData ? JSON.parse(userData) : null;
+    const parsedUser = userData ? JSON.parse(userData) : null;
+
+    if (parsedUser) {
+      // Extract role name properly (role is an object with name property)
+      // User data structure: { username, email, role: { name }, department: { name } }
+      const roleName =
+        typeof parsedUser.role === 'string'
+          ? parsedUser.role
+          : parsedUser.role?.name || 'Quality Control';
+
+      this.currentUser = {
+        name: parsedUser.name || parsedUser.username || 'QC User',
+        username: parsedUser.username || '',
+        email: parsedUser.email || '',
+        role: roleName,
+        avatar: parsedUser.avatar || null,
+      };
+    } else {
+      this.currentUser = {
+        name: 'QC User',
+        username: '',
+        email: '',
+        role: 'Quality Control',
+        avatar: null,
+      };
+    }
   }
 
   isActiveRoute(route: string): boolean {

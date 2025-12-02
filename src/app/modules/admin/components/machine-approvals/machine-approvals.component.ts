@@ -235,9 +235,15 @@ interface ApprovalRow {
                     </div>
                     <div
                       *ngIf="getMachineSequence(a)"
-                      class="text-xs text-gray-500 font-mono"
+                      class="text-xs text-gray-500 font-mono mt-1"
                     >
-                      Seq: {{ getMachineSequence(a) }}
+                      Sequence: {{ getMachineSequence(a) }}
+                    </div>
+                    <div
+                      *ngIf="!getMachineSequence(a)"
+                      class="text-xs text-gray-400 italic mt-1"
+                    >
+                      No sequence
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -674,8 +680,10 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
 
   getMachineSequence(a: ApprovalRow): string | null {
     const m = a.machineId as any;
-    if (!m || typeof m === 'string') return null;
-    return m?.machine_sequence || null;
+    if (!m) return null;
+    if (typeof m === 'string') return null;
+    // Check both machine_sequence and machineSequence (in case of different naming)
+    return m?.machine_sequence || m?.machineSequence || null;
   }
 
   requesterName(a: ApprovalRow): string {

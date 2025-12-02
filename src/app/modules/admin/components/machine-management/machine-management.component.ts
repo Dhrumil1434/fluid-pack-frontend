@@ -21,6 +21,7 @@ import { Machine } from '../../../../core/models/machine.model';
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
 import { TablePaginationComponent } from '../user-management/table-pagination.component';
 import { CategoryService } from '../../../../core/services/category.service';
+import { LoaderService } from '../../../../core/services/loader.service';
 import { environment } from '../../../../../environments/environment';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -173,6 +174,112 @@ import { ActivatedRoute, Router } from '@angular/router';
                 [(ngModel)]="filters.dispatch_date_to"
                 (change)="reload()"
               />
+              <!-- Party Name Autocomplete -->
+              <div class="relative">
+                <input
+                  type="text"
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                  placeholder="Party Name"
+                  [(ngModel)]="filters.party_name"
+                  (input)="onPartyNameChange()"
+                  (focus)="onPartyNameChange()"
+                  (blur)="hidePartyNameSuggestions()"
+                />
+                <div
+                  *ngIf="
+                    showPartyNameSuggestions && partyNameSuggestions.length > 0
+                  "
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <div
+                    *ngFor="let suggestion of partyNameSuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                    (mousedown)="selectPartyName(suggestion)"
+                  >
+                    {{ suggestion }}
+                  </div>
+                </div>
+              </div>
+              <!-- Machine Sequence Autocomplete -->
+              <div class="relative">
+                <input
+                  type="text"
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                  placeholder="Machine Sequence"
+                  [(ngModel)]="filters.machine_sequence"
+                  (input)="onMachineSequenceChange()"
+                  (focus)="onMachineSequenceChange()"
+                  (blur)="hideMachineSequenceSuggestions()"
+                />
+                <div
+                  *ngIf="
+                    showMachineSequenceSuggestions &&
+                    machineSequenceSuggestions.length > 0
+                  "
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <div
+                    *ngFor="let suggestion of machineSequenceSuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                    (mousedown)="selectMachineSequence(suggestion)"
+                  >
+                    {{ suggestion }}
+                  </div>
+                </div>
+              </div>
+              <!-- Location Autocomplete -->
+              <div class="relative">
+                <input
+                  type="text"
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                  placeholder="Location"
+                  [(ngModel)]="filters.location"
+                  (input)="onLocationChange()"
+                  (focus)="onLocationChange()"
+                  (blur)="hideLocationSuggestions()"
+                />
+                <div
+                  *ngIf="
+                    showLocationSuggestions && locationSuggestions.length > 0
+                  "
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <div
+                    *ngFor="let suggestion of locationSuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                    (mousedown)="selectLocation(suggestion)"
+                  >
+                    {{ suggestion }}
+                  </div>
+                </div>
+              </div>
+              <!-- Mobile Number Autocomplete -->
+              <div class="relative">
+                <input
+                  type="text"
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+                  placeholder="Mobile Number"
+                  [(ngModel)]="filters.mobile_number"
+                  (input)="onMobileNumberChange()"
+                  (focus)="onMobileNumberChange()"
+                  (blur)="hideMobileNumberSuggestions()"
+                />
+                <div
+                  *ngIf="
+                    showMobileNumberSuggestions &&
+                    mobileNumberSuggestions.length > 0
+                  "
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <div
+                    *ngFor="let suggestion of mobileNumberSuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                    (mousedown)="selectMobileNumber(suggestion)"
+                  >
+                    {{ suggestion }}
+                  </div>
+                </div>
+              </div>
               <!-- Sort By -->
               <select
                 class="px-3 py-2 border border-neutral-300 rounded-md"
@@ -184,6 +291,11 @@ import { ActivatedRoute, Router } from '@angular/router';
                 <option value="name">Name</option>
                 <option value="category">Category</option>
                 <option value="dispatch_date">Dispatch Date</option>
+                <option value="party_name">Party Name</option>
+                <option value="machine_sequence">Sequence</option>
+                <option value="location">Location</option>
+                <option value="mobile_number">Mobile Number</option>
+                <option value="created_by">Created By</option>
               </select>
               <!-- Sort Order -->
               <select
@@ -1229,7 +1341,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 
                   <div *ngIf="editing" class="space-y-1">
                     <label class="inline-flex items-center gap-2 text-sm">
-                      <input type="checkbox" formControlName="is_approved" />
+                      <input
+                        type="checkbox"
+                        formControlName="is_approved"
+                        (change)="form.updateValueAndValidity()"
+                      />
                       <span>Approved</span>
                     </label>
                   </div>
@@ -1248,11 +1364,17 @@ import { ActivatedRoute, Router } from '@angular/router';
                 <button
                   type="submit"
                   class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
-                  [disabled]="form.invalid || submitting"
+                  [disabled]="
+                    (editing ? !form.dirty : form.invalid) || submitting
+                  "
                   [title]="
-                    form.invalid
+                    form.invalid && !editing
                       ? 'Please fix validation errors before submitting'
-                      : ''
+                      : submitting
+                        ? 'Saving...'
+                        : editing && !form.dirty
+                          ? 'No changes to save'
+                          : ''
                   "
                   (click)="submitForm()"
                 >
@@ -2095,7 +2217,21 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     metadata_value?: string;
     dispatch_date_from?: string;
     dispatch_date_to?: string;
-    sortBy?: 'createdAt' | 'name' | 'category' | 'dispatch_date';
+    // Specific field filters for suggestion-based search
+    party_name?: string;
+    machine_sequence?: string;
+    location?: string;
+    mobile_number?: string;
+    sortBy?:
+      | 'createdAt'
+      | 'name'
+      | 'category'
+      | 'dispatch_date'
+      | 'party_name'
+      | 'machine_sequence'
+      | 'location'
+      | 'mobile_number'
+      | 'created_by';
     sortOrder?: 'asc' | 'desc';
   } = {
     sortBy: 'createdAt',
@@ -2185,6 +2321,19 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   allMetadataKeys: string[] = []; // Master list of all keys
   showMetadataKeySuggestions = false;
 
+  // Suggestion-based search fields
+  partyNameSuggestions: string[] = [];
+  showPartyNameSuggestions = false;
+  machineSequenceSuggestions: string[] = [];
+  showMachineSequenceSuggestions = false;
+  locationSuggestions: string[] = [];
+  showLocationSuggestions = false;
+  mobileNumberSuggestions: string[] = [];
+  showMobileNumberSuggestions = false;
+  approverSuggestions: string[] = [];
+  showApproverSuggestions = false;
+  private suggestionDebounceTimers: { [key: string]: any } = {};
+
   // ViewChild for document input
   @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
 
@@ -2194,7 +2343,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     private categoryService: CategoryService,
     private messageService: MessageService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private loaderService: LoaderService
   ) {
     this.form = this.fb.group({
       name: [
@@ -2318,6 +2468,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.filterCategoryInput = '';
     this.filterCategoryOpen = false;
     this.showMetadataKeySuggestions = false;
+    this.showPartyNameSuggestions = false;
+    this.showMachineSequenceSuggestions = false;
+    this.showLocationSuggestions = false;
+    this.showMobileNumberSuggestions = false;
+    this.showApproverSuggestions = false;
   }
 
   onCategoryFilterChange(): void {
@@ -2360,6 +2515,190 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
+  // Autocomplete methods for suggestion-based search
+  onPartyNameChange(): void {
+    const query = this.filters.party_name?.trim() || '';
+
+    // Fetch suggestions
+    if (query.length >= 1) {
+      clearTimeout(this.suggestionDebounceTimers['partyName']);
+      this.suggestionDebounceTimers['partyName'] = setTimeout(() => {
+        this.machineService.getSearchSuggestions('partyName', query).subscribe({
+          next: res => {
+            this.partyNameSuggestions = res.data.suggestions || [];
+            this.showPartyNameSuggestions =
+              this.partyNameSuggestions.length > 0;
+          },
+          error: () => {
+            this.partyNameSuggestions = [];
+            this.showPartyNameSuggestions = false;
+          },
+        });
+      }, 300);
+    } else {
+      this.showPartyNameSuggestions = false;
+      this.partyNameSuggestions = [];
+    }
+
+    // Debounce the actual search/filter
+    clearTimeout(this.suggestionDebounceTimers['partyNameSearch']);
+    this.suggestionDebounceTimers['partyNameSearch'] = setTimeout(() => {
+      this.page = 1;
+      this.reload();
+    }, 500);
+  }
+
+  selectPartyName(suggestion: string): void {
+    this.filters.party_name = suggestion;
+    this.showPartyNameSuggestions = false;
+    this.page = 1;
+    this.reload();
+  }
+
+  hidePartyNameSuggestions(): void {
+    setTimeout(() => {
+      this.showPartyNameSuggestions = false;
+    }, 200);
+  }
+
+  onMachineSequenceChange(): void {
+    const query = this.filters.machine_sequence?.trim() || '';
+
+    // Fetch suggestions
+    if (query.length >= 1) {
+      clearTimeout(this.suggestionDebounceTimers['machineSequence']);
+      this.suggestionDebounceTimers['machineSequence'] = setTimeout(() => {
+        this.machineService
+          .getSearchSuggestions('machineSequence', query)
+          .subscribe({
+            next: res => {
+              this.machineSequenceSuggestions = res.data.suggestions || [];
+              this.showMachineSequenceSuggestions =
+                this.machineSequenceSuggestions.length > 0;
+            },
+            error: () => {
+              this.machineSequenceSuggestions = [];
+              this.showMachineSequenceSuggestions = false;
+            },
+          });
+      }, 300);
+    } else {
+      this.showMachineSequenceSuggestions = false;
+      this.machineSequenceSuggestions = [];
+    }
+
+    // Debounce the actual search/filter
+    clearTimeout(this.suggestionDebounceTimers['machineSequenceSearch']);
+    this.suggestionDebounceTimers['machineSequenceSearch'] = setTimeout(() => {
+      this.page = 1;
+      this.reload();
+    }, 500);
+  }
+
+  selectMachineSequence(suggestion: string): void {
+    this.filters.machine_sequence = suggestion;
+    this.showMachineSequenceSuggestions = false;
+    this.page = 1;
+    this.reload();
+  }
+
+  hideMachineSequenceSuggestions(): void {
+    setTimeout(() => {
+      this.showMachineSequenceSuggestions = false;
+    }, 200);
+  }
+
+  onLocationChange(): void {
+    const query = this.filters.location?.trim() || '';
+
+    // Fetch suggestions
+    if (query.length >= 1) {
+      clearTimeout(this.suggestionDebounceTimers['location']);
+      this.suggestionDebounceTimers['location'] = setTimeout(() => {
+        this.machineService.getSearchSuggestions('location', query).subscribe({
+          next: res => {
+            this.locationSuggestions = res.data.suggestions || [];
+            this.showLocationSuggestions = this.locationSuggestions.length > 0;
+          },
+          error: () => {
+            this.locationSuggestions = [];
+            this.showLocationSuggestions = false;
+          },
+        });
+      }, 300);
+    } else {
+      this.showLocationSuggestions = false;
+      this.locationSuggestions = [];
+    }
+
+    // Debounce the actual search/filter
+    clearTimeout(this.suggestionDebounceTimers['locationSearch']);
+    this.suggestionDebounceTimers['locationSearch'] = setTimeout(() => {
+      this.page = 1;
+      this.reload();
+    }, 500);
+  }
+
+  selectLocation(suggestion: string): void {
+    this.filters.location = suggestion;
+    this.showLocationSuggestions = false;
+    this.page = 1;
+    this.reload();
+  }
+
+  hideLocationSuggestions(): void {
+    setTimeout(() => {
+      this.showLocationSuggestions = false;
+    }, 200);
+  }
+
+  onMobileNumberChange(): void {
+    const query = this.filters.mobile_number?.trim() || '';
+
+    // Fetch suggestions
+    if (query.length >= 1) {
+      clearTimeout(this.suggestionDebounceTimers['mobileNumber']);
+      this.suggestionDebounceTimers['mobileNumber'] = setTimeout(() => {
+        this.machineService
+          .getSearchSuggestions('mobileNumber', query)
+          .subscribe({
+            next: res => {
+              this.mobileNumberSuggestions = res.data.suggestions || [];
+              this.showMobileNumberSuggestions =
+                this.mobileNumberSuggestions.length > 0;
+            },
+            error: () => {
+              this.mobileNumberSuggestions = [];
+              this.showMobileNumberSuggestions = false;
+            },
+          });
+      }, 300);
+    } else {
+      this.showMobileNumberSuggestions = false;
+      this.mobileNumberSuggestions = [];
+    }
+
+    // Debounce the actual search/filter
+    clearTimeout(this.suggestionDebounceTimers['mobileNumberSearch']);
+    this.suggestionDebounceTimers['mobileNumberSearch'] = setTimeout(() => {
+      this.page = 1;
+      this.reload();
+    }, 500);
+  }
+
+  selectMobileNumber(suggestion: string): void {
+    this.filters.mobile_number = suggestion;
+    this.showMobileNumberSuggestions = false;
+    this.page = 1;
+    this.reload();
+  }
+
+  hideMobileNumberSuggestions(): void {
+    setTimeout(() => {
+      this.showMobileNumberSuggestions = false;
+    }, 200);
+  }
+
   // Scroll to specific machine row by ID
   scrollToMachine(machineId: string): void {
     const element = document.querySelector(`[data-machine-id="${machineId}"]`);
@@ -2397,6 +2736,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   reload(): void {
+    this.loaderService.showGlobalLoader();
     this.machineService
       .getAllMachines({
         page: this.page,
@@ -2409,17 +2749,34 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         metadata_value: this.filters.metadata_value,
         dispatch_date_from: this.filters.dispatch_date_from,
         dispatch_date_to: this.filters.dispatch_date_to,
+        party_name: this.filters.party_name,
+        machine_sequence: this.filters.machine_sequence,
+        location: this.filters.location,
+        mobile_number: this.filters.mobile_number,
         sortBy: this.filters.sortBy,
         sortOrder: this.filters.sortOrder,
       })
-      .subscribe(res => {
-        this.machines = res.data.machines;
-        // Extract metadata keys for autocomplete
-        this.extractMetadataKeys(this.machines);
-        this.total = res.data.total;
-        this.pages = res.data.pages;
-        // Update selection state after reload
-        this.updateSelectionState();
+      .subscribe({
+        next: res => {
+          this.machines = res.data.machines;
+          // Extract metadata keys for autocomplete
+          this.extractMetadataKeys(this.machines);
+          this.total = res.data.total;
+          this.pages = res.data.pages;
+          // Update selection state after reload
+          this.updateSelectionState();
+          this.loaderService.hideGlobalLoader();
+        },
+        error: error => {
+          console.error('Error loading machines:', error);
+          this.loaderService.hideGlobalLoader();
+          // Optionally show error message
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: 'Failed to load machines. Please try again.',
+          });
+        },
       });
   }
 
@@ -2602,14 +2959,82 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       this.form.get(key)?.markAsTouched();
     });
 
-    if (this.submitting || this.form.invalid) {
-      if (this.form.invalid) {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Validation Error',
-          detail: 'Please fix the errors in the form before submitting.',
-        });
+    if (this.submitting) {
+      return;
+    }
+
+    // When editing, check if only is_approved changed - if so, handle it directly
+    if (this.editing && this.selected) {
+      const currentApproved = !!this.selected.is_approved;
+      const nextApproved = !!this.form.value.is_approved;
+      const approvalChanged = currentApproved !== nextApproved;
+
+      // Check if only is_approved changed (no file changes, no other field changes)
+      if (approvalChanged) {
+        const hasFileChanges =
+          this.selectedFiles.length > 0 ||
+          this.selectedDocuments.length > 0 ||
+          this.removedDocuments.length > 0;
+
+        // Check if form is dirty only because of is_approved
+        const formControls = this.form.controls;
+        const isOnlyApprovalDirty =
+          !formControls['name']?.dirty &&
+          !formControls['category_id']?.dirty &&
+          !formControls['party_name']?.dirty &&
+          !formControls['location']?.dirty &&
+          !formControls['mobile_number']?.dirty &&
+          !formControls['dispatch_date']?.dirty &&
+          !formControls['machine_sequence']?.dirty &&
+          !formControls['subcategory_id']?.dirty &&
+          formControls['is_approved']?.dirty === true;
+
+        // If only approval changed and no files, handle it directly without validation
+        if (!hasFileChanges && isOnlyApprovalDirty) {
+          this.submitting = true;
+          this.machineService
+            .updateMachineApproval(this.selected._id, {
+              is_approved: nextApproved,
+            })
+            .subscribe({
+              next: () => {
+                this.submitting = false;
+                this.formVisible = false;
+                this.messageService.add({
+                  severity: 'success',
+                  summary: 'Success',
+                  detail: 'Machine approval status updated successfully',
+                });
+                this.reload();
+              },
+              error: (err: any) => {
+                this.submitting = false;
+                console.error('Error updating approval:', err);
+                let errorMessage = 'Failed to update machine approval';
+                if (err?.error?.message) {
+                  errorMessage = err.error.message;
+                } else if (err?.message) {
+                  errorMessage = err.message;
+                }
+                this.messageService.add({
+                  severity: 'error',
+                  summary: 'Update Failed',
+                  detail: errorMessage,
+                });
+              },
+            });
+          return;
+        }
       }
+    }
+
+    // For other cases, validate the form
+    if (this.form.invalid) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Validation Error',
+        detail: 'Please fix the errors in the form before submitting.',
+      });
       return;
     }
 
@@ -2665,6 +3090,79 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     if (this.editing && this.selected) {
       const currentApproved = !!this.selected.is_approved;
       const nextApproved = !!this.form.value.is_approved;
+
+      // Check if only is_approved changed and no other fields have changes
+      // Compare form values with original machine values
+      const originalCategoryId =
+        typeof this.selected.category_id === 'string'
+          ? this.selected.category_id
+          : this.selected.category_id?._id || '';
+
+      const originalSubcategoryId = this.selected.subcategory_id
+        ? typeof this.selected.subcategory_id === 'string'
+          ? this.selected.subcategory_id
+          : (this.selected.subcategory_id as any)?._id || ''
+        : '';
+
+      const originalDispatchDate = this.selected.dispatch_date
+        ? typeof this.selected.dispatch_date === 'string'
+          ? this.selected.dispatch_date.split('T')[0]
+          : new Date(this.selected.dispatch_date).toISOString().split('T')[0]
+        : '';
+
+      const hasOtherChanges =
+        this.selectedFiles.length > 0 ||
+        this.selectedDocuments.length > 0 ||
+        this.removedDocuments.length > 0 ||
+        JSON.stringify(metadata) !==
+          JSON.stringify(this.selected.metadata || {}) ||
+        name !== (this.selected.name || '') ||
+        category_id !== originalCategoryId ||
+        party_name !== (this.selected.party_name || '') ||
+        location !== (this.selected.location || '') ||
+        mobile_number !== (this.selected.mobile_number || '') ||
+        dispatch_date !== originalDispatchDate ||
+        machine_sequence !== (this.selected.machine_sequence || '') ||
+        subcategory_id !== originalSubcategoryId;
+
+      const finalize = () => {
+        this.submitting = false;
+        this.formVisible = false;
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Machine updated successfully',
+        });
+        this.reload();
+      };
+
+      // If only is_approved changed, only call updateMachineApproval
+      if (currentApproved !== nextApproved && !hasOtherChanges) {
+        this.machineService
+          .updateMachineApproval(this.selected._id, {
+            is_approved: nextApproved,
+          })
+          .subscribe({
+            next: finalize,
+            error: (err: any) => {
+              this.submitting = false;
+              console.error('Error updating approval:', err);
+              let errorMessage = 'Failed to update machine approval';
+              if (err?.error?.message) {
+                errorMessage = err.error.message;
+              } else if (err?.message) {
+                errorMessage = err.message;
+              }
+              this.messageService.add({
+                severity: 'error',
+                summary: 'Update Failed',
+                detail: errorMessage,
+              });
+            },
+          });
+        return;
+      }
+
       // Note: existing files are handled separately from new uploads
       // The backend will merge existing files with new uploads
 
@@ -2695,16 +3193,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         .updateMachineForm(this.selected._id, updatePayload)
         .subscribe({
           next: () => {
-            const finalize = () => {
-              this.submitting = false;
-              this.formVisible = false;
-              this.messageService.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Machine updated successfully',
-              });
-              this.reload();
-            };
             if (currentApproved !== nextApproved) {
               this.machineService
                 .updateMachineApproval(this.selected!._id, {

@@ -138,7 +138,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   // Pagination
   page = 1;
-  limit = 20;
+  limit = 10;
   total = 0;
   pages = 0;
 
@@ -156,6 +156,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   viewVisible = false;
   selectedApproval: QCApproval | null = null;
   selectedMachine: any = null; // Full machine data for view modal
+  selectedQCEntry: any = null; // QC Entry data for view modal
   approvalMode: 'approve' | 'reject' = 'approve';
   approvalNotes = '';
   rejectionReason = '';
@@ -168,6 +169,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   machines: any[] = [];
   filteredMachines: any[] = [];
   categories: any[] = [];
+  subcategories: any[] = [];
   machineFilters: {
     search?: string;
     category_id?: string;
@@ -188,10 +190,25 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   selectedMachineForQC: any = null;
   qcEntryForm: FormGroup;
   selectedFiles: File[] = [];
+  selectedImages: File[] = [];
+  selectedDocuments: File[] = [];
   uploadingQC = false;
+
+  // Machine fields
+  qcEntryName = '';
+  qcEntryCategoryId = '';
+  qcEntrySubcategoryId = '';
+  qcEntryMachineSequence = '';
+  qcEntryPartyName = '';
+  qcEntryLocation = '';
+  qcEntryMobileNumber = '';
+  qcEntryDispatchDate = '';
+
+  // QC-specific fields
   qcEntryNotes = '';
   qcEntryQualityScore: number | null = null;
   qcEntryInspectionDate = '';
+  qcEntryQcDate = '';
   qcEntryNextInspectionDate = '';
   qcEntryReportLink = '';
   reportLinkTouched = false;
@@ -201,8 +218,32 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   private blockedApprovalMachineIds: Set<string> = new Set();
   private machineSearchSubject = new Subject<string>();
 
+  // Autocomplete suggestions
+  requestedBySuggestions: string[] = [];
+  showRequestedBySuggestions = false;
+  partyNameSuggestions: string[] = [];
+  showPartyNameSuggestions = false;
+  locationSuggestions: string[] = [];
+  showLocationSuggestions = false;
+  private suggestionDebounceTimers: { [key: string]: any } = {};
+
   // Edit Modal State
   editForm: FormGroup;
+  selectedQCEntryForEdit: any = null;
+  existingImages: string[] = [];
+  existingDocuments: Array<{
+    name: string;
+    file_path: string;
+    document_type?: string;
+    _id?: string;
+  }> = [];
+  existingFiles: string[] = [];
+  imagesToDelete: string[] = [];
+  documentsToDelete: string[] = [];
+  filesToDelete: string[] = [];
+  editSelectedImages: File[] = [];
+  editSelectedDocuments: File[] = [];
+  editSelectedFiles: File[] = [];
 
   constructor(
     private api: BaseApiService,
@@ -221,27 +262,73 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       qualityScoreMin: [''],
       qualityScoreMax: [''],
       machineName: [''],
+      machineSequence: [''],
       requestedBy: [''],
+      category: [''],
+      subcategory: [''],
+      partyName: [''],
+      location: [''],
+      mobileNumber: [''],
+      dispatchDateFrom: [''],
+      dispatchDateTo: [''],
+      qcDateFrom: [''],
+      qcDateTo: [''],
+      inspectionDateFrom: [''],
+      inspectionDateTo: [''],
       sortBy: ['createdAt'],
       sortOrder: ['desc'],
     });
 
     this.qcEntryForm = this.fb.group({
       machineId: ['', []],
+      // Machine fields
+      name: ['', []],
+      category_id: ['', []],
+      subcategory_id: [''],
+      machine_sequence: [''],
+      party_name: ['', []],
+      location: ['', []],
+      mobile_number: ['', []],
+      dispatch_date: [''],
+      // QC-specific fields
       qcNotes: [''],
       qualityScore: [null],
       inspectionDate: [''],
+      qc_date: [''],
       nextInspectionDate: [''],
       reportLink: [''],
     });
 
     this.editForm = this.fb.group({
+      // Machine fields
+      name: [''],
+      category_id: [''],
+      subcategory_id: [''],
+      machine_sequence: [''],
+      party_name: [''],
+      location: [''],
+      mobile_number: [''],
+      dispatch_date: [''],
+      // QC-specific fields
       qcNotes: [''],
       qualityScore: [null],
       inspectionDate: [''],
+      qc_date: [''],
       nextInspectionDate: [''],
-      requestNotes: [''],
+      reportLink: [''],
+      is_active: [false],
+      approval_status: ['PENDING'],
     });
+
+    // Auto-activate when approval status is set to APPROVED
+    this.editForm
+      .get('approval_status')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(status => {
+        if (status === 'APPROVED') {
+          this.editForm.patchValue({ is_active: true }, { emitEvent: false });
+        }
+      });
 
     // Setup search debouncing
     this.searchSubject
@@ -265,6 +352,136 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     this.loadApprovals();
     this.setupFormListeners();
     this.loadCategories();
+    this.setupAutocompleteListeners();
+  }
+
+  setupAutocompleteListeners(): void {
+    // RequestedBy autocomplete
+    this.filtersForm
+      .get('requestedBy')
+      ?.valueChanges.pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(value => {
+        if (value && value.trim().length > 0) {
+          this.loadSuggestions('requestedBy', value.trim());
+        } else {
+          this.requestedBySuggestions = [];
+        }
+      });
+
+    // PartyName autocomplete
+    this.filtersForm
+      .get('partyName')
+      ?.valueChanges.pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(value => {
+        if (value && value.trim().length > 0) {
+          this.loadSuggestions('partyName', value.trim());
+        } else {
+          this.partyNameSuggestions = [];
+        }
+      });
+
+    // Location autocomplete
+    this.filtersForm
+      .get('location')
+      ?.valueChanges.pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(value => {
+        if (value && value.trim().length > 0) {
+          this.loadSuggestions('location', value.trim());
+        } else {
+          this.locationSuggestions = [];
+        }
+      });
+  }
+
+  loadSuggestions(
+    field: 'requestedBy' | 'partyName' | 'location',
+    query: string
+  ): void {
+    // Clear previous timer
+    if (this.suggestionDebounceTimers[field]) {
+      clearTimeout(this.suggestionDebounceTimers[field]);
+    }
+
+    // Debounce the API call
+    this.suggestionDebounceTimers[field] = setTimeout(() => {
+      this.qcEntryService.getSearchSuggestions(field, query).subscribe({
+        next: (res: any) => {
+          const suggestions = res?.data?.suggestions || [];
+          switch (field) {
+            case 'requestedBy':
+              this.requestedBySuggestions = suggestions;
+              break;
+            case 'partyName':
+              this.partyNameSuggestions = suggestions;
+              break;
+            case 'location':
+              this.locationSuggestions = suggestions;
+              break;
+          }
+        },
+        error: () => {
+          // Silently fail - don't show error for suggestions
+          switch (field) {
+            case 'requestedBy':
+              this.requestedBySuggestions = [];
+              break;
+            case 'partyName':
+              this.partyNameSuggestions = [];
+              break;
+            case 'location':
+              this.locationSuggestions = [];
+              break;
+          }
+        },
+      });
+    }, 300);
+  }
+
+  selectSuggestion(
+    field: 'requestedBy' | 'partyName' | 'location',
+    value: string
+  ): void {
+    this.filtersForm.patchValue({ [field]: value });
+    switch (field) {
+      case 'requestedBy':
+        this.showRequestedBySuggestions = false;
+        break;
+      case 'partyName':
+        this.showPartyNameSuggestions = false;
+        break;
+      case 'location':
+        this.showLocationSuggestions = false;
+        break;
+    }
+  }
+
+  hideSuggestions(field: 'requestedBy' | 'partyName' | 'location'): void {
+    // Delay hiding to allow click events to fire
+    setTimeout(() => {
+      switch (field) {
+        case 'requestedBy':
+          this.showRequestedBySuggestions = false;
+          break;
+        case 'partyName':
+          this.showPartyNameSuggestions = false;
+          break;
+        case 'location':
+          this.showLocationSuggestions = false;
+          break;
+      }
+    }, 200);
   }
 
   ngOnDestroy(): void {
@@ -273,15 +490,28 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   }
 
   setupFormListeners(): void {
+    // Setup search field debouncing
     this.filtersForm
       .get('search')
-      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      ?.valueChanges.pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
       .subscribe(value => {
         this.searchSubject.next(value);
       });
 
+    // Setup all filter fields with debouncing
     this.filtersForm.valueChanges
-      .pipe(debounceTime(300), takeUntil(this.destroy$))
+      .pipe(
+        debounceTime(500), // Increased debounce time for better performance
+        distinctUntilChanged((prev, curr) => {
+          // Custom comparison to avoid unnecessary API calls
+          return JSON.stringify(prev) === JSON.stringify(curr);
+        }),
+        takeUntil(this.destroy$)
+      )
       .subscribe(() => {
         this.page = 1;
         this.loadApprovals();
@@ -309,33 +539,90 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       limit: this.limit,
     };
 
+    // General search
     if (formValue.search?.trim()) {
       params.search = formValue.search.trim();
     }
+
+    // Status and type filters
     if (formValue.status) {
       params.status = formValue.status;
     }
     if (formValue.approvalType) {
       params.approvalType = formValue.approvalType;
     }
+
+    // Date range filters
     if (formValue.dateFrom) {
       params.dateFrom = formValue.dateFrom;
     }
     if (formValue.dateTo) {
       params.dateTo = formValue.dateTo;
     }
+
+    // Quality score filters
     if (formValue.qualityScoreMin) {
       params.qualityScoreMin = formValue.qualityScoreMin;
     }
     if (formValue.qualityScoreMax) {
       params.qualityScoreMax = formValue.qualityScoreMax;
     }
+
+    // Machine filters
     if (formValue.machineName?.trim()) {
       params.machineName = formValue.machineName.trim();
     }
+    if (formValue.machineSequence?.trim()) {
+      params.machineSequence = formValue.machineSequence.trim();
+    }
+    if (formValue.category?.trim()) {
+      params.category = formValue.category.trim();
+    }
+    if (formValue.subcategory?.trim()) {
+      params.subcategory = formValue.subcategory.trim();
+    }
+
+    // Machine details filters
+    if (formValue.partyName?.trim()) {
+      params.partyName = formValue.partyName.trim();
+    }
+    if (formValue.location?.trim()) {
+      params.location = formValue.location.trim();
+    }
+    if (formValue.mobileNumber?.trim()) {
+      params.mobileNumber = formValue.mobileNumber.trim();
+    }
+
+    // Dispatch date filters
+    if (formValue.dispatchDateFrom) {
+      params.dispatchDateFrom = formValue.dispatchDateFrom;
+    }
+    if (formValue.dispatchDateTo) {
+      params.dispatchDateTo = formValue.dispatchDateTo;
+    }
+
+    // QC date filters
+    if (formValue.qcDateFrom) {
+      params.qcDateFrom = formValue.qcDateFrom;
+    }
+    if (formValue.qcDateTo) {
+      params.qcDateTo = formValue.qcDateTo;
+    }
+
+    // Inspection date filters
+    if (formValue.inspectionDateFrom) {
+      params.inspectionDateFrom = formValue.inspectionDateFrom;
+    }
+    if (formValue.inspectionDateTo) {
+      params.inspectionDateTo = formValue.inspectionDateTo;
+    }
+
+    // User filters
     if (formValue.requestedBy?.trim()) {
       params.requestedBy = formValue.requestedBy.trim();
     }
+
+    // Sorting
     if (formValue.sortBy) {
       params.sortBy = formValue.sortBy;
     }
@@ -352,14 +639,16 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         let totalCount = 0;
         let pagesCount = 0;
 
-        if (Array.isArray(data)) {
+        // Primary structure: { approvals: [], total: number, pages: number }
+        if (data?.approvals && Array.isArray(data.approvals)) {
+          approvalsArray = data.approvals;
+          totalCount = data.total ?? 0;
+          pagesCount = data.pages ?? Math.ceil(totalCount / this.limit);
+        } else if (Array.isArray(data)) {
+          // Fallback: if data is directly an array
           approvalsArray = data;
           totalCount = data.length;
           pagesCount = Math.ceil(totalCount / this.limit);
-        } else if (data?.approvals && Array.isArray(data.approvals)) {
-          approvalsArray = data.approvals;
-          totalCount = data.total || data.approvals.length || 0;
-          pagesCount = data.pages || Math.ceil(totalCount / this.limit);
         } else if (data && typeof data === 'object') {
           // Check if data itself contains approval-like objects
           const keys = Object.keys(data);
@@ -369,10 +658,14 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
             Array.isArray(data[keys[0]])
           ) {
             approvalsArray = data[keys[0]];
-            totalCount = data.total || approvalsArray.length || 0;
-            pagesCount = data.pages || Math.ceil(totalCount / this.limit);
+            totalCount = data.total ?? approvalsArray.length ?? 0;
+            pagesCount = data.pages ?? Math.ceil(totalCount / this.limit);
           }
         }
+
+        // Ensure we have valid pagination values
+        if (totalCount < 0) totalCount = 0;
+        if (pagesCount < 0) pagesCount = 0;
 
         // Normalize status values to uppercase and ensure _id is preserved
         this.approvals = approvalsArray.map((approval: any) => {
@@ -417,13 +710,32 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
         this.total = totalCount;
         this.pages = pagesCount;
+
+        // CRITICAL: Ensure we only display exactly the number of records based on limit
+        // The backend should already limit, but this is a final safeguard
+        const maxRecords = this.limit;
+
+        // Only take the exact number of records we should display
+        if (this.approvals.length > maxRecords) {
+          console.warn(
+            `⚠️ Backend returned ${this.approvals.length} records but limit is ${maxRecords}. Limiting display to ${maxRecords} records.`
+          );
+          this.approvals = this.approvals.slice(0, maxRecords);
+        }
+
+        // Set filteredApprovals to match approvals exactly
         this.filteredApprovals = [...this.approvals];
-        console.log('Processed approvals:', this.approvals);
-        console.log('Total:', this.total, 'Pages:', this.pages);
-        console.log(
-          'Pending approvals count:',
-          this.approvals.filter(a => a.status === 'PENDING').length
-        );
+
+        // Verify we have the correct count
+        if (
+          this.filteredApprovals.length !== maxRecords &&
+          this.filteredApprovals.length < this.total
+        ) {
+          // This is expected on the last page or when total < limit
+          console.log(
+            `Displaying ${this.filteredApprovals.length} of ${this.total} total records (page ${this.page}, limit ${this.limit})`
+          );
+        }
         this.loading = false;
         this.loaderService.hideGlobalLoader();
       },
@@ -441,7 +753,14 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   }
 
   onPageChange(page: number): void {
-    this.page = page;
+    // Ensure page is within valid range
+    if (page < 1) {
+      this.page = 1;
+    } else if (this.pages > 0 && page > this.pages) {
+      this.page = this.pages;
+    } else {
+      this.page = page;
+    }
     this.loadApprovals();
   }
 
@@ -466,7 +785,19 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       qualityScoreMin: '',
       qualityScoreMax: '',
       machineName: '',
+      machineSequence: '',
       requestedBy: '',
+      category: '',
+      subcategory: '',
+      partyName: '',
+      location: '',
+      mobileNumber: '',
+      dispatchDateFrom: '',
+      dispatchDateTo: '',
+      qcDateFrom: '',
+      qcDateTo: '',
+      inspectionDateFrom: '',
+      inspectionDateTo: '',
       sortBy: 'createdAt',
       sortOrder: 'desc',
     });
@@ -630,6 +961,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   onViewApprovalDetails(approval: QCApproval): void {
     this.selectedApproval = approval;
+    this.selectedQCEntry = null;
 
     // Get machine ID - handle both string and object types
     let machineId: string | null = null;
@@ -662,6 +994,18 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         const machine = data?.machine || data;
         if (machine) {
           this.selectedMachine = this.normalizeMachine(machine);
+
+          // Load subcategories for the machine's category
+          if (machine.category_id?._id || machine.category_id) {
+            const catId =
+              machine.category_id?._id ||
+              (typeof machine.category_id === 'string'
+                ? machine.category_id
+                : machine.category_id?._id);
+            if (catId && typeof catId === 'string') {
+              this.loadSubcategories(catId);
+            }
+          }
         }
       },
       error: (error: any) => {
@@ -673,15 +1017,51 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
           typeof approval.machineId === 'object'
         ) {
           this.selectedMachine = approval.machineId;
+
+          // Try to load subcategories from approval data
+          if (
+            approval.machineId.category_id?._id ||
+            approval.machineId.category_id
+          ) {
+            const catId =
+              approval.machineId.category_id?._id ||
+              (typeof approval.machineId.category_id === 'string'
+                ? approval.machineId.category_id
+                : approval.machineId.category_id?._id);
+            if (catId && typeof catId === 'string') {
+              this.loadSubcategories(catId);
+            }
+          }
         }
       },
     });
+
+    // Fetch QC Entry details if qcEntryId exists
+    if (approval.qcEntryId) {
+      const qcEntryId =
+        typeof approval.qcEntryId === 'string'
+          ? approval.qcEntryId
+          : approval.qcEntryId._id;
+
+      if (qcEntryId) {
+        this.qcEntryService.getQCEntryById(qcEntryId).subscribe({
+          next: (res: any) => {
+            const data = res?.data || res;
+            this.selectedQCEntry = data;
+          },
+          error: (error: any) => {
+            console.error('Error loading QC entry details:', error);
+          },
+        });
+      }
+    }
   }
 
   closeViewModal(): void {
     this.viewVisible = false;
     this.selectedMachine = null;
     this.selectedApproval = null;
+    this.selectedQCEntry = null;
   }
 
   // Normalize machine data
@@ -766,8 +1146,17 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   }
 
   getSubcategoryDisplayName(subcategory: any): string {
-    if (typeof subcategory === 'string') return subcategory;
-    if (subcategory?.name) return subcategory.name;
+    if (!subcategory) return '-';
+    if (typeof subcategory === 'string') {
+      // If it's a string ID, try to find it in subcategories or categories
+      const found =
+        this.subcategories.find(s => s._id === subcategory) ||
+        this.categories.find(c => c._id === subcategory);
+      return found?.name || subcategory;
+    }
+    if (typeof subcategory === 'object' && subcategory.name) {
+      return subcategory.name;
+    }
     return '-';
   }
 
@@ -1073,6 +1462,12 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     return 'text-error font-semibold';
   }
 
+  getFileName(filePath: string): string {
+    if (!filePath) return 'Unknown file';
+    const parts = filePath.split('/');
+    return parts[parts.length - 1] || 'Unknown file';
+  }
+
   getMachineImageUrl(imagePath: string): string {
     if (!imagePath) return '';
     if (imagePath.startsWith('http')) return imagePath;
@@ -1115,21 +1510,13 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   }
 
   // Create QC Entry Modal Methods
-  openCreateQCEntryModal(): void {
+  public openCreateQCEntryModal(): void {
     this.showCreateQCEntryModal = true;
     this.machineFilters = {
       is_approved: true,
     };
     this.machinePage = 1;
-    this.selectedMachineForQC = null;
-    this.selectedFiles = [];
-    this.qcEntryNotes = '';
-    this.qcEntryQualityScore = null;
-    this.qcEntryInspectionDate = '';
-    this.qcEntryNextInspectionDate = '';
-    this.qcEntryReportLink = '';
-    this.reportLinkTouched = false;
-    this.reportLinkErrorMsg = null;
+    this.resetQCEntryForm();
     this.metadataKeySuggestions = [];
     this.showMetadataKeySuggestions = false;
     this.loadMachinesForQC();
@@ -1137,8 +1524,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   closeCreateQCEntryModal(): void {
     this.showCreateQCEntryModal = false;
-    this.selectedMachineForQC = null;
-    this.selectedFiles = [];
+    this.resetQCEntryForm();
   }
 
   loadMachinesForQC(): void {
@@ -1337,6 +1723,123 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   selectMachineForQC(machine: any): void {
     this.selectedMachineForQC = machine;
+
+    // Populate form fields with machine data
+    this.qcEntryName = machine.name || '';
+    const categoryId =
+      machine.category_id?._id ||
+      (typeof machine.category_id === 'string' ? machine.category_id : '') ||
+      '';
+    const subcategoryId =
+      machine.subcategory_id?._id ||
+      (typeof machine.subcategory_id === 'string'
+        ? machine.subcategory_id
+        : '') ||
+      '';
+
+    this.qcEntryCategoryId = categoryId;
+    this.qcEntrySubcategoryId = subcategoryId;
+    this.qcEntryMachineSequence = machine.machine_sequence || '';
+    this.qcEntryPartyName = machine.party_name || '';
+    this.qcEntryLocation = machine.location || '';
+    this.qcEntryMobileNumber = machine.mobile_number || '';
+    this.qcEntryDispatchDate = machine.dispatch_date
+      ? new Date(machine.dispatch_date).toISOString().split('T')[0]
+      : '';
+
+    // Load subcategories for the selected category, then set subcategory ID
+    if (categoryId) {
+      this.loadSubcategories(categoryId, subcategoryId);
+    } else {
+      this.subcategories = [];
+      this.qcEntrySubcategoryId = '';
+    }
+
+    // Update form group
+    this.qcEntryForm.patchValue({
+      name: this.qcEntryName,
+      category_id: this.qcEntryCategoryId,
+      subcategory_id: this.qcEntrySubcategoryId,
+      machine_sequence: this.qcEntryMachineSequence,
+      party_name: this.qcEntryPartyName,
+      location: this.qcEntryLocation,
+      mobile_number: this.qcEntryMobileNumber,
+      dispatch_date: this.qcEntryDispatchDate,
+    });
+  }
+
+  onCategoryChange(): void {
+    if (this.qcEntryCategoryId) {
+      this.loadSubcategories(this.qcEntryCategoryId);
+    } else {
+      this.subcategories = [];
+      this.qcEntrySubcategoryId = '';
+    }
+  }
+
+  loadSubcategories(categoryId: string, subcategoryIdToSet?: string): void {
+    this.categoryService.getCategoryTree().subscribe({
+      next: (res: any) => {
+        const data = res?.data || res;
+        const tree = Array.isArray(data) ? data : [];
+
+        // Find the category in the tree and get its children (subcategories)
+        const findCategory = (nodes: any[]): any => {
+          for (const node of nodes) {
+            if (node._id === categoryId) {
+              return node;
+            }
+            if (node.children && node.children.length > 0) {
+              const found = findCategory(node.children);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        const category = findCategory(tree);
+        this.subcategories = category?.children || [];
+
+        // Set subcategory ID after subcategories are loaded
+        // Use setTimeout to ensure Angular change detection picks up the change
+        setTimeout(() => {
+          if (subcategoryIdToSet) {
+            // Verify the subcategory exists in the loaded list
+            const subcategoryExists = this.subcategories.some(
+              (s: any) => s._id === subcategoryIdToSet
+            );
+            if (subcategoryExists) {
+              this.qcEntrySubcategoryId = subcategoryIdToSet;
+            } else {
+              // If subcategory doesn't exist in this category's children, keep it anyway (might be from different category)
+              this.qcEntrySubcategoryId = subcategoryIdToSet;
+            }
+          }
+        }, 0);
+      },
+      error: (error: any) => {
+        console.error('Error loading subcategories:', error);
+        this.subcategories = [];
+        // Still set subcategory ID if provided, even if loading failed
+        if (subcategoryIdToSet) {
+          setTimeout(() => {
+            this.qcEntrySubcategoryId = subcategoryIdToSet;
+          }, 0);
+        }
+      },
+    });
+  }
+
+  getCategoryName(categoryId: string): string {
+    if (!categoryId) return '';
+    const category = this.categories.find(c => c._id === categoryId);
+    return category?.name || '';
+  }
+
+  getSubcategoryName(subcategoryId: string): string {
+    if (!subcategoryId) return '';
+    const subcategory = this.subcategories.find(s => s._id === subcategoryId);
+    return subcategory?.name || '';
   }
 
   trackByMachineId(index: number, machine: any): string {
@@ -1351,6 +1854,20 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     const files = event.target.files;
     if (files && files.length > 0) {
       this.selectedFiles = Array.from(files);
+    }
+  }
+
+  onQCImageSelected(event: any): void {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      this.selectedImages = Array.from(files);
+    }
+  }
+
+  onQCDocumentSelected(event: any): void {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      this.selectedDocuments = Array.from(files);
     }
   }
 
@@ -1379,8 +1896,25 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.selectedFiles.length === 0) {
-      this.errorHandler.showWarning('Please upload at least one document');
+    // Validate required machine fields
+    if (!this.qcEntryName.trim()) {
+      this.errorHandler.showWarning('Machine name is required');
+      return;
+    }
+    if (!this.qcEntryCategoryId) {
+      this.errorHandler.showWarning('Category is required');
+      return;
+    }
+    if (!this.qcEntryPartyName.trim()) {
+      this.errorHandler.showWarning('Party name is required');
+      return;
+    }
+    if (!this.qcEntryLocation.trim()) {
+      this.errorHandler.showWarning('Location is required');
+      return;
+    }
+    if (!this.qcEntryMobileNumber.trim()) {
+      this.errorHandler.showWarning('Mobile number is required');
       return;
     }
 
@@ -1395,27 +1929,75 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
     this.uploadingQC = true;
     const formData = new FormData();
+
+    // Required fields
     formData.append('machine_id', this.selectedMachineForQC._id);
+    formData.append('name', this.qcEntryName.trim());
+    formData.append('category_id', this.qcEntryCategoryId);
+    formData.append('party_name', this.qcEntryPartyName.trim());
+    formData.append('location', this.qcEntryLocation.trim());
+    formData.append('mobile_number', this.qcEntryMobileNumber.trim());
+
+    // Optional machine fields
+    if (this.qcEntrySubcategoryId) {
+      formData.append('subcategory_id', this.qcEntrySubcategoryId);
+    }
+    if (this.qcEntryMachineSequence?.trim()) {
+      formData.append('machine_sequence', this.qcEntryMachineSequence.trim());
+    }
+    if (this.qcEntryDispatchDate) {
+      formData.append('dispatch_date', this.qcEntryDispatchDate);
+    }
+
+    // Images
+    if (this.selectedImages.length > 0) {
+      this.selectedImages.forEach(file => formData.append('images', file));
+    }
+
+    // Documents
+    if (this.selectedDocuments.length > 0) {
+      this.selectedDocuments.forEach(file =>
+        formData.append('documents', file)
+      );
+    }
+
+    // QC-specific fields
+    if (this.qcEntryNotes && this.qcEntryNotes.trim()) {
+      formData.append('qcNotes', this.qcEntryNotes.trim());
+    }
+    if (
+      this.qcEntryQualityScore !== null &&
+      this.qcEntryQualityScore !== undefined
+    ) {
+      formData.append('qualityScore', this.qcEntryQualityScore.toString());
+    }
+    if (this.qcEntryInspectionDate) {
+      formData.append('inspectionDate', this.qcEntryInspectionDate);
+    }
+    if (this.qcEntryQcDate) {
+      formData.append('qc_date', this.qcEntryQcDate);
+    }
+    if (this.qcEntryNextInspectionDate) {
+      formData.append('nextInspectionDate', this.qcEntryNextInspectionDate);
+    }
     if (this.qcEntryReportLink.trim()) {
       formData.append('report_link', this.qcEntryReportLink.trim());
     }
-    this.selectedFiles.forEach(file => formData.append('files', file));
-    if (this.qcEntryNotes.trim()) {
-      formData.append(
-        'metadata',
-        JSON.stringify({ note: this.qcEntryNotes.trim() })
-      );
+
+    // QC files
+    if (this.selectedFiles.length > 0) {
+      this.selectedFiles.forEach(file => formData.append('files', file));
     }
 
     this.api.post<any>('/qc-machines', formData).subscribe({
       next: () => {
         this.uploadingQC = false;
         this.showCreateQCEntryModal = false;
-        this.errorHandler.showSuccess(
-          'QC entry created and approval requested successfully'
-        );
+        this.errorHandler.showSuccess('QC entry created successfully');
         this.loadApprovals();
         this.loadStats();
+        // Reset form
+        this.resetQCEntryForm();
       },
       error: () => {
         this.uploadingQC = false;
@@ -1424,59 +2006,274 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     });
   }
 
+  resetQCEntryForm(): void {
+    this.selectedMachineForQC = null;
+    this.selectedFiles = [];
+    this.selectedImages = [];
+    this.selectedDocuments = [];
+    this.qcEntryName = '';
+    this.qcEntryCategoryId = '';
+    this.qcEntrySubcategoryId = '';
+    this.qcEntryMachineSequence = '';
+    this.qcEntryPartyName = '';
+    this.qcEntryLocation = '';
+    this.qcEntryMobileNumber = '';
+    this.qcEntryDispatchDate = '';
+    this.qcEntryNotes = '';
+    this.qcEntryQualityScore = null;
+    this.qcEntryInspectionDate = '';
+    this.qcEntryQcDate = '';
+    this.qcEntryNextInspectionDate = '';
+    this.qcEntryReportLink = '';
+    this.reportLinkTouched = false;
+    this.reportLinkErrorMsg = null;
+    this.qcEntryForm.reset();
+  }
+
   // Edit Modal Methods
   openEditModal(approval: QCApproval): void {
-    if (approval.status !== 'PENDING') {
-      this.errorHandler.showWarning('Only pending QC approvals can be edited');
+    // Allow editing for both PENDING and APPROVED status
+    if (approval.status === 'REJECTED' || approval.status === 'CANCELLED') {
+      this.errorHandler.showWarning(
+        'Cannot edit rejected or cancelled QC approvals'
+      );
+      return;
+    }
+
+    const qcEntryId =
+      typeof approval.qcEntryId === 'string'
+        ? approval.qcEntryId
+        : approval.qcEntryId?._id;
+    if (!qcEntryId) {
+      this.errorHandler.showWarning('QC entry not found');
       return;
     }
 
     this.selectedApproval = approval;
-    this.editForm.patchValue({
-      qcNotes: approval.qcNotes || '',
-      qualityScore: approval.qualityScore || null,
-      inspectionDate: approval.inspectionDate
-        ? new Date(approval.inspectionDate).toISOString().split('T')[0]
-        : '',
-      nextInspectionDate: approval.nextInspectionDate
-        ? new Date(approval.nextInspectionDate).toISOString().split('T')[0]
-        : '',
-      requestNotes: approval.requestNotes || '',
+    this.actionLoading = true;
+
+    // Fetch full QC entry data
+    this.qcEntryService.getQCEntryById(qcEntryId).subscribe({
+      next: res => {
+        this.selectedQCEntryForEdit = res.data;
+        const qcEntry = res.data;
+
+        // Populate existing files
+        this.existingImages = (qcEntry.images || []) as string[];
+        this.existingDocuments = (qcEntry.documents || []) as Array<{
+          name: string;
+          file_path: string;
+          document_type?: string;
+          _id?: string;
+        }>;
+        this.existingFiles = (qcEntry.files || []) as string[];
+
+        // Reset deletion lists
+        this.imagesToDelete = [];
+        this.documentsToDelete = [];
+        this.filesToDelete = [];
+        this.editSelectedImages = [];
+        this.editSelectedDocuments = [];
+        this.editSelectedFiles = [];
+
+        // Load subcategories if category exists
+        const categoryId =
+          (qcEntry.category_id as any)?._id ||
+          (typeof qcEntry.category_id === 'string'
+            ? qcEntry.category_id
+            : '') ||
+          '';
+        if (categoryId) {
+          this.loadSubcategories(categoryId);
+        }
+
+        // Populate form with QC entry data
+        const subcategoryId =
+          (qcEntry.subcategory_id as any)?._id ||
+          (typeof qcEntry.subcategory_id === 'string'
+            ? qcEntry.subcategory_id
+            : '') ||
+          '';
+
+        this.editForm.patchValue({
+          name: qcEntry.name || '',
+          category_id: categoryId,
+          subcategory_id: subcategoryId,
+          machine_sequence: qcEntry.machine_sequence || '',
+          party_name: qcEntry.party_name || '',
+          location: qcEntry.location || '',
+          mobile_number: qcEntry.mobile_number || '',
+          dispatch_date: qcEntry.dispatch_date
+            ? new Date(qcEntry.dispatch_date).toISOString().split('T')[0]
+            : '',
+          qcNotes: qcEntry.qcNotes || '',
+          qualityScore: qcEntry.qualityScore || null,
+          inspectionDate: qcEntry.inspectionDate
+            ? new Date(qcEntry.inspectionDate).toISOString().split('T')[0]
+            : '',
+          qc_date: qcEntry.qc_date
+            ? new Date(qcEntry.qc_date).toISOString().split('T')[0]
+            : '',
+          nextInspectionDate: qcEntry.nextInspectionDate
+            ? new Date(qcEntry.nextInspectionDate).toISOString().split('T')[0]
+            : '',
+          reportLink: (qcEntry as any).report_link || qcEntry.reportLink || '',
+          is_active: (qcEntry as any).is_active || false,
+          approval_status: (qcEntry as any).approval_status || 'PENDING',
+        });
+
+        this.actionLoading = false;
+        this.showEditDialog = true;
+      },
+      error: () => {
+        this.actionLoading = false;
+        this.errorHandler.showWarning('Failed to load QC entry data');
+      },
     });
-    this.showEditDialog = true;
   }
 
   closeEditModal(): void {
     this.showEditDialog = false;
     this.selectedApproval = null;
+    this.selectedQCEntryForEdit = null;
+    this.existingImages = [];
+    this.existingDocuments = [];
+    this.existingFiles = [];
+    this.imagesToDelete = [];
+    this.documentsToDelete = [];
+    this.filesToDelete = [];
+    this.editSelectedImages = [];
+    this.editSelectedDocuments = [];
+    this.editSelectedFiles = [];
     this.editForm.reset();
   }
 
+  // Document management methods for edit modal
+  removeImageFromEdit(imagePath: string): void {
+    this.imagesToDelete.push(imagePath);
+    this.existingImages = this.existingImages.filter(img => img !== imagePath);
+  }
+
+  removeDocumentFromEdit(document: {
+    name: string;
+    file_path: string;
+    _id?: string;
+  }): void {
+    if (document._id) {
+      this.documentsToDelete.push(document._id);
+    } else {
+      this.documentsToDelete.push(document.file_path);
+    }
+    this.existingDocuments = this.existingDocuments.filter(
+      doc => doc.file_path !== document.file_path
+    );
+  }
+
+  removeFileFromEdit(filePath: string): void {
+    this.filesToDelete.push(filePath);
+    this.existingFiles = this.existingFiles.filter(file => file !== filePath);
+  }
+
+  onEditImagesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.editSelectedImages = Array.from(input.files);
+    }
+  }
+
+  onEditDocumentsSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.editSelectedDocuments = Array.from(input.files);
+    }
+  }
+
+  onEditFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      this.editSelectedFiles = Array.from(input.files);
+    }
+  }
+
   submitEdit(): void {
-    if (!this.selectedApproval?._id) return;
+    if (!this.selectedQCEntryForEdit?._id) return;
 
     this.actionLoading = true;
-    const updateData: any = {};
 
     const formValue = this.editForm.value;
-    if (formValue.qcNotes !== undefined) updateData.qcNotes = formValue.qcNotes;
-    if (formValue.qualityScore !== undefined && formValue.qualityScore !== null)
-      updateData.qualityScore = formValue.qualityScore;
-    if (formValue.inspectionDate)
-      updateData.inspectionDate = formValue.inspectionDate;
-    if (formValue.nextInspectionDate)
-      updateData.nextInspectionDate = formValue.nextInspectionDate;
-    if (formValue.requestNotes !== undefined)
-      updateData.requestNotes = formValue.requestNotes;
+    const formData = new FormData();
 
+    // Add all form fields
+    if (formValue.name) formData.append('name', formValue.name);
+    if (formValue.category_id)
+      formData.append('category_id', formValue.category_id);
+    if (formValue.subcategory_id)
+      formData.append('subcategory_id', formValue.subcategory_id);
+    if (formValue.machine_sequence)
+      formData.append('machine_sequence', formValue.machine_sequence);
+    if (formValue.party_name)
+      formData.append('party_name', formValue.party_name);
+    if (formValue.location) formData.append('location', formValue.location);
+    if (formValue.mobile_number)
+      formData.append('mobile_number', formValue.mobile_number);
+    if (formValue.dispatch_date)
+      formData.append('dispatch_date', formValue.dispatch_date);
+    if (formValue.qcNotes) formData.append('qcNotes', formValue.qcNotes);
+    if (formValue.qualityScore !== null && formValue.qualityScore !== undefined)
+      formData.append('qualityScore', formValue.qualityScore.toString());
+    if (formValue.inspectionDate)
+      formData.append('inspectionDate', formValue.inspectionDate);
+    if (formValue.qc_date) formData.append('qc_date', formValue.qc_date);
+    if (formValue.nextInspectionDate)
+      formData.append('nextInspectionDate', formValue.nextInspectionDate);
+    if (formValue.reportLink)
+      formData.append('report_link', formValue.reportLink);
+    if (formValue.is_active !== undefined)
+      formData.append('is_active', formValue.is_active.toString());
+    if (formValue.approval_status)
+      formData.append('approval_status', formValue.approval_status);
+
+    // Handle images: send remaining images as JSON (to replace existing)
+    const remainingImages = this.existingImages.filter(
+      img => !this.imagesToDelete.includes(img)
+    );
+    formData.append('images', JSON.stringify(remainingImages));
+
+    // Handle documents: send remaining documents as JSON (to replace existing)
+    const remainingDocuments = this.existingDocuments.filter(
+      doc => !this.documentsToDelete.includes(doc._id || doc.file_path)
+    );
+    formData.append('documents', JSON.stringify(remainingDocuments));
+
+    // Handle files: send remaining files as JSON (to replace existing)
+    const remainingFiles = this.existingFiles.filter(
+      file => !this.filesToDelete.includes(file)
+    );
+    formData.append('files', JSON.stringify(remainingFiles));
+
+    // Add new files
+    if (this.editSelectedImages.length > 0) {
+      this.editSelectedImages.forEach(file => formData.append('images', file));
+    }
+    if (this.editSelectedDocuments.length > 0) {
+      this.editSelectedDocuments.forEach(file =>
+        formData.append('documents', file)
+      );
+    }
+    if (this.editSelectedFiles.length > 0) {
+      this.editSelectedFiles.forEach(file => formData.append('files', file));
+    }
+
+    // Update QC entry
     this.qcEntryService
-      .updateQCApproval(this.selectedApproval._id, updateData)
+      .updateQCEntryWithFormData(this.selectedQCEntryForEdit._id, formData)
       .subscribe({
         next: () => {
           this.actionLoading = false;
           this.showEditDialog = false;
           this.selectedApproval = null;
-          this.errorHandler.showSuccess('QC approval updated successfully');
+          this.selectedQCEntryForEdit = null;
+          this.errorHandler.showSuccess('QC entry updated successfully');
           this.loadApprovals();
           this.loadStats();
         },

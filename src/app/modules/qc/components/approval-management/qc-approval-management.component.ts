@@ -25,20 +25,20 @@ import { QcSidebarComponent } from '../shared/qc-sidebar/qc-sidebar.component';
 
 interface QCApproval {
   _id?: string;
-  machineId: {
-    _id: string;
-    name: string;
+  machineId?: {
+    _id?: string;
+    name?: string;
     machine_sequence?: string;
-    category_id: {
-      _id: string;
-      name: string;
+    category_id?: {
+      _id?: string;
+      name?: string;
     };
-    images: string[];
+    images?: string[];
   };
-  requestedBy: {
-    _id: string;
-    username: string;
-    name: string;
+  requestedBy?: {
+    _id?: string;
+    username?: string;
+    name?: string;
   };
   approvalType: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
@@ -133,6 +133,15 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   filtersForm: FormGroup;
   searchTerm = '';
 
+  // Autocomplete suggestions
+  requestedBySuggestions: string[] = [];
+  showRequestedBySuggestions = false;
+  partyNameSuggestions: string[] = [];
+  showPartyNameSuggestions = false;
+  locationSuggestions: string[] = [];
+  showLocationSuggestions = false;
+  private suggestionDebounceTimers: { [key: string]: any } = {};
+
   // Pagination
   currentPage = 1;
   pageSize = 20;
@@ -169,6 +178,9 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   // View Details modal & lightbox
   showDetailsModal = false;
   detailsApproval: QCApproval | null = null;
+  selectedQCEntry: any = null;
+  selectedMachine: any = null;
+  viewVisible = false;
   lightboxImages: string[] = [];
   lightboxIndex = 0;
 
@@ -217,6 +229,17 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       machineName: [''],
       requestedBy: [''],
       category: [''],
+      subcategory: [''],
+      machineSequence: [''],
+      partyName: [''],
+      location: [''],
+      mobileNumber: [''],
+      dispatchDateFrom: [''],
+      dispatchDateTo: [''],
+      qcDateFrom: [''],
+      qcDateTo: [''],
+      inspectionDateFrom: [''],
+      inspectionDateTo: [''],
       sortBy: ['createdAt'],
       sortOrder: ['desc'],
     });
@@ -240,6 +263,13 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    console.log('[QC Approval Management] Component initialized');
+    console.log('[QC Approval Management] View mode:', this.viewMode);
+    console.log(
+      '[QC Approval Management] Current user:',
+      this.authService.getCurrentUser()
+    );
+
     this.loadStats();
     this.loadApprovals();
     this.setupFormListeners();
@@ -267,72 +297,67 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   }
 
   loadStats(): void {
-    // For "my" view, compute per-user stats via filtered list API (requestedBy=username)
+    console.log('[QC Approval Management] Loading statistics...');
+    console.log('[QC Approval Management] View mode:', this.viewMode);
+
+    // For "my" view, use statistics endpoint with requestedBy filter
     if (this.viewMode === 'my') {
       const me = this.authService.getCurrentUser();
       const requestedBy = me?.username || '';
-      if (!requestedBy) return;
-      const base = { page: 1, limit: 1, requestedBy } as any;
-      const reqs = [
-        this.qcEntryService.getQCApprovals({ ...base }),
-        this.qcEntryService.getQCApprovals({ ...base, status: 'PENDING' }),
-        this.qcEntryService.getQCApprovals({ ...base, status: 'APPROVED' }),
-        this.qcEntryService.getQCApprovals({ ...base, status: 'REJECTED' }),
-        this.qcEntryService.getQCApprovals({ ...base, status: 'CANCELLED' }),
-      ];
-      // Execute sequentially to keep it simple
-      reqs[0].subscribe({
-        next: totalRes => {
-          const total = totalRes?.data?.total || 0;
-          reqs[1].subscribe({
-            next: pendRes => {
-              const pending = pendRes?.data?.total || 0;
-              reqs[2].subscribe({
-                next: apprRes => {
-                  const approved = apprRes?.data?.total || 0;
-                  reqs[3].subscribe({
-                    next: rejRes => {
-                      const rejected = rejRes?.data?.total || 0;
-                      reqs[4].subscribe({
-                        next: cancRes => {
-                          const _cancelled = cancRes?.data?.total || 0;
-                          this.stats = {
-                            total,
-                            pending,
-                            approved,
-                            rejected,
-                            activated: 0,
-                          };
-                        },
-                        error: () => {},
-                      });
-                    },
-                    error: () => {},
-                  });
-                },
-                error: () => {},
-              });
-            },
-            error: () => {},
-          });
+      console.log(
+        '[QC Approval Management] Loading stats for user:',
+        requestedBy
+      );
+      if (!requestedBy) {
+        console.warn(
+          '[QC Approval Management] No username found, cannot load stats'
+        );
+        return;
+      }
+
+      this.qcEntryService.getQCApprovalStatistics(requestedBy).subscribe({
+        next: res => {
+          console.log(
+            '[QC Approval Management] Statistics loaded for user:',
+            res?.data
+          );
+          this.stats = res?.data || this.stats;
         },
-        error: () => {},
+        error: error => {
+          console.error(
+            '[QC Approval Management] Failed to load approval statistics:',
+            error
+          );
+        },
       });
       return;
     }
 
     // Otherwise, load global stats
+    console.log('[QC Approval Management] Loading global statistics');
     this.qcEntryService.getQCApprovalStatistics().subscribe({
       next: res => {
+        console.log(
+          '[QC Approval Management] Global statistics loaded:',
+          res?.data
+        );
         this.stats = res?.data || this.stats;
       },
       error: error => {
-        console.error('Failed to load approval statistics:', error);
+        console.error(
+          '[QC Approval Management] Failed to load approval statistics:',
+          error
+        );
       },
     });
   }
 
   loadApprovals(): void {
+    console.log('[QC Approval Management] Loading approvals...');
+    console.log('[QC Approval Management] View mode:', this.viewMode);
+    console.log('[QC Approval Management] Current page:', this.currentPage);
+    console.log('[QC Approval Management] Page size:', this.pageSize);
+
     this.loading = true;
     this.loaderService.showGlobalLoader('Loading QC approvals...');
 
@@ -341,6 +366,8 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       page: this.currentPage,
       limit: this.pageSize,
     };
+
+    console.log('[QC Approval Management] Form filters:', formValue);
 
     if (formValue.search?.trim()) {
       params.search = formValue.search.trim();
@@ -372,6 +399,39 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     if (formValue.category?.trim()) {
       params.category = formValue.category.trim();
     }
+    if (formValue.subcategory?.trim()) {
+      params.subcategory = formValue.subcategory.trim();
+    }
+    if (formValue.machineSequence?.trim()) {
+      params.machineSequence = formValue.machineSequence.trim();
+    }
+    if (formValue.partyName?.trim()) {
+      params.partyName = formValue.partyName.trim();
+    }
+    if (formValue.location?.trim()) {
+      params.location = formValue.location.trim();
+    }
+    if (formValue.mobileNumber?.trim()) {
+      params.mobileNumber = formValue.mobileNumber.trim();
+    }
+    if (formValue.dispatchDateFrom) {
+      params.dispatchDateFrom = formValue.dispatchDateFrom;
+    }
+    if (formValue.dispatchDateTo) {
+      params.dispatchDateTo = formValue.dispatchDateTo;
+    }
+    if (formValue.qcDateFrom) {
+      params.qcDateFrom = formValue.qcDateFrom;
+    }
+    if (formValue.qcDateTo) {
+      params.qcDateTo = formValue.qcDateTo;
+    }
+    if (formValue.inspectionDateFrom) {
+      params.inspectionDateFrom = formValue.inspectionDateFrom;
+    }
+    if (formValue.inspectionDateTo) {
+      params.inspectionDateTo = formValue.inspectionDateTo;
+    }
     if (formValue.sortBy) {
       params.sortBy = formValue.sortBy;
     }
@@ -382,25 +442,102 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     let source$;
     if (this.viewMode === 'my') {
       const me = this.authService.getCurrentUser();
-      if (me?.username) params.requestedBy = me.username;
+      console.log('[QC Approval Management] Current user:', me);
+      if (me?.username) {
+        params.requestedBy = me.username;
+        console.log(
+          '[QC Approval Management] Filtering by requestedBy (username):',
+          me.username
+        );
+      } else {
+        console.warn(
+          '[QC Approval Management] No username found for current user'
+        );
+      }
       source$ = this.qcEntryService.getQCApprovals(params);
     } else {
+      console.log(
+        '[QC Approval Management] Loading all approvals (not filtered by user)'
+      );
       source$ = this.qcEntryService.getQCApprovals(params);
     }
 
+    console.log('[QC Approval Management] API params:', params);
+    console.log(
+      '[QC Approval Management] Making API call to getQCApprovals...'
+    );
+
     source$.subscribe({
       next: res => {
+        console.log('[QC Approval Management] API response received:', res);
         const data = res?.data || res;
+        console.log('[QC Approval Management] Response data:', data);
+
         this.approvals = (data.approvals || []) as unknown as QCApproval[];
         this.totalCount = data.total || 0;
         this.totalPages =
           data.pages || Math.ceil(this.totalCount / this.pageSize);
         this.filteredApprovals = [...this.approvals];
+
+        console.log(
+          '[QC Approval Management] Loaded approvals count:',
+          this.approvals.length
+        );
+        console.log('[QC Approval Management] Total count:', this.totalCount);
+        console.log('[QC Approval Management] Total pages:', this.totalPages);
+        console.log('[QC Approval Management] All approvals:', this.approvals);
+
+        if (this.approvals.length > 0) {
+          console.log(
+            '[QC Approval Management] First approval:',
+            this.approvals[0]
+          );
+          console.log('[QC Approval Management] First approval details:', {
+            id: this.approvals[0]._id,
+            status: this.approvals[0].status,
+            approvalType: this.approvals[0].approvalType,
+            machineId: this.approvals[0].machineId?._id,
+            machineName: this.approvals[0].machineId?.name,
+            requestedBy:
+              this.approvals[0].requestedBy?.username ||
+              this.approvals[0].requestedBy?.name,
+            qcEntryId: this.approvals[0].qcEntryId,
+          });
+        } else {
+          console.warn('[QC Approval Management] No approvals found!');
+          console.warn('[QC Approval Management] This might indicate:');
+          console.warn('  1. No approvals exist for this user/filters');
+          console.warn('  2. Approval was not created yet (timing issue)');
+          console.warn('  3. Filter is too restrictive');
+          console.warn('[QC Approval Management] Current filters:', params);
+          console.warn('[QC Approval Management] View mode:', this.viewMode);
+
+          // If in "my" view and no results, suggest checking "all" view
+          if (this.viewMode === 'my') {
+            console.warn(
+              '[QC Approval Management] TIP: Try switching to "All" view to see if approvals exist'
+            );
+            console.warn(
+              '[QC Approval Management] The username filter might not match the approval creator'
+            );
+          }
+        }
+
         this.loading = false;
         this.loaderService.hideGlobalLoader();
       },
       error: error => {
-        console.error('Error loading QC approvals:', error);
+        console.error(
+          '[QC Approval Management] Error loading QC approvals:',
+          error
+        );
+        console.error('[QC Approval Management] Error details:', {
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          error: error?.error,
+          url: error?.url,
+        });
         this.errorHandler.showServerError();
         this.loading = false;
         this.loaderService.hideGlobalLoader();
@@ -420,9 +557,122 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   }
 
   clearFilters(): void {
-    this.filtersForm.reset();
+    this.filtersForm.reset({
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    });
+    this.showRequestedBySuggestions = false;
+    this.showPartyNameSuggestions = false;
+    this.showLocationSuggestions = false;
     this.currentPage = 1;
     this.loadApprovals();
+  }
+
+  // Autocomplete methods for suggestion-based search
+  onRequestedByChange(): void {
+    const query = this.filtersForm.get('requestedBy')?.value?.trim() || '';
+    if (query.length < 1) {
+      this.showRequestedBySuggestions = false;
+      return;
+    }
+
+    clearTimeout(this.suggestionDebounceTimers['requestedBy']);
+    this.suggestionDebounceTimers['requestedBy'] = setTimeout(() => {
+      this.qcEntryService.getSearchSuggestions('requestedBy', query).subscribe({
+        next: res => {
+          this.requestedBySuggestions = res.data.suggestions || [];
+          this.showRequestedBySuggestions =
+            this.requestedBySuggestions.length > 0;
+        },
+        error: () => {
+          this.requestedBySuggestions = [];
+          this.showRequestedBySuggestions = false;
+        },
+      });
+    }, 300);
+  }
+
+  selectRequestedBy(suggestion: string): void {
+    this.filtersForm.patchValue({ requestedBy: suggestion });
+    this.showRequestedBySuggestions = false;
+    this.currentPage = 1;
+    this.loadApprovals();
+  }
+
+  hideRequestedBySuggestions(): void {
+    setTimeout(() => {
+      this.showRequestedBySuggestions = false;
+    }, 200);
+  }
+
+  onPartyNameChange(): void {
+    const query = this.filtersForm.get('partyName')?.value?.trim() || '';
+    if (query.length < 1) {
+      this.showPartyNameSuggestions = false;
+      return;
+    }
+
+    clearTimeout(this.suggestionDebounceTimers['partyName']);
+    this.suggestionDebounceTimers['partyName'] = setTimeout(() => {
+      this.qcEntryService.getSearchSuggestions('partyName', query).subscribe({
+        next: res => {
+          this.partyNameSuggestions = res.data.suggestions || [];
+          this.showPartyNameSuggestions = this.partyNameSuggestions.length > 0;
+        },
+        error: () => {
+          this.partyNameSuggestions = [];
+          this.showPartyNameSuggestions = false;
+        },
+      });
+    }, 300);
+  }
+
+  selectPartyName(suggestion: string): void {
+    this.filtersForm.patchValue({ partyName: suggestion });
+    this.showPartyNameSuggestions = false;
+    this.currentPage = 1;
+    this.loadApprovals();
+  }
+
+  hidePartyNameSuggestions(): void {
+    setTimeout(() => {
+      this.showPartyNameSuggestions = false;
+    }, 200);
+  }
+
+  onLocationChange(): void {
+    const query = this.filtersForm.get('location')?.value?.trim() || '';
+    if (query.length < 1) {
+      this.showLocationSuggestions = false;
+      return;
+    }
+
+    clearTimeout(this.suggestionDebounceTimers['location']);
+    this.suggestionDebounceTimers['location'] = setTimeout(() => {
+      this.qcEntryService.getSearchSuggestions('location', query).subscribe({
+        next: res => {
+          this.locationSuggestions = res.data.suggestions || [];
+          this.showLocationSuggestions = this.locationSuggestions.length > 0;
+        },
+        error: () => {
+          this.locationSuggestions = [];
+          this.showLocationSuggestions = false;
+        },
+      });
+    }, 300);
+  }
+
+  selectLocation(suggestion: string): void {
+    this.filtersForm.patchValue({ location: suggestion });
+    this.showLocationSuggestions = false;
+    this.currentPage = 1;
+    this.loadApprovals();
+  }
+
+  hideLocationSuggestions(): void {
+    setTimeout(() => {
+      this.showLocationSuggestions = false;
+    }, 200);
   }
 
   // Selection
@@ -545,28 +795,118 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   }
 
   onViewApprovalDetails(approval: QCApproval): void {
-    // Fetch latest approval to include approvers and qcEntryId.files
-    const id = approval?._id;
-    if (!id) {
-      this.detailsApproval = approval;
-      this.showDetailsModal = true;
-      return;
+    this.selectedApproval = approval;
+    this.selectedQCEntry = null;
+    this.selectedMachine = null;
+
+    // Get machine ID - handle both string and object types
+    let machineId: string | null = null;
+    if (typeof approval.machineId === 'string') {
+      machineId = approval.machineId;
+    } else if (approval.machineId && typeof approval.machineId === 'object') {
+      machineId = approval.machineId._id || null;
     }
-    const sub = this.qcEntryService.getQCApprovalById(id).subscribe({
-      next: res => {
-        try {
-          const full = (res as any)?.data || res;
-          this.detailsApproval = full as any;
-        } finally {
-          sub.unsubscribe();
-          this.showDetailsModal = true;
-        }
-      },
-      error: () => {
-        this.detailsApproval = approval;
-        this.showDetailsModal = true;
-      },
-    });
+
+    // Set initial machine data from approval if available
+    if (approval.machineId && typeof approval.machineId === 'object') {
+      this.selectedMachine = {
+        ...approval.machineId,
+      };
+    }
+
+    this.viewVisible = true;
+    this.showDetailsModal = true;
+
+    // Fetch full machine details from API if machineId exists
+    if (machineId) {
+      this.api.get<any>(`/machines/${machineId}`).subscribe({
+        next: (res: any) => {
+          const data = res?.data || res;
+          const machine = data?.machine || data;
+          if (machine) {
+            this.selectedMachine = this.normalizeMachine(machine);
+          }
+        },
+        error: (error: any) => {
+          console.error('Error loading machine details:', error);
+          // Keep the initial data from approval if available
+          if (
+            !this.selectedMachine &&
+            approval.machineId &&
+            typeof approval.machineId === 'object'
+          ) {
+            this.selectedMachine = approval.machineId;
+          }
+        },
+      });
+    }
+
+    // Fetch QC Entry details if qcEntryId exists
+    if (approval.qcEntryId) {
+      const qcEntryId =
+        typeof approval.qcEntryId === 'string'
+          ? approval.qcEntryId
+          : approval.qcEntryId &&
+              typeof approval.qcEntryId === 'object' &&
+              '_id' in approval.qcEntryId
+            ? (approval.qcEntryId as any)._id
+            : null;
+
+      if (qcEntryId) {
+        this.qcEntryService.getQCEntryById(qcEntryId).subscribe({
+          next: (res: any) => {
+            const data = res?.data || res;
+            this.selectedQCEntry = data;
+          },
+          error: (error: any) => {
+            console.error('Error loading QC entry details:', error);
+          },
+        });
+      }
+    }
+
+    // Also fetch latest approval to include approvers and qcEntryId.files
+    const id = approval?._id;
+    if (id) {
+      const sub = this.qcEntryService.getQCApprovalById(id).subscribe({
+        next: res => {
+          try {
+            const full = (res as any)?.data || res;
+            this.selectedApproval = full as any;
+            this.detailsApproval = full as any;
+          } finally {
+            sub.unsubscribe();
+          }
+        },
+        error: () => {
+          // Keep existing approval data
+        },
+      });
+    }
+  }
+
+  closeViewModal(): void {
+    this.viewVisible = false;
+    this.showDetailsModal = false;
+    this.selectedMachine = null;
+    this.selectedApproval = null;
+    this.selectedQCEntry = null;
+    this.detailsApproval = null;
+  }
+
+  // Normalize machine data
+  private normalizeMachine(m: any): any {
+    let normalizedMetadata: Record<string, unknown>;
+    const md: any = m?.metadata;
+    if (md && typeof md === 'object' && !Array.isArray(md)) {
+      normalizedMetadata = md;
+    } else {
+      normalizedMetadata = {};
+    }
+    return {
+      ...m,
+      metadata: normalizedMetadata,
+    };
   }
 
   onActivateMachine(approval: QCApproval): void {
@@ -737,19 +1077,19 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     }
   }
 
-  getDocumentName(file: string): string {
-    return this.extractName(file);
-  }
-
   // Utility methods
   getStatusClass(status: string): string {
-    const classes = {
-      PENDING: 'bg-warning text-white',
-      APPROVED: 'bg-success text-white',
-      REJECTED: 'bg-error text-white',
-      CANCELLED: 'bg-gray-500 text-white',
+    const classes: Record<string, string> = {
+      PENDING: 'bg-yellow-500 text-white border border-yellow-600 shadow-sm',
+      APPROVED: 'bg-green-500 text-white border border-green-600 shadow-sm',
+      REJECTED: 'bg-red-500 text-white border border-red-600 shadow-sm',
+      CANCELLED: 'bg-gray-500 text-white border border-gray-600 shadow-sm',
     };
-    return classes[status as keyof typeof classes] || 'bg-gray-500 text-white';
+    const normalized = String(status || '').toUpperCase();
+    return (
+      classes[normalized] ||
+      'bg-gray-500 text-white border border-gray-600 shadow-sm'
+    );
   }
 
   getRowClass(approval: QCApproval): string {
@@ -780,6 +1120,145 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     if (score >= 90) return 'text-success font-semibold';
     if (score >= 70) return 'text-warning font-semibold';
     return 'text-error font-semibold';
+  }
+
+  // Helper methods for view modal (matching admin dashboard)
+  getQCEntryFiles(approval: QCApproval | null): string[] {
+    if (!approval) return [];
+    if (approval.qcEntryId && typeof approval.qcEntryId === 'object') {
+      return approval.qcEntryId.files || [];
+    }
+    return [];
+  }
+
+  hasQCDocuments(approval: QCApproval | null): boolean {
+    if (!approval) return false;
+    const hasDocuments = approval.documents && approval.documents.length > 0;
+    const hasQCFiles =
+      approval.qcEntryId &&
+      typeof approval.qcEntryId === 'object' &&
+      approval.qcEntryId.files &&
+      approval.qcEntryId.files.length > 0;
+    return !!(hasDocuments || hasQCFiles);
+  }
+
+  extractFileName(filePath: string): string {
+    if (!filePath) return 'Document';
+    try {
+      const clean = filePath.split('?')[0];
+      const parts = clean.split('/');
+      return parts[parts.length - 1] || 'Document';
+    } catch {
+      return 'Document';
+    }
+  }
+
+  previewDocument(doc: any): void {
+    const path = doc.path || doc.file_path || doc.filename;
+    if (!path) return;
+    const url = this.imageUrl(path);
+    window.open(url, '_blank');
+  }
+
+  documentUrl(filePath: string): string {
+    if (!filePath) return '';
+    if (filePath.startsWith('http')) return filePath;
+    const base = environment.apiUrl.replace(/\/?api\/?$/, '');
+    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `${base}${normalizedPath}`;
+  }
+
+  getCategoryName(categoryId: string | any): string {
+    if (!categoryId) return '';
+    if (typeof categoryId === 'object' && categoryId.name) {
+      return categoryId.name;
+    }
+    if (typeof categoryId === 'string') {
+      return categoryId;
+    }
+    return '';
+  }
+
+  getSubcategoryName(subcategoryId: string | any): string {
+    if (!subcategoryId) return '';
+    if (typeof subcategoryId === 'object' && subcategoryId.name) {
+      return subcategoryId.name;
+    }
+    if (typeof subcategoryId === 'string') {
+      return subcategoryId;
+    }
+    return '';
+  }
+
+  // Helper methods matching admin dashboard
+  getMachineName(approval: QCApproval | null): string {
+    if (!approval?.machineId) return 'Unknown Machine';
+    if (typeof approval.machineId === 'object' && approval.machineId) {
+      return approval.machineId.name || 'Unknown Machine';
+    }
+    return 'Unknown Machine';
+  }
+
+  getMachineCategoryName(approval: QCApproval | null): string {
+    if (!approval?.machineId) return '-';
+    if (
+      typeof approval.machineId === 'object' &&
+      approval.machineId?.category_id
+    ) {
+      return approval.machineId.category_id.name || '-';
+    }
+    return '-';
+  }
+
+  getMachineImages(approval: QCApproval | null): string[] {
+    if (!approval?.machineId) return [];
+    if (typeof approval.machineId === 'object' && approval.machineId?.images) {
+      return Array.isArray(approval.machineId.images)
+        ? approval.machineId.images
+        : [];
+    }
+    return [];
+  }
+
+  getDocumentName(doc: any): string {
+    if (!doc) return 'Document';
+    if (typeof doc === 'string') {
+      return this.extractFileName(doc);
+    }
+    return (
+      doc.originalName ||
+      doc.filename ||
+      doc.name ||
+      doc.file_path ||
+      'Document'
+    );
+  }
+
+  trackByKey(_index: number, item: any): string {
+    const key = item?.key ?? _index;
+    return String(key);
+  }
+
+  // Categories and subcategories for display
+  categories: any[] = [];
+  subcategories: any[] = [];
+
+  getSubcategoryDisplayName(subcategory: any): string {
+    if (!subcategory) return '-';
+    if (typeof subcategory === 'string') {
+      // If it's a string ID, try to find it in subcategories
+      const found = this.subcategories.find(s => s._id === subcategory);
+      return found?.name || subcategory;
+    }
+    if (typeof subcategory === 'object' && subcategory.name) {
+      return subcategory.name;
+    }
+    return '-';
+  }
+
+  loadSubcategories(_categoryId: string): void {
+    // This will be implemented if needed for subcategory display
+    // For now, subcategories will be loaded from the machine data
   }
 
   imageUrl(path: string): string {

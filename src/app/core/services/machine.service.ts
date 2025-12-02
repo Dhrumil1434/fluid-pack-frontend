@@ -225,4 +225,17 @@ export class MachineService {
       { machineIds }
     );
   }
+
+  /**
+   * Get search suggestions for a specific field
+   */
+  getSearchSuggestions(
+    field: string,
+    query: string
+  ): Observable<ApiResponse<{ suggestions: string[] }>> {
+    return this.baseApiService.get<{ suggestions: string[] }>(
+      `/machines/suggestions/${field}`,
+      { query, limit: 10 }
+    );
+  }
 }

@@ -95,7 +95,7 @@ interface SidebarItem {
           class="flex items-center space-x-3 p-3 bg-bg-soft rounded-lg hover:bg-neutral-300 transition-all duration-200"
         >
           <div
-            class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg"
+            class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg overflow-hidden"
           >
             <span class="text-white font-bold text-sm">{{ userInitials }}</span>
           </div>
@@ -114,10 +114,18 @@ interface SidebarItem {
           </button>
         </div>
       </div>
-      <!-- Collapsed footer (logout only) -->
-      <div class="p-2 flex-shrink-0" *ngIf="collapsed">
+      <!-- Collapsed footer (with avatar) -->
+      <div
+        class="p-2 flex-shrink-0 border-t border-neutral-300"
+        *ngIf="collapsed"
+      >
+        <div
+          class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg mx-auto mb-2 overflow-hidden"
+        >
+          <span class="text-white font-bold text-xs">{{ userInitials }}</span>
+        </div>
         <button
-          class="p-2 text-text-muted hover:text-error hover:bg-error/10 rounded-lg"
+          class="w-full p-2 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-all duration-200"
           (click)="logout()"
           title="Logout"
         >
@@ -177,6 +185,7 @@ export class TechnicianSidebarComponent {
   ) {
     const u = this.auth.getCurrentUser();
     if (u) {
+      // UserData interface has username, not name
       this.userName = u.username || 'Technician';
       const initials = (this.userName || 'T C')
         .split(' ')

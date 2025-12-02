@@ -106,11 +106,20 @@
       class="flex items-center space-x-3 p-3 bg-bg-soft rounded-lg hover:bg-neutral-300 transition-all duration-200 group"
     >
       <div
-        class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg user-avatar"
+        class="w-10 h-10 bg-gradient-to-r from-accent-teal to-info rounded-full flex items-center justify-center shadow-lg user-avatar overflow-hidden"
       >
-        <span class="text-white font-bold text-sm">{{
-          getUserInitials()
-        }}</span>
+        <img
+          *ngIf="currentUser?.avatar"
+          [src]="currentUser.avatar"
+          [alt]="currentUser?.name || 'User'"
+          class="w-full h-full object-cover"
+          (error)="currentUser.avatar = null"
+        />
+        <span
+          *ngIf="!currentUser?.avatar"
+          class="text-white font-bold text-sm"
+          >{{ getUserInitials() }}</span
+        >
       </div>
       <div class="flex-1 min-w-0">
         <div class="text-sm font-semibold text-text truncate">

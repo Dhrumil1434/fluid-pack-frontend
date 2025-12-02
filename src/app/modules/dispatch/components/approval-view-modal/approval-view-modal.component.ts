@@ -126,6 +126,28 @@ import { environment } from '../../../../../environments/environment';
                 <div>
                   <label
                     class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Machine Name</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1 font-medium">
+                    {{ machine?.name || '-' }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Machine Sequence</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1 font-mono">
+                    {{
+                      machine?.machine_sequence ||
+                        machine?.machineSequence ||
+                        '-'
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
                     >Party Name</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
@@ -177,6 +199,19 @@ import { environment } from '../../../../../environments/environment';
                 <div>
                   <label
                     class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Subcategory</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{
+                      machine?.subcategory_id?.name ||
+                        machine?.subcategory_id ||
+                        '-'
+                    }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
                     >Approved</label
                   >
                   <span
@@ -196,9 +231,46 @@ import { environment } from '../../../../../environments/environment';
                     >Created By</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{ machine?.created_by?.username }} ({{
-                      machine?.created_by?.email
-                    }})
+                    {{ machine?.created_by?.username || '-' }}
+                    <span
+                      *ngIf="machine?.created_by?.email"
+                      class="text-gray-500"
+                    >
+                      ({{ machine?.created_by?.email }})
+                    </span>
+                  </p>
+                </div>
+                <div *ngIf="machine?.updatedBy">
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Updated By</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ machine?.updatedBy?.username || '-' }}
+                    <span
+                      *ngIf="machine?.updatedBy?.email"
+                      class="text-gray-500"
+                    >
+                      ({{ machine?.updatedBy?.email }})
+                    </span>
+                  </p>
+                </div>
+                <div *ngIf="machine?.createdAt">
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Created At</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ machine?.createdAt | date: 'dd-MM-yyyy HH:mm' }}
+                  </p>
+                </div>
+                <div *ngIf="machine?.updatedAt">
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Updated At</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ machine?.updatedAt | date: 'dd-MM-yyyy HH:mm' }}
                   </p>
                 </div>
               </div>

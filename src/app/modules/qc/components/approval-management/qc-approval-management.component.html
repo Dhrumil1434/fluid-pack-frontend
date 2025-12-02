@@ -87,7 +87,9 @@
             <div class="inline-flex items-center bg-gray-100 rounded-lg p-1">
               <button
                 type="button"
-                (click)="viewMode = 'my'; currentPage = 1; loadApprovals()"
+                (click)="
+                  viewMode = 'my'; currentPage = 1; loadStats(); loadApprovals()
+                "
                 [class.bg-white]="viewMode === 'my'"
                 class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"
               >
@@ -95,7 +97,12 @@
               </button>
               <button
                 type="button"
-                (click)="viewMode = 'all'; currentPage = 1; loadApprovals()"
+                (click)="
+                  viewMode = 'all';
+                  currentPage = 1;
+                  loadStats();
+                  loadApprovals()
+                "
                 [class.bg-white]="viewMode === 'all'"
                 class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900"
               >
@@ -289,8 +296,8 @@
               />
             </div>
 
-            <!-- Requested By Filter -->
-            <div>
+            <!-- Requested By Filter with Autocomplete -->
+            <div class="relative">
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Requested By</label
               >
@@ -298,8 +305,29 @@
                 type="text"
                 formControlName="requestedBy"
                 placeholder="Filter by requester..."
+                (input)="onRequestedByChange()"
+                (focus)="onRequestedByChange()"
+                (blur)="hideRequestedBySuggestions()"
                 class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <div
+                *ngIf="
+                  showRequestedBySuggestions &&
+                  requestedBySuggestions.length > 0
+                "
+                class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+              >
+                <div
+                  *ngFor="
+                    let suggestion of requestedBySuggestions;
+                    trackBy: trackByIndex
+                  "
+                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                  (mousedown)="selectRequestedBy(suggestion)"
+                >
+                  {{ suggestion }}
+                </div>
+              </div>
             </div>
 
             <!-- Category Filter -->
@@ -315,7 +343,190 @@
               />
             </div>
 
-            <!-- Sort By -->
+            <!-- Subcategory Filter -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Subcategory</label
+              >
+              <input
+                type="text"
+                formControlName="subcategory"
+                placeholder="Filter by subcategory..."
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <!-- Additional Filters Row 2 -->
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4"
+          >
+            <!-- Machine Sequence -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Machine Sequence</label
+              >
+              <input
+                type="text"
+                formControlName="machineSequence"
+                placeholder="Filter by sequence..."
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <!-- Party Name with Autocomplete -->
+            <div class="relative">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Party Name</label
+              >
+              <input
+                type="text"
+                formControlName="partyName"
+                placeholder="Filter by party name..."
+                (input)="onPartyNameChange()"
+                (focus)="onPartyNameChange()"
+                (blur)="hidePartyNameSuggestions()"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div
+                *ngIf="
+                  showPartyNameSuggestions && partyNameSuggestions.length > 0
+                "
+                class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+              >
+                <div
+                  *ngFor="
+                    let suggestion of partyNameSuggestions;
+                    trackBy: trackByIndex
+                  "
+                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                  (mousedown)="selectPartyName(suggestion)"
+                >
+                  {{ suggestion }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Location with Autocomplete -->
+            <div class="relative">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Location</label
+              >
+              <input
+                type="text"
+                formControlName="location"
+                placeholder="Filter by location..."
+                (input)="onLocationChange()"
+                (focus)="onLocationChange()"
+                (blur)="hideLocationSuggestions()"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div
+                *ngIf="
+                  showLocationSuggestions && locationSuggestions.length > 0
+                "
+                class="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+              >
+                <div
+                  *ngFor="
+                    let suggestion of locationSuggestions;
+                    trackBy: trackByIndex
+                  "
+                  class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                  (mousedown)="selectLocation(suggestion)"
+                >
+                  {{ suggestion }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile Number -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Mobile Number</label
+              >
+              <input
+                type="text"
+                formControlName="mobileNumber"
+                placeholder="Filter by mobile..."
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <!-- Date Ranges -->
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4"
+          >
+            <!-- Dispatch Date Range -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Dispatch Date From</label
+              >
+              <input
+                type="date"
+                formControlName="dispatchDateFrom"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Dispatch Date To</label
+              >
+              <input
+                type="date"
+                formControlName="dispatchDateTo"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <!-- QC Date Range -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >QC Date From</label
+              >
+              <input
+                type="date"
+                formControlName="qcDateFrom"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >QC Date To</label
+              >
+              <input
+                type="date"
+                formControlName="qcDateTo"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <!-- Inspection Date Range -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Inspection Date From</label
+              >
+              <input
+                type="date"
+                formControlName="inspectionDateFrom"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Inspection Date To</label
+              >
+              <input
+                type="date"
+                formControlName="inspectionDateTo"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <!-- Sort By and Sort Order -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
                 >Sort By</label
@@ -328,15 +539,35 @@
                 <option value="qualityScore">Quality Score</option>
                 <option value="status">Status</option>
                 <option value="approvalType">Type</option>
+                <option value="category">Category</option>
+                <option value="requestedBy">Requested By</option>
+                <option value="partyName">Party Name</option>
+                <option value="location">Location</option>
+                <option value="mobileNumber">Mobile Number</option>
+                <option value="dispatch_date">Dispatch Date</option>
+                <option value="qc_date">QC Date</option>
+                <option value="inspectionDate">Inspection Date</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Sort Order</label
+              >
+              <select
+                formControlName="sortOrder"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
               </select>
             </div>
           </div>
 
-          <!-- Date Range -->
+          <!-- General Date Range (for backward compatibility) -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >From Date</label
+                >From Date (General)</label
               >
               <input
                 type="date"
@@ -346,7 +577,7 @@
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >To Date</label
+                >To Date (General)</label
               >
               <input
                 type="date"
@@ -427,11 +658,6 @@
                 <th
                   class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  Quality Score
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
                   Requested By
                 </th>
                 <th
@@ -477,31 +703,39 @@
                 <td class="px-4 py-4">
                   <div class="flex items-center">
                     <div class="flex-shrink-0 h-10 w-10">
-                      <img
+                      <ng-container
                         *ngIf="
-                          approval.machineId.images &&
-                          approval.machineId.images.length > 0
+                          approval.machineId?.images &&
+                          (approval.machineId?.images?.length ?? 0) > 0
                         "
-                        [src]="imageUrl(approval.machineId.images[0])"
-                        [alt]="approval.machineId.name"
-                        class="h-10 w-10 rounded-lg object-cover border"
-                      />
-                      <div
-                        *ngIf="
-                          !approval.machineId.images ||
-                          approval.machineId.images.length === 0
-                        "
-                        class="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center"
                       >
-                        <i class="pi pi-image text-gray-400"></i>
-                      </div>
+                        <img
+                          [src]="
+                            imageUrl(approval.machineId?.images?.[0] || '')
+                          "
+                          [alt]="approval.machineId?.name || 'Machine image'"
+                          class="h-10 w-10 rounded-lg object-cover border"
+                        />
+                      </ng-container>
+                      <ng-container
+                        *ngIf="
+                          !approval.machineId?.images ||
+                          (approval.machineId?.images?.length ?? 0) === 0
+                        "
+                      >
+                        <div
+                          class="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center"
+                        >
+                          <i class="pi pi-image text-gray-400"></i>
+                        </div>
+                      </ng-container>
                     </div>
                     <div class="ml-4 min-w-0">
                       <div class="text-sm font-medium text-gray-900 truncate">
-                        {{ approval.machineId.name }}
+                        {{ approval.machineId?.name || '-' }}
                       </div>
                       <div class="text-sm text-gray-500 truncate">
-                        {{ approval.machineId.category_id.name }}
+                        {{ approval.machineId?.category_id?.name || '-' }}
                       </div>
                     </div>
                   </div>
@@ -514,15 +748,15 @@
                 <td class="px-4 py-4">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span
-                      class="px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                      [ngClass]="getStatusClass(approval.status)"
+                      class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap uppercase tracking-wide"
+                      [ngClass]="getStatusClass(approval.status || 'PENDING')"
                     >
-                      {{ getStatusText(approval.status) }}
+                      {{ getStatusText(approval.status || 'PENDING') }}
                     </span>
                     <button
                       *ngIf="approval.status === 'REJECTED'"
                       (click)="onViewRejectionDetails(approval)"
-                      class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-error bg-error/10 hover:bg-error/20 rounded-md border border-error/30 transition-colors"
+                      class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md border border-red-200 transition-colors"
                       title="View rejection details"
                     >
                       <i class="pi pi-info-circle text-xs"></i>
@@ -531,25 +765,15 @@
                   </div>
                 </td>
                 <td class="px-4 py-4">
-                  <span
-                    *ngIf="approval.qualityScore"
-                    class="text-sm font-medium"
-                    [ngClass]="getQualityScoreClass(approval.qualityScore)"
-                  >
-                    {{ approval.qualityScore }}%
-                  </span>
-                  <span
-                    *ngIf="!approval.qualityScore"
-                    class="text-sm text-gray-500"
-                    >—</span
-                  >
-                </td>
-                <td class="px-4 py-4">
                   <div class="text-sm text-gray-900">
-                    {{ approval.requestedBy.name }}
+                    {{
+                      approval.requestedBy?.name ||
+                        approval.requestedBy?.username ||
+                        '-'
+                    }}
                   </div>
                   <div class="text-sm text-gray-500">
-                    {{ approval.requestedBy.username }}
+                    {{ approval.requestedBy?.username || '-' }}
                   </div>
                 </td>
                 <td class="px-4 py-4 text-sm text-gray-900">
@@ -583,23 +807,19 @@
                     </button>
                     <!-- Approve/Reject Actions (Hidden for QC users) -->
                     <!-- QC users cannot approve/reject their own requests -->
-                    <button
-                      *ngIf="
-                        approval.status === 'APPROVED' &&
-                        !approval.machineActivated
-                      "
-                      (click)="onActivateMachine(approval)"
-                      class="text-blue-600 hover:text-blue-900"
-                      title="Activate Machine"
-                    >
-                      <i class="pi pi-power-off"></i>
-                    </button>
+                    <!-- Activate button removed from QC dashboard -->
                     <button
                       (click)="onViewDocuments(approval)"
                       class="text-indigo-600 hover:text-indigo-900"
                       [title]="
-                        approval.documents && approval.documents.length > 0
-                          ? 'View Documents (' + approval.documents.length + ')'
+                        (approval?.documents?.length ||
+                          approval?.qcEntryId?.files?.length ||
+                          0) > 0
+                          ? 'View Documents (' +
+                            (approval?.documents?.length ||
+                              approval?.qcEntryId?.files?.length ||
+                              0) +
+                            ')'
                           : 'View Documents'
                       "
                     >
@@ -794,327 +1014,662 @@
 </div>
 
 <!-- Enhanced Details Modal with comprehensive information -->
+<!-- View Modal - Machine Details with QC Info (Same as Admin Dashboard) -->
 <div
-  *ngIf="showDetailsModal"
-  class="fixed inset-0 z-50 flex items-center justify-center p-4"
+  *ngIf="viewVisible && showDetailsModal"
+  class="fixed inset-0 z-50 flex items-center justify-center"
 >
   <div
     class="absolute inset-0 bg-black/40"
-    (click)="showDetailsModal = false"
+    (click)="closeViewModal()"
     role="button"
     tabindex="0"
+    (keydown.enter)="closeViewModal()"
+    (keydown.space)="closeViewModal()"
   ></div>
   <div
-    class="relative bg-white border border-neutral-300 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+    class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
   >
     <div
-      class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10"
+      class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
     >
-      <h3 class="text-xl font-semibold text-gray-900">QC Approval Details</h3>
+      <h3 class="text-lg font-semibold text-text">
+        Machine Details & QC Information
+      </h3>
       <button
-        class="p-2 text-gray-500 hover:bg-neutral-100 rounded-md transition-colors"
-        (click)="showDetailsModal = false"
+        class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+        (click)="closeViewModal()"
       >
-        <i class="pi pi-times text-lg"></i>
+        <i class="pi pi-times"></i>
       </button>
     </div>
+    <div class="flex-1 overflow-y-auto p-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Machine Information -->
+        <div class="md:col-span-2">
+          <h4 class="text-sm font-semibold text-text mb-3 border-b pb-2">
+            Machine Information
+          </h4>
+        </div>
 
-    <div class="p-6 space-y-6">
-      <!-- Machine Information -->
-      <div class="bg-gray-50 rounded-lg p-4">
-        <h4
-          class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide"
-        >
-          Machine Information
-        </h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <span class="block text-xs text-gray-500 mb-1">Machine Name</span>
-            <span class="text-sm font-medium text-gray-900">{{
-              detailsApproval?.machineId?.name || '-'
-            }}</span>
-          </div>
-          <div>
-            <span class="block text-xs text-gray-500 mb-1">Category</span>
-            <span class="text-sm font-medium text-gray-900">{{
-              detailsApproval?.machineId?.category_id?.name || '-'
-            }}</span>
-          </div>
-          <div *ngIf="getApprovalMachineSequence(detailsApproval)">
-            <span class="block text-xs text-gray-500 mb-1">QC Sequence</span>
-            <span class="text-sm font-mono font-semibold text-primary">{{
-              formatSequenceWithQC(getApprovalMachineSequence(detailsApproval))
-            }}</span>
+        <div class="md:col-span-2">
+          <span class="block text-xs text-text-muted mb-1">Name</span>
+          <div class="text-sm font-medium">
+            {{
+              getMachineName(selectedApproval) ||
+                selectedMachine?.name ||
+                'Unknown Machine'
+            }}
           </div>
         </div>
-      </div>
 
-      <!-- Approval Information -->
-      <div class="bg-gray-50 rounded-lg p-4">
-        <h4
-          class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide"
-        >
-          Approval Information
-        </h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <span class="block text-xs text-gray-500 mb-1">Status</span>
-            <span
-              class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-              [ngClass]="getStatusClass(detailsApproval?.status || 'PENDING')"
-            >
-              {{ getStatusText(detailsApproval?.status || 'PENDING') }}
-            </span>
-          </div>
-          <div>
-            <span class="block text-xs text-gray-500 mb-1">Approval Type</span>
-            <span class="text-sm font-medium text-gray-900">{{
-              getApprovalTypeText(detailsApproval?.approvalType || '')
-            }}</span>
-          </div>
-          <div>
-            <span class="block text-xs text-gray-500 mb-1">Requested By</span>
-            <span class="text-sm font-medium text-gray-900"
-              >{{ detailsApproval?.requestedBy?.name || '-' }} ({{
-                detailsApproval?.requestedBy?.username || '-'
-              }})</span
-            >
-          </div>
-          <div>
-            <span class="block text-xs text-gray-500 mb-1">Created Date</span>
-            <span class="text-sm font-medium text-gray-900">{{
-              formatDate(detailsApproval?.createdAt)
-            }}</span>
-          </div>
-          <div *ngIf="detailsApproval?.approvedBy">
-            <span class="block text-xs text-gray-500 mb-1">Approved By</span>
-            <span class="text-sm font-medium text-gray-900"
-              >{{ detailsApproval?.approvedBy?.name || '-' }} ({{
-                detailsApproval?.approvedBy?.username || '-'
-              }})</span
-            >
-          </div>
-          <div *ngIf="detailsApproval?.approvalDate">
-            <span class="block text-xs text-gray-500 mb-1">Approval Date</span>
-            <span class="text-sm font-medium text-gray-900">{{
-              formatDate(detailsApproval?.approvalDate)
-            }}</span>
-          </div>
-          <div *ngIf="detailsApproval?.rejectedBy">
-            <span class="block text-xs text-gray-500 mb-1">Rejected By</span>
-            <span class="text-sm font-medium text-gray-900"
-              >{{ detailsApproval?.rejectedBy?.name || '-' }} ({{
-                detailsApproval?.rejectedBy?.username || '-'
-              }})</span
-            >
-          </div>
-          <div *ngIf="detailsApproval?.rejectionReason">
-            <span class="block text-xs text-gray-500 mb-1"
-              >Rejection Reason</span
-            >
-            <span class="text-sm font-medium text-error">{{
-              detailsApproval?.rejectionReason
-            }}</span>
-          </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Party Name</span>
+          {{
+            selectedMachine?.party_name || selectedQCEntry?.party_name || '-'
+          }}
         </div>
-      </div>
-
-      <!-- QC Details -->
-      <div
-        class="bg-gray-50 rounded-lg p-4"
-        *ngIf="detailsApproval?.qcNotes || detailsApproval?.qualityScore"
-      >
-        <h4
-          class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide"
-        >
-          QC Details
-        </h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div
-            *ngIf="
-              detailsApproval?.qualityScore !== undefined &&
-              detailsApproval?.qualityScore !== null
-            "
-          >
-            <span class="block text-xs text-gray-500 mb-1">Quality Score</span>
-            <span
-              class="text-lg font-semibold"
-              [ngClass]="getQualityScoreClass(detailsApproval!.qualityScore!)"
-            >
-              {{ detailsApproval!.qualityScore }}%
-            </span>
-          </div>
-          <div *ngIf="detailsApproval?.inspectionDate">
-            <span class="block text-xs text-gray-500 mb-1"
-              >Inspection Date</span
-            >
-            <span class="text-sm font-medium text-gray-900">{{
-              formatDate(detailsApproval!.inspectionDate!)
-            }}</span>
-          </div>
-          <div *ngIf="detailsApproval?.nextInspectionDate">
-            <span class="block text-xs text-gray-500 mb-1"
-              >Next Inspection Date</span
-            >
-            <span class="text-sm font-medium text-gray-900">{{
-              formatDate(detailsApproval!.nextInspectionDate!)
-            }}</span>
-          </div>
-          <div *ngIf="detailsApproval?.qcNotes" class="md:col-span-2">
-            <span class="block text-xs text-gray-500 mb-1">QC Notes</span>
-            <p class="text-sm text-gray-900 whitespace-pre-wrap">
-              {{ detailsApproval!.qcNotes }}
-            </p>
-          </div>
-          <div *ngIf="detailsApproval?.requestNotes" class="md:col-span-2">
-            <span class="block text-xs text-gray-500 mb-1">Request Notes</span>
-            <p class="text-sm text-gray-900 whitespace-pre-wrap">
-              {{ detailsApproval!.requestNotes }}
-            </p>
-          </div>
-          <div *ngIf="detailsApproval?.approverNotes" class="md:col-span-2">
-            <span class="block text-xs text-gray-500 mb-1">Approver Notes</span>
-            <p class="text-sm text-gray-900 whitespace-pre-wrap">
-              {{ detailsApproval!.approverNotes }}
-            </p>
-          </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Location</span>
+          {{ selectedMachine?.location || selectedQCEntry?.location || '-' }}
         </div>
-      </div>
-
-      <!-- Approvers -->
-      <div
-        class="bg-gray-50 rounded-lg p-4"
-        *ngIf="detailsApproval?.approvers?.length"
-      >
-        <h4
-          class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide"
-        >
-          Assigned Approvers
-        </h4>
-        <div class="flex flex-wrap gap-2">
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Mobile Number</span>
+          {{
+            selectedMachine?.mobile_number ||
+              selectedQCEntry?.mobile_number ||
+              '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Dispatch Date</span>
+          {{
+            selectedMachine?.dispatch_date || selectedQCEntry?.dispatch_date
+              ? (selectedMachine?.dispatch_date ||
+                  selectedQCEntry?.dispatch_date | date: 'dd-MM-yyyy')
+              : '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Category</span>
+          {{
+            selectedMachine?.category_id?.name ||
+              getMachineCategoryName(selectedApproval) ||
+              '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Subcategory</span>
           <span
-            *ngFor="
-              let ap of detailsApproval?.approvers;
-              trackBy: trackByUserId
+            *ngIf="
+              selectedMachine?.subcategory_id || selectedQCEntry?.subcategory_id
             "
-            class="px-3 py-1.5 bg-primary/10 text-primary rounded-md text-sm font-medium border border-primary/20"
+            class="text-sm"
           >
-            {{ ap.name || ap.username }}
-            <span *ngIf="ap.email" class="text-xs text-gray-500 ml-1"
-              >({{ ap.email }})</span
+            {{
+              getSubcategoryDisplayName(
+                selectedMachine?.subcategory_id ||
+                  selectedQCEntry?.subcategory_id
+              )
+            }}
+          </span>
+          <span
+            *ngIf="
+              !selectedMachine?.subcategory_id &&
+              !selectedQCEntry?.subcategory_id
+            "
+            class="text-gray-400 text-sm"
+            >-</span
+          >
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1"
+            >Machine Sequence</span
+          >
+          <span
+            *ngIf="
+              selectedMachine?.machine_sequence ||
+              selectedQCEntry?.machine_sequence
+            "
+            class="inline-flex items-center font-mono text-sm font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-md border border-primary/20"
+            [title]="
+              'Sequence: ' +
+              formatSequenceWithQC(
+                selectedMachine?.machine_sequence ||
+                  selectedQCEntry?.machine_sequence
+              )
+            "
+          >
+            {{
+              formatSequenceWithQC(
+                selectedMachine?.machine_sequence ||
+                  selectedQCEntry?.machine_sequence
+              )
+            }}
+          </span>
+          <span
+            *ngIf="
+              !selectedMachine?.machine_sequence &&
+              !selectedQCEntry?.machine_sequence
+            "
+            class="text-gray-400 text-sm"
+            >-</span
+          >
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Approved</span>
+          {{ selectedMachine?.is_approved ? 'Yes' : 'No' }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Created By</span>
+          {{
+            selectedMachine?.created_by?.username ||
+              selectedMachine?.created_by?.email ||
+              '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Created</span>
+          {{
+            selectedMachine?.createdAt
+              ? (selectedMachine?.createdAt | date: 'medium')
+              : '-'
+          }}
+        </div>
+
+        <!-- Images with Carousel -->
+        <div class="md:col-span-2">
+          <span class="block text-xs text-text-muted mb-1">Images</span>
+          <div
+            class="mt-1 flex gap-2 flex-wrap"
+            *ngIf="
+              (selectedMachine?.images?.length ||
+                getMachineImages(selectedApproval)?.length ||
+                selectedQCEntry?.images?.length) > 0;
+              else noimg
+            "
+          >
+            <img
+              *ngFor="
+                let img of selectedMachine?.images ||
+                  getMachineImages(selectedApproval) ||
+                  selectedQCEntry?.images ||
+                  [];
+                let i = index;
+                trackBy: trackByIndex
+              "
+              [src]="imageUrl(img)"
+              class="w-16 h-16 object-cover rounded border cursor-pointer hover:border-primary transition-colors"
+              (click)="
+                openPreview(
+                  selectedMachine?.images ||
+                    getMachineImages(selectedApproval) ||
+                    selectedQCEntry?.images ||
+                    [],
+                  i
+                )
+              "
+              (keydown.enter)="
+                openPreview(
+                  selectedMachine?.images ||
+                    getMachineImages(selectedApproval) ||
+                    selectedQCEntry?.images ||
+                    [],
+                  i
+                )
+              "
+              (keydown.space)="
+                openPreview(
+                  selectedMachine?.images ||
+                    getMachineImages(selectedApproval) ||
+                    selectedQCEntry?.images ||
+                    [],
+                  i
+                )
+              "
+              tabindex="0"
+              role="button"
+              [title]="'Click to view full size'"
+            />
+          </div>
+          <ng-template #noimg>
+            <span class="text-xs text-text-muted">No images</span>
+          </ng-template>
+        </div>
+
+        <!-- Machine Documents -->
+        <div class="md:col-span-2">
+          <div class="flex items-center justify-between mb-1">
+            <span class="block text-xs text-text-muted">Machine Documents</span>
+          </div>
+          <div
+            class="mt-1 flex gap-2 flex-wrap"
+            *ngIf="selectedMachine?.documents?.length; else nodocs"
+          >
+            <div
+              *ngFor="
+                let doc of selectedMachine?.documents | slice: 0 : 3;
+                let i = index;
+                trackBy: trackByIndex
+              "
+              class="flex items-center gap-2 px-3 py-2 bg-neutral-100 rounded-md border text-sm hover:bg-neutral-200 transition-colors"
             >
+              <i class="pi pi-file text-primary"></i>
+              <span class="truncate max-w-40 font-medium">{{
+                getDocumentName(doc)
+              }}</span>
+            </div>
+            <div
+              *ngIf="(selectedMachine?.documents?.length || 0) > 3"
+              class="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 text-sm text-primary font-medium"
+            >
+              <i class="pi pi-plus"></i>
+              <span
+                >+{{ (selectedMachine?.documents?.length || 0) - 3 }} more</span
+              >
+            </div>
+          </div>
+          <ng-template #nodocs>
+            <div class="flex items-center gap-2 text-sm text-text-muted">
+              <i class="pi pi-file"></i>
+              <span>No documents attached</span>
+            </div>
+          </ng-template>
+        </div>
+
+        <!-- Metadata -->
+        <div class="md:col-span-2" *ngIf="selectedMachine?.metadata">
+          <span class="block text-xs text-text-muted mb-1">Metadata</span>
+          <div class="border rounded divide-y">
+            <div
+              class="p-2 grid grid-cols-5 gap-2"
+              *ngFor="
+                let kv of selectedMachine?.metadata | keyvalue;
+                trackBy: trackByKey
+              "
+              [attr.data-key]="kv.key"
+            >
+              <div class="col-span-2 text-xs font-medium">
+                {{ kv.key }}
+              </div>
+              <div class="col-span-3 text-xs break-all">
+                {{ kv.value }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QC Approval Information -->
+        <div class="md:col-span-2 mt-4">
+          <h4 class="text-sm font-semibold text-text mb-3 border-b pb-2">
+            QC Approval Information
+          </h4>
+        </div>
+
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Status</span>
+          <span
+            class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide"
+            [ngClass]="getStatusClass(selectedApproval?.status || 'PENDING')"
+          >
+            {{ getStatusText(selectedApproval?.status || 'PENDING') }}
           </span>
         </div>
-      </div>
-
-      <!-- Machine Images -->
-      <div
-        class="bg-gray-50 rounded-lg p-4"
-        *ngIf="detailsApproval?.machineId?.images?.length"
-      >
-        <h4
-          class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide"
-        >
-          Machine Images
-        </h4>
-        <div class="grid grid-cols-4 gap-3">
-          <img
-            *ngFor="
-              let img of detailsApproval?.machineId?.images;
-              let i = index;
-              trackBy: trackByIndex
-            "
-            [src]="imageUrl(img)"
-            class="w-full h-24 object-cover rounded-lg border border-gray-300 cursor-pointer hover:border-primary transition-colors"
-            (click)="openPreview(detailsApproval?.machineId?.images || [], i)"
-            tabindex="0"
-            (keyup.enter)="
-              openPreview(detailsApproval?.machineId?.images || [], i)
-            "
-            (keyup.space)="
-              openPreview(detailsApproval?.machineId?.images || [], i)
-            "
-            [alt]="'Machine image ' + (i + 1)"
-          />
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Approval Type</span>
+          {{ getApprovalTypeText(selectedApproval?.approvalType || '') }}
         </div>
-      </div>
-
-      <!-- Documents -->
-      <div
-        class="bg-gray-50 rounded-lg p-4"
-        *ngIf="
-          detailsApproval?.documents?.length ||
-          (detailsApproval?.qcEntryId &&
-            detailsApproval?.qcEntryId?.files?.length)
-        "
-      >
-        <h4
-          class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide"
-        >
-          Documents
-        </h4>
-        <div class="space-y-2">
-          <div
-            *ngFor="
-              let doc of detailsApproval?.documents || [];
-              trackBy: trackByIndex
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Quality Score</span>
+          <span
+            *ngIf="
+              selectedApproval?.qualityScore !== undefined &&
+              selectedApproval?.qualityScore !== null
             "
-            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-primary transition-colors"
+            class="text-sm font-medium"
+            [ngClass]="
+              getQualityScoreClass(selectedApproval?.qualityScore || 0)
+            "
           >
-            <div class="flex items-center gap-3">
-              <i class="pi pi-file text-gray-500"></i>
-              <div>
-                <div class="text-sm font-medium text-gray-900">
-                  {{ doc.originalName || doc.filename }}
-                </div>
-                <div
-                  class="text-xs text-gray-500"
-                  *ngIf="doc.size || doc.uploadedAt"
-                >
-                  <span *ngIf="doc.size"
-                    >{{ doc.size / 1024 / 1024 | number: '1.2-2' }} MB</span
+            {{ selectedApproval?.qualityScore }}%
+          </span>
+          <span *ngIf="!selectedApproval?.qualityScore" class="text-gray-400"
+            >-</span
+          >
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Requested By</span>
+          {{
+            selectedApproval?.requestedBy?.name ||
+              selectedApproval?.requestedBy?.username ||
+              '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">QC Date</span>
+          {{
+            selectedQCEntry?.qc_date
+              ? (selectedQCEntry?.qc_date | date: 'dd-MM-yyyy')
+              : selectedApproval?.inspectionDate
+                ? (selectedApproval?.inspectionDate | date: 'dd-MM-yyyy')
+                : '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1"
+            >Dispatch Date (QC Entry)</span
+          >
+          {{
+            selectedQCEntry?.dispatch_date
+              ? (selectedQCEntry?.dispatch_date | date: 'dd-MM-yyyy')
+              : '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1"
+            >Inspection Date</span
+          >
+          {{
+            selectedQCEntry?.inspectionDate || selectedApproval?.inspectionDate
+              ? (selectedQCEntry?.inspectionDate ||
+                  selectedApproval?.inspectionDate | date: 'dd-MM-yyyy')
+              : '-'
+          }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1"
+            >Next Inspection</span
+          >
+          {{
+            selectedQCEntry?.nextInspectionDate ||
+            selectedApproval?.nextInspectionDate
+              ? (selectedQCEntry?.nextInspectionDate ||
+                  selectedApproval?.nextInspectionDate | date: 'dd-MM-yyyy')
+              : '-'
+          }}
+        </div>
+        <div class="md:col-span-2">
+          <span class="block text-xs text-text-muted mb-1">QC Notes</span>
+          <div class="text-sm bg-gray-50 p-2 rounded border">
+            {{
+              selectedQCEntry?.qcNotes ||
+                selectedApproval?.qcNotes ||
+                selectedApproval?.requestNotes ||
+                '-'
+            }}
+          </div>
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Report Link</span>
+          <a
+            *ngIf="selectedQCEntry?.report_link || selectedQCEntry?.reportLink"
+            [href]="selectedQCEntry?.report_link || selectedQCEntry?.reportLink"
+            target="_blank"
+            class="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            View Report
+          </a>
+          <span
+            *ngIf="
+              !selectedQCEntry?.report_link && !selectedQCEntry?.reportLink
+            "
+            class="text-sm text-gray-400"
+            >-</span
+          >
+        </div>
+        <div class="md:col-span-2" *ngIf="selectedApproval?.approverNotes">
+          <span class="block text-xs text-text-muted mb-1">Approver Notes</span>
+          <div class="text-sm bg-blue-50 p-2 rounded border">
+            {{ selectedApproval?.approverNotes || '' }}
+          </div>
+        </div>
+        <div class="md:col-span-2" *ngIf="selectedApproval?.rejectionReason">
+          <span class="block text-xs text-text-muted mb-1"
+            >Rejection Reason</span
+          >
+          <div class="text-sm bg-red-50 p-2 rounded border text-red-800">
+            {{ selectedApproval?.rejectionReason || '' }}
+          </div>
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1">Created</span>
+          {{ formatDate(selectedApproval?.createdAt) }}
+        </div>
+        <div class="md:col-span-1">
+          <span class="block text-xs text-text-muted mb-1"
+            >Machine Activated</span
+          >
+          <span
+            class="px-2 py-1 text-xs rounded-full"
+            [ngClass]="
+              selectedApproval?.machineActivated
+                ? 'bg-success/20 text-success'
+                : 'bg-gray-100 text-gray-600'
+            "
+          >
+            {{ selectedApproval?.machineActivated ? 'Yes' : 'No' }}
+          </span>
+        </div>
+
+        <!-- QC Entry Details Section -->
+        <div class="md:col-span-2 mt-4" *ngIf="selectedQCEntry">
+          <h4 class="text-sm font-semibold text-text mb-3 border-b pb-2">
+            QC Entry Details
+          </h4>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <span class="block text-xs text-text-muted mb-1"
+                >Machine Name (from QC Entry)</span
+              >
+              <div class="text-sm font-medium">
+                {{ selectedQCEntry?.name || '-' }}
+              </div>
+            </div>
+            <div>
+              <span class="block text-xs text-text-muted mb-1"
+                >Party Name (from QC Entry)</span
+              >
+              <div class="text-sm">
+                {{ selectedQCEntry?.party_name || '-' }}
+              </div>
+            </div>
+            <div>
+              <span class="block text-xs text-text-muted mb-1"
+                >Location (from QC Entry)</span
+              >
+              <div class="text-sm">
+                {{ selectedQCEntry?.location || '-' }}
+              </div>
+            </div>
+            <div>
+              <span class="block text-xs text-text-muted mb-1"
+                >Mobile Number (from QC Entry)</span
+              >
+              <div class="text-sm">
+                {{ selectedQCEntry?.mobile_number || '-' }}
+              </div>
+            </div>
+            <div>
+              <span class="block text-xs text-text-muted mb-1"
+                >Machine Sequence (from QC Entry)</span
+              >
+              <div class="text-sm font-mono">
+                {{ selectedQCEntry?.machine_sequence || '-' }}
+              </div>
+            </div>
+          </div>
+
+          <!-- QC Entry Images -->
+          <div class="mt-4" *ngIf="selectedQCEntry?.images?.length">
+            <span class="block text-xs text-text-muted mb-2"
+              >QC Entry Images</span
+            >
+            <div class="flex gap-2 flex-wrap">
+              <img
+                *ngFor="
+                  let img of selectedQCEntry.images;
+                  let i = index;
+                  trackBy: trackByIndex
+                "
+                [src]="imageUrl(img)"
+                class="w-16 h-16 object-cover rounded border cursor-pointer hover:border-primary transition-colors"
+                (click)="openPreview(selectedQCEntry.images, i)"
+                (keyup.enter)="openPreview(selectedQCEntry.images, i)"
+                (keyup.space)="openPreview(selectedQCEntry.images, i)"
+                tabindex="0"
+                role="button"
+                [title]="'Click to view full size'"
+              />
+            </div>
+          </div>
+
+          <!-- QC Entry Documents -->
+          <div class="mt-4" *ngIf="selectedQCEntry?.documents?.length">
+            <span class="block text-xs text-text-muted mb-2"
+              >QC Entry Documents</span
+            >
+            <div class="flex gap-2 flex-wrap">
+              <div
+                *ngFor="
+                  let doc of selectedQCEntry.documents;
+                  trackBy: trackByIndex
+                "
+                class="flex items-center gap-2 px-3 py-2 bg-neutral-100 rounded-md border text-sm"
+              >
+                <i class="pi pi-file text-primary"></i>
+                <span class="truncate max-w-40 font-medium">{{
+                  doc.name || doc.file_path || 'Document'
+                }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- QC Entry Files -->
+          <div
+            class="mt-4"
+            *ngIf="
+              selectedQCEntry?.files?.length ||
+              getQCEntryFiles(selectedApproval)?.length
+            "
+          >
+            <span class="block text-xs text-text-muted mb-2"
+              >QC Entry Files</span
+            >
+            <div class="flex gap-2 flex-wrap">
+              <div
+                *ngFor="
+                  let file of selectedQCEntry?.files ||
+                    getQCEntryFiles(selectedApproval);
+                  trackBy: trackByIndex
+                "
+                class="flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-md border border-indigo-200 text-sm"
+              >
+                <i class="pi pi-file text-indigo-600"></i>
+                <span class="truncate max-w-40 font-medium">{{
+                  extractFileName(file)
+                }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QC Approval Documents -->
+        <div class="md:col-span-2">
+          <div class="flex items-center justify-between mb-3">
+            <span class="block text-xs font-medium text-text-muted"
+              >QC Approval Documents</span
+            >
+            <button
+              *ngIf="hasQCDocuments(selectedApproval)"
+              class="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+              (click)="onViewDocuments(selectedApproval!)"
+            >
+              <i class="pi pi-external-link"></i>
+              View All
+            </button>
+          </div>
+          <div
+            *ngIf="hasQCDocuments(selectedApproval); else noQcDocuments"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2"
+          >
+            <div
+              *ngFor="
+                let doc of selectedApproval?.documents | slice: 0 : 6;
+                let i = index;
+                trackBy: trackByIndex
+              "
+              class="border border-indigo-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-indigo-50/30 flex-shrink-0"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                  <div
+                    class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center"
                   >
-                  <span *ngIf="doc.size && doc.uploadedAt"> • </span>
-                  <span *ngIf="doc.uploadedAt">{{
-                    formatDate(doc.uploadedAt)
-                  }}</span>
+                    <i class="pi pi-file text-indigo-600 text-xl"></i>
+                  </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h4
+                    class="font-medium text-sm text-text truncate"
+                    [title]="getDocumentName(doc)"
+                  >
+                    {{ getDocumentName(doc) }}
+                  </h4>
+                  <p class="text-xs text-text-muted mt-1">
+                    {{
+                      doc.size
+                        ? (doc.size / 1024 / 1024).toFixed(2) + ' MB'
+                        : ''
+                    }}
+                    <span *ngIf="doc.uploadedAt">
+                      • {{ formatDate(doc.uploadedAt) }}
+                    </span>
+                  </p>
+                  <div class="flex gap-2 mt-3">
+                    <button
+                      class="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                      (click)="onDownloadDocument(selectedApproval!, doc)"
+                      title="Download document"
+                    >
+                      <i class="pi pi-download mr-1"></i>
+                      Download
+                    </button>
+                    <button
+                      class="px-3 py-1 text-xs border border-indigo-300 rounded hover:bg-indigo-50 transition-colors"
+                      (click)="previewDocument(doc)"
+                      title="Preview document"
+                    >
+                      <i class="pi pi-eye mr-1"></i>
+                      Preview
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            <button
-              (click)="onPreviewDocument(detailsApproval!, doc)"
-              class="px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-md transition-colors"
-              title="Preview document"
-            >
-              <i class="pi pi-eye mr-1"></i>View
-            </button>
           </div>
-          <div
-            *ngFor="
-              let file of detailsApproval?.qcEntryId?.files || [];
-              let i = index;
-              trackBy: trackByIndex
-            "
-            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-primary transition-colors"
-          >
-            <div class="flex items-center gap-3">
-              <i class="pi pi-file text-gray-500"></i>
-              <div>
-                <div class="text-sm font-medium text-gray-900">
-                  {{ getDocumentName(file) }}
-                </div>
-              </div>
+          <ng-template #noQcDocuments>
+            <div
+              class="text-center py-8 border border-dashed border-indigo-200 rounded-lg bg-indigo-50/20"
+            >
+              <i class="pi pi-file text-3xl text-indigo-300 mb-2"></i>
+              <p class="text-sm text-text-muted">
+                No QC documents attached to this approval
+              </p>
             </div>
-            <button
-              (click)="onPreviewDocument(detailsApproval!, { path: file })"
-              class="px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-md transition-colors"
-              title="Preview document"
-            >
-              <i class="pi pi-eye mr-1"></i>View
-            </button>
-          </div>
+          </ng-template>
         </div>
       </div>
+    </div>
+    <div
+      class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+    >
+      <button
+        class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+        (click)="closeViewModal()"
+      >
+        Close
+      </button>
     </div>
   </div>
 </div>

@@ -76,7 +76,21 @@ export interface MachineFilters {
   metadata_value?: string;
   dispatch_date_from?: string;
   dispatch_date_to?: string;
-  sortBy?: 'createdAt' | 'name' | 'category' | 'dispatch_date';
+  // Specific field filters for suggestion-based search
+  party_name?: string;
+  machine_sequence?: string;
+  location?: string;
+  mobile_number?: string;
+  sortBy?:
+    | 'createdAt'
+    | 'name'
+    | 'category'
+    | 'dispatch_date'
+    | 'party_name'
+    | 'machine_sequence'
+    | 'location'
+    | 'mobile_number'
+    | 'created_by';
   sortOrder?: 'asc' | 'desc';
   page?: number;
   limit?: number;

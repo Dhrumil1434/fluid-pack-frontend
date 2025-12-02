@@ -79,7 +79,7 @@
         type="button"
         (click)="confirmDeleteUser()"
         [disabled]="deleteLoading"
-        class="px-4 py-2 rounded-md bg-error text-white hover:bg-error/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+        class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors shadow-sm min-w-[100px] font-medium"
       >
         <i *ngIf="deleteLoading" class="pi pi-spin pi-spinner"></i>
         <i *ngIf="!deleteLoading" class="pi pi-trash"></i>
@@ -295,6 +295,7 @@
         (approve)="onApproveUser($event)"
         (reject)="onRejectUser($event)"
         (edit)="onEditUser($event)"
+        (delete)="onDeleteUser($event)"
         (pageChange)="onTablePageChange($event)"
         (sortChange)="onTableSortChange($event)"
         (limitChange)="onTableLimitChange($event)"
@@ -341,5 +342,6 @@
     (edit)="onEditFromDetails($event)"
     (approve)="onApproveFromDetails($event)"
     (reject)="onRejectFromDetails($event)"
+    (remove)="onDeleteFromDetails($event)"
   ></app-user-details-modal>
 </div>

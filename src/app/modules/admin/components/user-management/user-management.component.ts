@@ -79,7 +79,7 @@ export class UserManagementComponent implements OnInit {
   // Row-level processing state for button loaders
   rowProcessing: {
     userId: string | null;
-    action: 'approve' | 'reject' | 'edit' | 'view' | null;
+    action: 'approve' | 'reject' | 'edit' | 'view' | 'delete' | null;
   } = { userId: null, action: null };
 
   constructor(
@@ -401,9 +401,16 @@ export class UserManagementComponent implements OnInit {
     this.onRejectUser(user);
   }
 
+  onDeleteFromDetails(user: User): void {
+    this.showUserDetails = false;
+    this.onDeleteUser(user);
+  }
+
   onDeleteUser(user: User): void {
+    this.rowProcessing = { userId: user._id, action: 'delete' };
     this.userToDelete = user;
     this.showDeleteDialog = true;
+    this.rowProcessing = { userId: null, action: null };
   }
 
   closeDeleteDialog(): void {
@@ -416,6 +423,7 @@ export class UserManagementComponent implements OnInit {
     if (!this.userToDelete?._id) return;
 
     this.deleteLoading = true;
+    this.rowProcessing = { userId: this.userToDelete._id, action: 'delete' };
     this.userService.deleteUser(this.userToDelete._id).subscribe({
       next: res => {
         const msg = res.message || 'User removed successfully.';
@@ -424,6 +432,7 @@ export class UserManagementComponent implements OnInit {
         this.closeDeleteDialog();
         this.refreshTable();
         this.loadStats();
+        this.rowProcessing = { userId: null, action: null };
         this.messageService.add({
           severity: 'success',
           summary: 'Deleted',
@@ -438,6 +447,7 @@ export class UserManagementComponent implements OnInit {
           detail: msg,
         });
         this.deleteLoading = false;
+        this.rowProcessing = { userId: null, action: null };
       },
     });
   }

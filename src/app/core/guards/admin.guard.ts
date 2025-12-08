@@ -19,14 +19,41 @@ export class AdminGuard implements CanActivate {
 
   canActivate(
     _route: ActivatedRouteSnapshot,
-    _state: RouterStateSnapshot
+    state: RouterStateSnapshot
   ): Observable<boolean> {
     return this.authService.currentUser$.pipe(
       take(1),
       map(user => {
+        // First check if user is authenticated and token is valid
+        const accessToken = this.authService.getAccessToken();
+
+        if (!accessToken) {
+          console.log('❌ No access token found, redirecting to login');
+          this.router.navigate(['/auth/login'], {
+            queryParams: { returnUrl: state.url },
+          });
+          return false;
+        }
+
+        // Validate token expiry
+        const tokenInfo = this.authService.getTokenExpiryInfo();
+
+        if (tokenInfo.isExpired) {
+          console.log('❌ Access token has expired, redirecting to login');
+          this.authService.clearAuthData();
+          this.router.navigate(['/auth/login'], {
+            queryParams: { returnUrl: state.url, expired: 'true' },
+          });
+          return false;
+        }
+
         if (!user) {
           // User not authenticated, redirect to login
-          this.router.navigate(['/auth/login']);
+          console.log('❌ No user data found, redirecting to login');
+          this.authService.clearAuthData();
+          this.router.navigate(['/auth/login'], {
+            queryParams: { returnUrl: state.url },
+          });
           return false;
         }
 
@@ -37,7 +64,7 @@ export class AdminGuard implements CanActivate {
         if (!isAdmin) {
           // User is not admin, redirect to login with error message
           this.router.navigate(['/auth/login'], {
-            queryParams: { error: 'access_denied' },
+            queryParams: { error: 'access_denied', returnUrl: state.url },
           });
           return false;
         }

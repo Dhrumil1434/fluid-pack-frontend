@@ -41,6 +41,7 @@ export class AuthService {
     this.initializeAuth();
 
     // Set up periodic token validation (every 5 minutes)
+    // Only validate, don't clear unless actually expired
     if (typeof window !== 'undefined') {
       setInterval(
         () => {
@@ -53,14 +54,39 @@ export class AuthService {
 
   /**
    * Initialize authentication state from storage
+   * Validates token expiry before setting authenticated state
    */
   private initializeAuth(): void {
     const userData = this.getUserFromStorage();
     const accessToken = this.getAccessToken();
 
+    // If both are missing, ensure clean state
+    if (!userData && !accessToken) {
+      this.clearAuthData();
+      return;
+    }
+
+    // If we have a token but no user data, or vice versa, something is wrong
+    // But don't clear if we have at least one - might be in the middle of login
+    if ((!userData && accessToken) || (userData && !accessToken)) {
+      console.warn("⚠️ Auth data mismatch: token and user data don't match");
+      // Don't clear - let the guard handle validation
+    }
+
+    // If we have both, validate token expiry
     if (userData && accessToken) {
+      const tokenInfo = this.getTokenExpiryInfo();
+
+      if (tokenInfo.isExpired) {
+        console.log('❌ Stored token has expired, clearing auth data');
+        this.clearAuthData();
+        return;
+      }
+
+      // Token is valid, set authenticated state
       this.currentUserSubject.next(userData);
       this.isAuthenticatedSubject.next(true);
+      console.log('✅ Authentication initialized from storage');
     }
   }
 
@@ -145,6 +171,32 @@ export class AuthService {
   }
 
   /**
+   * Restore authentication state from storage
+   * Used when page is reloaded and auth state needs to be restored
+   */
+  restoreAuthFromStorage(): boolean {
+    const userData = this.getUserFromStorage();
+    const accessToken = this.getAccessToken();
+
+    if (!userData || !accessToken) {
+      return false;
+    }
+
+    // Validate token expiry
+    const tokenInfo = this.getTokenExpiryInfo();
+
+    if (tokenInfo.isExpired) {
+      this.clearAuthData();
+      return false;
+    }
+
+    // Token is valid, restore state
+    this.currentUserSubject.next(userData);
+    this.isAuthenticatedSubject.next(true);
+    return true;
+  }
+
+  /**
    * Check if token is about to expire
    */
   isTokenExpiringSoon(): boolean {
@@ -214,12 +266,18 @@ export class AuthService {
 
   /**
    * Validate stored tokens and clean up if expired
+   * Also restores authentication state if token is valid but state is missing
    */
   private validateStoredTokens(): void {
     const accessToken = this.getAccessToken();
+    const userData = this.getUserFromStorage();
 
     if (!accessToken) {
-      return; // No token to validate
+      // No token, but if user data exists, clear it
+      if (userData) {
+        this.clearAuthData();
+      }
+      return;
     }
 
     try {
@@ -228,13 +286,22 @@ export class AuthService {
       const currentTime = Date.now();
 
       if (currentTime >= expiryTime) {
-        console.error('❌ Stored access token has expired, clearing auth data');
+        console.log('❌ Stored access token has expired, clearing auth data');
         this.clearAuthData();
+      } else {
+        // Token is still valid
+        // If we have user data but auth state is not set, restore it
+        if (userData && !this.isAuthenticated()) {
+          this.currentUserSubject.next(userData);
+          this.isAuthenticatedSubject.next(true);
+          console.log('✅ Restored authentication state from valid token');
+        }
       }
     } catch (error) {
       console.error('❌ Error validating stored token:', error);
-      // If we can't parse the token, it's invalid - clear it
-      this.clearAuthData();
+      // Don't clear on parsing errors - might be a temporary issue
+      // Only clear if we're certain the token format is wrong
+      // The guard will handle validation on route access
     }
   }
 

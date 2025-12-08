@@ -15,6 +15,9 @@ import { EditApprovalModalComponent } from './edit-approval-modal.component';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
 import { ListFiltersComponent } from '../shared/list/list-filters.component';
 import { ListTableShellComponent } from '../shared/list/list-table-shell.component';
+import { ExportService } from '../../../../core/services/export.service';
+import { ButtonModule } from 'primeng/button';
+import { firstValueFrom } from 'rxjs';
 
 interface ApprovalRow {
   _id: string;
@@ -42,6 +45,7 @@ interface ApprovalRow {
     PageHeaderComponent,
     ListFiltersComponent,
     ListTableShellComponent,
+    ButtonModule,
   ],
   template: `
     <div
@@ -67,6 +71,24 @@ interface ApprovalRow {
             { label: 'Machine Approvals' },
           ]"
         >
+          <div headerActions class="flex items-center gap-2">
+            <button
+              class="px-4 py-2 bg-green-600 text-white rounded-md font-medium transition-colors duration-150 hover:bg-green-700 cursor-pointer flex items-center gap-2 shadow-sm"
+              (click)="exportToExcel()"
+              [disabled]="exportingExcel"
+              title="Export to Excel"
+            >
+              <i
+                class="pi"
+                [class.pi-spin]="exportingExcel"
+                [class.pi-spinner]="exportingExcel"
+                [class.pi-file-excel]="!exportingExcel"
+              ></i>
+              <span>{{
+                exportingExcel ? 'Exporting...' : 'Export Excel'
+              }}</span>
+            </button>
+          </div>
         </app-page-header>
 
         <main class="p-6 space-y-4">
@@ -295,6 +317,22 @@ interface ApprovalRow {
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="flex items-center gap-2">
                       <button
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                        (click)="exportApprovalToPdf(a)"
+                        [disabled]="exportingPdf === a._id"
+                        title="Export to PDF"
+                      >
+                        <i
+                          class="pi"
+                          [class.pi-spin]="exportingPdf === a._id"
+                          [class.pi-spinner]="exportingPdf === a._id"
+                          [class.pi-file-pdf]="exportingPdf !== a._id"
+                          [class.text-xs]="exportingPdf !== a._id"
+                          [class.mr-1]="exportingPdf !== a._id"
+                        ></i>
+                        <span *ngIf="exportingPdf !== a._id">PDF</span>
+                      </button>
+                      <button
                         class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"
                         (click)="view(a)"
                         title="View approval details"
@@ -388,6 +426,10 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
   total = 0;
   limit = 10;
 
+  // Export state
+  exportingExcel = false;
+  exportingPdf: string | null = null;
+
   filters: {
     search?: string;
     status?: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -422,7 +464,8 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
 
   constructor(
     private approvals: ApprovalsService,
-    private message: MessageService
+    private message: MessageService,
+    private exportService: ExportService
   ) {}
 
   ngOnInit(): void {
@@ -799,5 +842,85 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
       requestNotes: a?.requestNotes,
       proposedChanges: a?.proposedChanges ?? {},
     } as any;
+  }
+
+  /**
+   * Export machine approvals to Excel
+   */
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters: any = {
+        search: this.filters.search || undefined,
+        status: this.filters.status || undefined,
+        approvalType: this.filters.approvalType || undefined,
+        requestedBy: this.filters.requestedBy || undefined,
+        createdBy: this.filters.createdBy || undefined,
+        machineName: this.filters.machineName || undefined,
+        dateFrom: this.filters.dateFrom || undefined,
+        dateTo: this.filters.dateTo || undefined,
+        sortBy: this.filters.sortBy || 'createdAt',
+        sortOrder: this.filters.sortOrder || 'desc',
+      };
+
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('machine_approvals', filters)
+      );
+
+      if (blob) {
+        const filename = `machine_approvals_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.message.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Machine approvals exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.message.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail:
+          error?.error?.message ||
+          'Failed to export machine approvals to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
+
+  /**
+   * Export machine approval to PDF
+   */
+  async exportApprovalToPdf(approval: ApprovalRow): Promise<void> {
+    if (!approval._id) return;
+
+    try {
+      this.exportingPdf = approval._id;
+      const blob = await firstValueFrom(
+        this.exportService.exportToPdf('machine_approvals', approval._id)
+      );
+
+      if (blob) {
+        const filename = `machine_approval_${approval._id}_${new Date().toISOString().split('T')[0]}.pdf`;
+        this.exportService.downloadBlob(blob, filename);
+        this.message.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Machine approval exported to PDF successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.message.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail:
+          error?.error?.message || 'Failed to export machine approval to PDF',
+      });
+    } finally {
+      this.exportingPdf = null;
+    }
   }
 }

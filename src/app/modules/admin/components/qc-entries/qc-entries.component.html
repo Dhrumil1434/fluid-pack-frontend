@@ -22,15 +22,31 @@
         { label: 'QC Entries' },
       ]"
     >
-      <button
-        headerActions
-        class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.98]"
-        (click)="openCreateQCEntryModal()"
-        title="Create New QC Entry"
-      >
-        <i class="pi pi-plus mr-2"></i>
-        Create QC Entry
-      </button>
+      <div headerActions class="flex items-center gap-2">
+        <button
+          class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.98]"
+          (click)="exportToExcel()"
+          [disabled]="exportingExcel"
+          title="Export to Excel"
+        >
+          <i
+            class="pi"
+            [class.pi-spin]="exportingExcel"
+            [class.pi-spinner]="exportingExcel"
+            [class.pi-file-excel]="!exportingExcel"
+            [class.mr-2]="!exportingExcel"
+          ></i>
+          <span>{{ exportingExcel ? 'Exporting...' : 'Export Excel' }}</span>
+        </button>
+        <button
+          class="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.98]"
+          (click)="openCreateQCEntryModal()"
+          title="Create New QC Entry"
+        >
+          <i class="pi pi-plus mr-2"></i>
+          Create QC Entry
+        </button>
+      </div>
     </app-page-header>
 
     <main class="p-6 space-y-4">
@@ -628,6 +644,23 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="flex items-center gap-2">
+                  <!-- Export PDF -->
+                  <button
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300 transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
+                    (click)="exportQCEntryToPdf(approval)"
+                    [disabled]="exportingPdf === approval._id"
+                    title="Export to PDF"
+                  >
+                    <i
+                      class="pi"
+                      [class.pi-spin]="exportingPdf === approval._id"
+                      [class.pi-spinner]="exportingPdf === approval._id"
+                      [class.pi-file-pdf]="exportingPdf !== approval._id"
+                      [class.text-xs]="exportingPdf !== approval._id"
+                      [class.mr-1]="exportingPdf !== approval._id"
+                    ></i>
+                    <span *ngIf="exportingPdf !== approval._id">PDF</span>
+                  </button>
                   <!-- View Details -->
                   <button
                     class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"

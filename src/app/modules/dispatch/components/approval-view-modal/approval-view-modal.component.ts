@@ -701,13 +701,96 @@ export class ApprovalViewModalComponent {
   }
 
   downloadDocument(doc: any): void {
-    const link = document.createElement('a');
-    link.href = this.documentUrl(doc.file_path);
-    link.download = doc.name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const url = this.documentUrl(doc.file_path);
+    const fileName = this.getDocumentFileName(doc);
+
+    // For Cloudinary URLs, we need to fetch and create a blob to ensure proper filename
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          // Clean up the blob URL
+          window.URL.revokeObjectURL(blobUrl);
+        })
+        .catch(error => {
+          console.error('Error downloading document:', error);
+          // Fallback to direct link
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+    } else {
+      // For local files, use direct download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  /**
+   * Get the proper filename for a document with extension
+   */
+  getDocumentFileName(doc: any): string {
+    let fileName = doc.name || doc.originalname || doc.filename || 'document';
+
+    // Remove any existing extension to avoid duplicates
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+
+    // Get extension from file_path if available, or from document_type
+    let extension = '';
+    if (doc.file_path) {
+      const match = doc.file_path.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // If no extension from URL, try to get from document_type/mimetype
+    if (!extension && doc.document_type) {
+      const mimeToExt: { [key: string]: string } = {
+        'application/pdf': 'pdf',
+        'application/msword': 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+          'docx',
+        'application/vnd.ms-excel': 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+          'xlsx',
+        'text/plain': 'txt',
+        'application/zip': 'zip',
+        'application/x-rar-compressed': 'rar',
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+      };
+      extension = mimeToExt[doc.document_type] || '';
+    }
+
+    // If still no extension, try to extract from original filename
+    if (!extension && (doc.originalname || doc.name)) {
+      const originalName = doc.originalname || doc.name;
+      const match = originalName.match(/\.([a-zA-Z0-9]+)$/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // Return filename with extension
+    return extension ? `${nameWithoutExt}.${extension}` : fileName;
   }
 
   previewDocument(doc: any): void {
@@ -716,12 +799,14 @@ export class ApprovalViewModalComponent {
   }
 
   documentUrl(filePath: string): string {
+    if (!filePath) return '';
+    // If it's already a full URL (Cloudinary or other external URLs), return as-is
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
+    // Otherwise, prepend the base URL for local paths
     const baseUrl = environment.baseUrl;
-    const normalizedPath = !filePath
-      ? ''
-      : filePath.startsWith('/')
-        ? filePath
-        : `/${filePath}`;
+    const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     return `${baseUrl}${normalizedPath}`;
   }
 

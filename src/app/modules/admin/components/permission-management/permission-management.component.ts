@@ -4,7 +4,10 @@ import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.com
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PermissionService } from '../../../../core/services/permission.service';
+import { ExportService } from '../../../../core/services/export.service';
 import { FormsModule } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { firstValueFrom } from 'rxjs';
 import { PermissionFiltersComponent } from './permission-filters.component';
 import {
   PermissionTableComponent,
@@ -20,6 +23,7 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
     CommonModule,
     FormsModule,
     ToastModule,
+    ButtonModule,
     AdminSidebarComponent,
     PermissionFiltersComponent,
     PermissionTableComponent,
@@ -60,6 +64,22 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
           </div>
           <div class="flex items-center gap-2">
             <button
+              class="px-3 py-2 bg-green-600 text-white rounded-md font-medium transition-colors duration-150 hover:bg-green-700 cursor-pointer flex items-center gap-2"
+              (click)="exportToExcel()"
+              [disabled]="exportingExcel"
+              title="Export to Excel"
+            >
+              <i
+                class="pi"
+                [class.pi-spin]="exportingExcel"
+                [class.pi-spinner]="exportingExcel"
+                [class.pi-file-excel]="!exportingExcel"
+              ></i>
+              <span>{{
+                exportingExcel ? 'Exporting...' : 'Export Excel'
+              }}</span>
+            </button>
+            <button
               class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
               title="Refresh"
               (click)="onRefresh()"
@@ -95,6 +115,7 @@ import { RuleViewModalComponent } from './modals/rule-view-modal.component';
           (edit)="onEditRule($event)"
           (toggle)="onToggleRule($event)"
           (remove)="onDeleteRule($event)"
+          (exportPdf)="exportPermissionToPdf($event)"
         ></app-permission-table>
       </div>
     </div>
@@ -261,8 +282,16 @@ export class PermissionManagementComponent {
   saving = false;
   formErrors: { [key: string]: string[] } | null = null;
 
+  exportingExcel = false;
+  exportingPdf = false;
+  rowProcessing: {
+    permissionId: string | null;
+    action: 'export-pdf' | null;
+  } = { permissionId: null, action: null };
+
   constructor(
     private permissionService: PermissionService,
+    private exportService: ExportService,
     private messageService: MessageService
   ) {
     this.loadRules();
@@ -673,5 +702,70 @@ export class PermissionManagementComponent {
   onCloseView(): void {
     this.showView = false;
     this.viewData = null;
+  }
+
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters: any = {};
+      // Add any active filters here if needed
+
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('permission_management', filters)
+      );
+
+      if (blob) {
+        const filename = `permissions_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Permissions exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail:
+          error?.error?.message || 'Failed to export permissions to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
+
+  async exportPermissionToPdf(permission: PermissionRuleRow): Promise<void> {
+    if (!permission.id) return;
+
+    try {
+      this.rowProcessing = {
+        permissionId: permission.id,
+        action: 'export-pdf',
+      };
+      const blob = await firstValueFrom(
+        this.exportService.exportToPdf('permission_management', permission.id)
+      );
+
+      if (blob) {
+        const filename = `permission_${permission.id}_${new Date().toISOString().split('T')[0]}.pdf`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Permission exported to PDF successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export permission to PDF',
+      });
+    } finally {
+      this.rowProcessing = { permissionId: null, action: null };
+    }
   }
 }

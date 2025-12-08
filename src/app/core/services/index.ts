@@ -10,3 +10,4 @@ export * from './qa-machine.service';
 export * from './permission.service';
 export * from './department-role.service';
 export * from './role.service';
+export * from './export.service';

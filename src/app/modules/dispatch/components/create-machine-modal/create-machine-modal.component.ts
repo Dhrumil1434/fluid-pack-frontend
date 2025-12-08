@@ -25,11 +25,12 @@ import { ElementRef, ViewChild } from '@angular/core';
 import { CategoryService } from '../../../../core/services/category.service';
 import { SequenceGenerationRequest } from '../../../../core/models/category.model';
 import { MachineService } from '../../../../core/services/machine.service';
+import { NgxDocViewerModule } from 'ngx-doc-viewer';
 
 @Component({
   selector: 'app-create-machine-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ToastModule],
+  imports: [CommonModule, ReactiveFormsModule, ToastModule, NgxDocViewerModule],
   template: `
     <p-toast></p-toast>
     <div
@@ -446,25 +447,72 @@ import { MachineService } from '../../../../core/services/machine.service';
               </div>
 
               <div
-                class="grid grid-cols-2 gap-2 mt-2"
+                class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2"
                 *ngIf="selectedDocuments.length > 0"
               >
                 <div
-                  class="relative group flex items-center justify-between p-2 border rounded"
+                  class="relative group flex items-center justify-between p-3 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
                   *ngFor="let doc of selectedDocuments; let i = index"
                 >
-                  <div class="flex items-center gap-2">
-                    <i class="pi pi-file text-sm text-neutral-500"></i>
-                    <span class="text-sm truncate">{{ doc.name }}</span>
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="flex-shrink-0">
+                      <div
+                        class="w-10 h-10 rounded-lg flex items-center justify-center"
+                        [ngClass]="{
+                          'bg-red-100': isPdfFile(doc),
+                          'bg-blue-100': isWordFile(doc),
+                          'bg-green-100': isExcelFile(doc),
+                          'bg-gray-100':
+                            !isPdfFile(doc) &&
+                            !isWordFile(doc) &&
+                            !isExcelFile(doc),
+                        }"
+                      >
+                        <i
+                          class="text-lg"
+                          [ngClass]="{
+                            'pi pi-file-pdf text-red-600': isPdfFile(doc),
+                            'pi pi-file-word text-blue-600': isWordFile(doc),
+                            'pi pi-file-excel text-green-600': isExcelFile(doc),
+                            'pi pi-file text-gray-600':
+                              !isPdfFile(doc) &&
+                              !isWordFile(doc) &&
+                              !isExcelFile(doc),
+                          }"
+                        ></i>
+                      </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div
+                        class="text-sm font-medium text-gray-900 truncate"
+                        [title]="doc.name"
+                      >
+                        {{ doc.name }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        {{ formatFileSize(doc.size) }}
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    class="p-1 hover:bg-neutral-100 rounded"
-                    (click)="removeDocument(i)"
-                    aria-label="Remove document"
-                  >
-                    <i class="pi pi-times text-xs"></i>
-                  </button>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      class="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      (click)="previewDocument(doc, i)"
+                      [title]="'Preview ' + doc.name"
+                      aria-label="Preview document"
+                    >
+                      <i class="pi pi-eye text-sm"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      (click)="removeDocument(i)"
+                      aria-label="Remove document"
+                    >
+                      <i class="pi pi-times text-sm"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -612,6 +660,154 @@ import { MachineService } from '../../../../core/services/machine.service';
         </div>
       </div>
     </div>
+
+    <!-- Document Preview Modal -->
+    <div
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]"
+      *ngIf="previewDocumentVisible"
+      (click)="closeDocumentPreview()"
+    >
+      <div
+        class="bg-white w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col"
+        (click)="$event.stopPropagation()"
+      >
+        <div
+          class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0"
+        >
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 rounded-lg flex items-center justify-center"
+              [ngClass]="{
+                'bg-red-100': previewedDocument && isPdfFile(previewedDocument),
+                'bg-blue-100':
+                  previewedDocument && isWordFile(previewedDocument),
+                'bg-green-100':
+                  previewedDocument && isExcelFile(previewedDocument),
+                'bg-gray-100':
+                  previewedDocument &&
+                  !isPdfFile(previewedDocument) &&
+                  !isWordFile(previewedDocument) &&
+                  !isExcelFile(previewedDocument),
+              }"
+            >
+              <i
+                class="text-xl"
+                [ngClass]="{
+                  'pi pi-file-pdf text-red-600':
+                    previewedDocument && isPdfFile(previewedDocument),
+                  'pi pi-file-word text-blue-600':
+                    previewedDocument && isWordFile(previewedDocument),
+                  'pi pi-file-excel text-green-600':
+                    previewedDocument && isExcelFile(previewedDocument),
+                  'pi pi-file text-gray-600':
+                    previewedDocument &&
+                    !isPdfFile(previewedDocument) &&
+                    !isWordFile(previewedDocument) &&
+                    !isExcelFile(previewedDocument),
+                }"
+              ></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">
+                {{ previewedDocument?.name || 'Document Preview' }}
+              </h3>
+              <p class="text-sm text-gray-500" *ngIf="previewedDocument">
+                {{ formatFileSize(previewedDocument.size) }}
+              </p>
+            </div>
+          </div>
+          <button
+            class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            (click)="closeDocumentPreview()"
+          >
+            <i class="pi pi-times text-xl"></i>
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6">
+          <div
+            *ngIf="previewLoading"
+            class="flex items-center justify-center py-12"
+          >
+            <div class="flex items-center gap-3 text-gray-500">
+              <i class="pi pi-spinner pi-spin text-2xl"></i>
+              <span>Loading preview...</span>
+            </div>
+          </div>
+          <div
+            *ngIf="!previewLoading && previewedDocument && documentPreviewUrl"
+            class="w-full"
+          >
+            <!-- Use ngx-doc-viewer for Office documents and PDFs -->
+            <div
+              *ngIf="
+                isOfficeFile(previewedDocument) || isPdfFile(previewedDocument)
+              "
+              class="w-full border rounded-lg overflow-hidden"
+            >
+              <ngx-doc-viewer
+                [url]="documentPreviewUrl"
+                [viewer]="getViewerType(previewedDocument)"
+                style="width: 100%; height: 70vh;"
+              ></ngx-doc-viewer>
+            </div>
+            <!-- Image Preview -->
+            <div
+              *ngIf="isImageFile(previewedDocument)"
+              class="flex justify-center"
+            >
+              <img
+                [src]="documentPreviewUrl"
+                [alt]="previewedDocument.name"
+                class="max-w-full max-h-[70vh] object-contain rounded-lg border"
+              />
+            </div>
+            <!-- Text Preview (for .txt files) -->
+            <div *ngIf="isTextFile(previewedDocument)" class="w-full">
+              <div
+                class="bg-gray-50 border rounded-lg p-4 max-h-[70vh] overflow-y-auto"
+              >
+                <pre class="text-sm whitespace-pre-wrap font-mono">{{
+                  previewTextContent
+                }}</pre>
+              </div>
+            </div>
+            <!-- Unsupported File Type -->
+            <div
+              *ngIf="
+                !isOfficeFile(previewedDocument) &&
+                !isPdfFile(previewedDocument) &&
+                !isImageFile(previewedDocument) &&
+                !isTextFile(previewedDocument)
+              "
+              class="flex flex-col items-center justify-center py-12"
+            >
+              <div
+                class="w-24 h-24 rounded-full flex items-center justify-center mb-4 bg-gray-100"
+              >
+                <i class="pi pi-file text-4xl text-gray-600"></i>
+              </div>
+              <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                Preview Not Available
+              </h4>
+              <p class="text-sm text-gray-500 text-center mb-4">
+                This file type cannot be previewed in the browser.
+                <br />
+                The file will be uploaded correctly and can be downloaded after
+                creation.
+              </p>
+              <button
+                type="button"
+                class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+                (click)="downloadPreviewedDocument()"
+              >
+                <i class="pi pi-download mr-2"></i>
+                Download File
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   `,
 })
 export class CreateMachineModalComponent
@@ -649,6 +845,13 @@ export class CreateMachineModalComponent
   loading = false;
   isDragging = false;
   isDocumentDragging = false;
+
+  // Document preview state
+  previewDocumentVisible = false;
+  previewedDocument: File | null = null;
+  documentPreviewUrl: string | null = null;
+  previewLoading = false;
+  previewTextContent = '';
 
   // Sequence generation
   isGeneratingSequence = false;
@@ -721,6 +924,9 @@ export class CreateMachineModalComponent
 
   ngOnDestroy(): void {
     this.selectedPreviews.forEach(url => URL.revokeObjectURL(url));
+    if (this.documentPreviewUrl) {
+      URL.revokeObjectURL(this.documentPreviewUrl);
+    }
   }
 
   onCancel(): void {
@@ -826,6 +1032,130 @@ export class CreateMachineModalComponent
     );
     if (limited.length === 0) return;
     this.selectedDocuments = [...this.selectedDocuments, ...limited];
+  }
+
+  // Document preview methods
+  previewDocument(doc: File, _index: number): void {
+    this.previewedDocument = doc;
+    this.previewLoading = true;
+    this.previewDocumentVisible = true;
+
+    // Create blob URL for preview (local file preview)
+    if (this.documentPreviewUrl) {
+      URL.revokeObjectURL(this.documentPreviewUrl);
+    }
+
+    // Create blob from file for ngx-doc-viewer
+    const blob = new Blob([doc], { type: doc.type });
+    this.documentPreviewUrl = URL.createObjectURL(blob);
+
+    // For text files, read content
+    if (this.isTextFile(doc)) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        this.previewTextContent = (e.target?.result as string) || '';
+        this.previewLoading = false;
+      };
+      reader.onerror = () => {
+        this.previewTextContent = 'Error reading file content.';
+        this.previewLoading = false;
+      };
+      reader.readAsText(doc);
+    } else {
+      // Small delay to ensure blob URL is ready
+      setTimeout(() => {
+        this.previewLoading = false;
+      }, 100);
+    }
+  }
+
+  closeDocumentPreview(): void {
+    this.previewDocumentVisible = false;
+    if (this.documentPreviewUrl) {
+      URL.revokeObjectURL(this.documentPreviewUrl);
+      this.documentPreviewUrl = null;
+    }
+    this.previewedDocument = null;
+    this.previewTextContent = '';
+  }
+
+  downloadPreviewedDocument(): void {
+    if (!this.previewedDocument) return;
+    const url = URL.createObjectURL(this.previewedDocument);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = this.previewedDocument.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  // File type helpers
+  isPdfFile(file: File): boolean {
+    return (
+      file.type === 'application/pdf' ||
+      file.name.toLowerCase().endsWith('.pdf')
+    );
+  }
+
+  isWordFile(file: File): boolean {
+    return (
+      file.type === 'application/msword' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      file.name.toLowerCase().endsWith('.doc') ||
+      file.name.toLowerCase().endsWith('.docx')
+    );
+  }
+
+  isExcelFile(file: File): boolean {
+    return (
+      file.type === 'application/vnd.ms-excel' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.name.toLowerCase().endsWith('.xls') ||
+      file.name.toLowerCase().endsWith('.xlsx')
+    );
+  }
+
+  isImageFile(file: File): boolean {
+    return file.type.startsWith('image/');
+  }
+
+  isTextFile(file: File): boolean {
+    return (
+      file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')
+    );
+  }
+
+  isOfficeFile(file: File): boolean {
+    return (
+      this.isWordFile(file) ||
+      this.isExcelFile(file) ||
+      file.type === 'application/vnd.ms-powerpoint' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+      file.name.toLowerCase().endsWith('.ppt') ||
+      file.name.toLowerCase().endsWith('.pptx')
+    );
+  }
+
+  getViewerType(file: File): 'google' | 'office' | 'mammoth' | 'pdf' | 'url' {
+    if (this.isPdfFile(file)) {
+      return 'pdf';
+    } else if (this.isOfficeFile(file)) {
+      return 'office';
+    }
+    return 'url';
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
   onSubmit(): void {

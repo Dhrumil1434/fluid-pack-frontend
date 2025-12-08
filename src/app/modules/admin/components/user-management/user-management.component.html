@@ -119,6 +119,17 @@
         <i class="pi pi-refresh text-lg"></i>
       </button>
       <button
+        (click)="exportToExcel()"
+        [disabled]="exportingExcel"
+        class="px-4 py-2 bg-green-600 text-white rounded-md font-medium transition-colors duration-150 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+        title="Export to Excel"
+      >
+        <i *ngIf="!exportingExcel" class="pi pi-file-excel"></i>
+        <i *ngIf="exportingExcel" class="pi pi-spin pi-spinner"></i>
+        <span *ngIf="!exportingExcel">Export Excel</span>
+        <span *ngIf="exportingExcel">Exporting...</span>
+      </button>
+      <button
         (click)="onOpenAddUser()"
         class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer"
         title="Add new user"
@@ -296,6 +307,7 @@
         (reject)="onRejectUser($event)"
         (edit)="onEditUser($event)"
         (delete)="onDeleteUser($event)"
+        (exportPdf)="onExportUserPdf($event)"
         (pageChange)="onTablePageChange($event)"
         (sortChange)="onTableSortChange($event)"
         (limitChange)="onTableLimitChange($event)"

@@ -32,7 +32,9 @@ import {
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
+import { ExportService } from '../../../../core/services/export.service';
 import { ActivatedRoute, Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-machine-management',
@@ -74,6 +76,22 @@ import { ActivatedRoute, Router } from '@angular/router';
           ]"
         >
           <div headerActions class="flex items-center gap-2">
+            <button
+              class="px-4 py-2 bg-green-600 text-white rounded-md font-medium transition-colors duration-150 hover:bg-green-700 cursor-pointer flex items-center gap-2 shadow-sm"
+              (click)="exportToExcel()"
+              [disabled]="exportingExcel"
+              title="Export to Excel"
+            >
+              <i
+                class="pi"
+                [class.pi-spin]="exportingExcel"
+                [class.pi-spinner]="exportingExcel"
+                [class.pi-file-excel]="!exportingExcel"
+              ></i>
+              <span>{{
+                exportingExcel ? 'Exporting...' : 'Export Excel'
+              }}</span>
+            </button>
             <button
               class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer flex items-center gap-2 shadow-sm"
               (click)="openCreate()"
@@ -2265,6 +2283,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   existingImages: string[] = [];
   existingDocuments: any[] = [];
   removedDocuments: any[] = []; // Track documents to be removed
+  removedImages: string[] = []; // Track images to be removed
   isDragging = false;
   isDocumentDragging = false;
   metadataText = '';
@@ -2272,6 +2291,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   metadataEntries: Array<{ key: string; value: string }> = [];
   // layout state
   sidebarCollapsed = false;
+
+  // Export state
+  exportingExcel = false;
+  exportingPdf: string | null = null;
+
   // search debounce
   private searchInput$ = new Subject<string>();
   private subs = new Subscription();
@@ -2341,6 +2365,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     private machineService: MachineService,
     private fb: FormBuilder,
     private categoryService: CategoryService,
+    private exportService: ExportService,
     private messageService: MessageService,
     private route: ActivatedRoute,
     private router: Router,
@@ -2804,6 +2829,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.existingImages = [];
     this.existingDocuments = [];
     this.removedDocuments = [];
+    this.removedImages = [];
     this.subcategories = [];
     this.isDragging = false;
     this.isDocumentDragging = false;
@@ -2931,6 +2957,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     const limited = files.slice(0, 5);
     this.selectedFiles = limited;
     this.form.patchValue({ images: limited });
+    // Mark form as dirty to enable save button
+    this.form.markAsDirty();
     // revoke previous previews
     this.previewImages.forEach(u => URL.revokeObjectURL(u));
     this.previewImages = limited.map(f => URL.createObjectURL(f));
@@ -2942,6 +2970,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     if (removed) URL.revokeObjectURL(removed);
     this.selectedFiles.splice(i, 1);
     this.form.patchValue({ images: this.selectedFiles });
+    // Mark form as dirty to enable save button
+    this.form.markAsDirty();
   }
 
   addMetadataRow(): void {
@@ -3114,6 +3144,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         this.selectedFiles.length > 0 ||
         this.selectedDocuments.length > 0 ||
         this.removedDocuments.length > 0 ||
+        this.removedImages.length > 0 ||
         JSON.stringify(metadata) !==
           JSON.stringify(this.selected.metadata || {}) ||
         name !== (this.selected.name || '') ||
@@ -3179,6 +3210,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         documents: this.selectedDocuments, // Only new files for upload
         metadata: metadata, // Always include metadata (empty object clears existing metadata)
         removedDocuments: this.removedDocuments, // Documents to be removed
+        removedImages: this.removedImages, // Images to be removed
       };
 
       // Only include subcategory_id if it has a valid value (empty string is allowed by backend)
@@ -3345,6 +3377,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
   removeDocument(index: number): void {
     this.selectedDocuments.splice(index, 1);
+    // Mark form as dirty to enable save button
+    this.form.markAsDirty();
   }
 
   openDocumentPicker(): void {
@@ -3386,6 +3420,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       const extension = '.' + file.name.split('.').pop()?.toLowerCase();
       return validTypes.includes(extension);
     });
+
+    if (validFiles.length > 0) {
+      // Mark form as dirty to enable save button
+      this.form.markAsDirty();
+    }
 
     if (validFiles.length !== files.length) {
       // Show error for invalid files
@@ -3534,14 +3573,96 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   downloadDocument(doc: any): void {
-    // Create a temporary link element to trigger download
-    const link = document.createElement('a');
-    link.href = this.documentUrl(doc.file_path);
-    link.download = doc.name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const url = this.documentUrl(doc.file_path);
+    const fileName = this.getDocumentFileName(doc);
+
+    // For Cloudinary URLs, we need to fetch and create a blob to ensure proper filename
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          // Clean up the blob URL
+          window.URL.revokeObjectURL(blobUrl);
+        })
+        .catch(error => {
+          console.error('Error downloading document:', error);
+          // Fallback to direct link
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+    } else {
+      // For local files, use direct download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  /**
+   * Get the proper filename for a document with extension
+   */
+  getDocumentFileName(doc: any): string {
+    let fileName = doc.name || doc.originalname || doc.filename || 'document';
+
+    // Remove any existing extension to avoid duplicates
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+
+    // Get extension from file_path if available, or from document_type
+    let extension = '';
+    if (doc.file_path) {
+      const match = doc.file_path.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // If no extension from URL, try to get from document_type/mimetype
+    if (!extension && doc.document_type) {
+      const mimeToExt: { [key: string]: string } = {
+        'application/pdf': 'pdf',
+        'application/msword': 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+          'docx',
+        'application/vnd.ms-excel': 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+          'xlsx',
+        'text/plain': 'txt',
+        'application/zip': 'zip',
+        'application/x-rar-compressed': 'rar',
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+      };
+      extension = mimeToExt[doc.document_type] || '';
+    }
+
+    // If still no extension, try to extract from original filename
+    if (!extension && (doc.originalname || doc.name)) {
+      const originalName = doc.originalname || doc.name;
+      const match = originalName.match(/\.([a-zA-Z0-9]+)$/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // Return filename with extension
+    return extension ? `${nameWithoutExt}.${extension}` : fileName;
   }
 
   previewDocument(doc: any): void {
@@ -3551,6 +3672,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   documentUrl(filePath: string): string {
+    if (!filePath) return '';
+    // If it's already a full URL (Cloudinary or other external URLs), return as-is
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
     // Construct the full URL for the document using environment baseUrl
     const baseUrl = environment.baseUrl;
     // Ensure filePath starts with / if it doesn't already
@@ -3579,6 +3705,12 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
   // Methods for handling existing files
   removeExistingImage(index: number): void {
+    const removedImage = this.existingImages[index];
+    if (removedImage) {
+      this.removedImages.push(removedImage); // Track for Cloudinary deletion
+      // Mark form as dirty to enable save button
+      this.form.markAsDirty();
+    }
     this.existingImages.splice(index, 1);
   }
 
@@ -3586,6 +3718,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     const removedDoc = this.existingDocuments[index];
     this.removedDocuments.push(removedDoc); // Track for backend removal
     this.existingDocuments.splice(index, 1);
+    // Mark form as dirty to enable save button
+    this.form.markAsDirty();
   }
 
   // ==================== SEQUENCE MANAGEMENT ====================
@@ -4467,5 +4601,86 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         },
       });
     });
+  }
+
+  /**
+   * Export machines to Excel
+   */
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters: any = {
+        search: this.filters.search || undefined,
+        is_approved: this.filters.is_approved,
+        category_id: this.filters.category_id || undefined,
+        has_sequence: this.filters.has_sequence,
+        metadata_key: this.filters.metadata_key || undefined,
+        metadata_value: this.filters.metadata_value || undefined,
+        dispatch_date_from: this.filters.dispatch_date_from || undefined,
+        dispatch_date_to: this.filters.dispatch_date_to || undefined,
+        party_name: this.filters.party_name || undefined,
+        machine_sequence: this.filters.machine_sequence || undefined,
+        location: this.filters.location || undefined,
+        mobile_number: this.filters.mobile_number || undefined,
+        sortBy: this.filters.sortBy || 'createdAt',
+        sortOrder: this.filters.sortOrder || 'desc',
+      };
+
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('machine_management', filters)
+      );
+
+      if (blob) {
+        const filename = `machines_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Machines exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export machines to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
+
+  /**
+   * Export machine to PDF
+   */
+  async exportMachineToPdf(machine: Machine): Promise<void> {
+    if (!machine._id) return;
+
+    try {
+      this.exportingPdf = machine._id;
+      const blob = await firstValueFrom(
+        this.exportService.exportToPdf('machine_management', machine._id)
+      );
+
+      if (blob) {
+        const filename = `machine_${machine._id}_${new Date().toISOString().split('T')[0]}.pdf`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Machine exported to PDF successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export machine to PDF',
+      });
+    } finally {
+      this.exportingPdf = null;
+    }
   }
 }

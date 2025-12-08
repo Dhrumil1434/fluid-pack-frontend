@@ -27,7 +27,14 @@ export class UserTableComponent implements OnChanges {
   @Input() initialSortOrder?: 'asc' | 'desc';
   @Input() processing: {
     userId: string | null;
-    action: 'approve' | 'reject' | 'edit' | 'view' | 'delete' | null;
+    action:
+      | 'approve'
+      | 'reject'
+      | 'edit'
+      | 'view'
+      | 'delete'
+      | 'export-pdf'
+      | null;
   } = { userId: null, action: null };
 
   @Output() view = new EventEmitter<User>();
@@ -35,6 +42,7 @@ export class UserTableComponent implements OnChanges {
   @Output() reject = new EventEmitter<User>();
   @Output() edit = new EventEmitter<User>();
   @Output() delete = new EventEmitter<User>();
+  @Output() exportPdf = new EventEmitter<User>();
   @Output() pageChange = new EventEmitter<{ page: number; limit: number }>();
   @Output() sortChange = new EventEmitter<{
     sortBy: string;
@@ -193,6 +201,11 @@ export class UserTableComponent implements OnChanges {
 
   onDeleteClick(user: User): void {
     this.delete.emit(user);
+  }
+
+  onExportPdfClick(user: User): void {
+    this.processing = { userId: user._id, action: 'export-pdf' };
+    this.exportPdf.emit(user);
   }
 
   getAvatarUrl(nameOrEmail: string | undefined | null): string {

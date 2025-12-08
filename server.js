@@ -4,11 +4,20 @@ const fs = require('fs');
 const app = express();
 
 // Get the dist path - try multiple possible locations
+// When Render uses a publish directory, process.cwd() will be that directory
+// So we check process.cwd() first, then fall back to standard locations
 const possiblePaths = [
+  // If Render uses publish directory (dist/fluidpack-frontend/browser),
+  // files will be directly in process.cwd()
+  process.cwd(),
+  // Standard build output locations (if no publish directory)
   path.join(__dirname, 'dist/fluidpack-frontend/browser'),
   path.join(__dirname, 'dist/fluidpack-frontend'),
   path.join(process.cwd(), 'dist/fluidpack-frontend/browser'),
   path.join(process.cwd(), 'dist/fluidpack-frontend'),
+  // Fallback locations
+  path.join(__dirname, 'browser'),
+  path.join(__dirname),
 ];
 
 let distPath = null;
@@ -24,11 +33,26 @@ for (const possiblePath of possiblePaths) {
   }
 }
 
-// If not found, try to list what's in dist
+// If not found, try to list what's available for debugging
 if (!distPath) {
   console.error('ERROR: Could not find dist directory or index.html');
   console.error('Current working directory:', process.cwd());
   console.error('__dirname:', __dirname);
+
+  // List current working directory contents
+  console.error('\nContents of current working directory:');
+  try {
+    const cwdContents = fs.readdirSync(process.cwd(), { withFileTypes: true });
+    cwdContents.forEach(item => {
+      if (item.isDirectory()) {
+        console.error(`  📁 ${item.name}/`);
+      } else {
+        console.error(`  📄 ${item.name}`);
+      }
+    });
+  } catch (e) {
+    console.error('  (cannot read current working directory)');
+  }
 
   // Try to list dist directory if it exists
   const distDir = path.join(__dirname, 'dist');

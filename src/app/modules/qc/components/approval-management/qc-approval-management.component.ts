@@ -998,8 +998,33 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   }
 
   onDownloadDocument(approval: QCApproval, document: any): void {
-    const url = `${environment.baseUrl}/uploads/qc-approvals/${document.filename}`;
+    const url = this.documentUrl(
+      document.path || document.file_path || document.filename
+    );
     window.open(url, '_blank');
+  }
+
+  onDownloadMachineDocument(machine: any, document: any): void {
+    const url = this.documentUrl(
+      document.file_path || document.path || document.filename || document
+    );
+    window.open(url, '_blank');
+  }
+
+  onViewMachineDocuments(machine: any): void {
+    if (!machine?.documents || machine.documents.length === 0) {
+      return;
+    }
+
+    // Set up document list for viewing
+    this.documentList = machine.documents.map((doc: any) => ({
+      originalName: this.getDocumentName(doc),
+      path: doc.file_path || doc.path || doc.filename || doc,
+      size: doc.size,
+      uploadedAt: doc.uploadedAt || doc.createdAt,
+    }));
+
+    this.showDocumentDialog = true;
   }
 
   onViewDocuments(approval: QCApproval): void {
@@ -1232,6 +1257,18 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       doc.file_path ||
       'Document'
     );
+  }
+
+  getDocumentSize(doc: any): string {
+    if (!doc) return '';
+    const size = doc.size;
+    if (!size) return '';
+    return (size / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  getDocumentDate(doc: any): string | undefined {
+    if (!doc) return undefined;
+    return doc.uploadedAt || doc.createdAt || undefined;
   }
 
   trackByKey(_index: number, item: any): string {

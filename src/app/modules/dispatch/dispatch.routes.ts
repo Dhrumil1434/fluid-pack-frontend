@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { AuthGuard } from '../../core/guards/auth.guard';
 
 export const DISPATCH_ROUTES: Routes = [
   {
@@ -7,6 +8,7 @@ export const DISPATCH_ROUTES: Routes = [
       import('./pages/technician-dashboard.component').then(
         m => m.TechnicianDashboardComponent
       ),
+    canActivate: [AuthGuard],
   },
   {
     path: 'approvals',
@@ -14,6 +16,7 @@ export const DISPATCH_ROUTES: Routes = [
       import('./pages/approvals-dashboard.component').then(
         m => m.ApprovalsDashboardComponent
       ),
+    canActivate: [AuthGuard],
   },
   {
     path: 'machines',
@@ -21,5 +24,6 @@ export const DISPATCH_ROUTES: Routes = [
       import('./pages/technician-machines.component').then(
         m => m.TechnicianMachinesComponent
       ),
+    canActivate: [AuthGuard],
   },
 ];

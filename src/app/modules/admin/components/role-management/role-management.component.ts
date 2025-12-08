@@ -5,9 +5,12 @@ import { RoleFiltersComponent } from './role-filters.component';
 import { RoleTableComponent, RoleRow } from './role-table.component';
 import { RoleFormModalComponent } from './modals/role-form-modal.component';
 import { DepartmentRoleService } from '../../../../core/services/department-role.service';
+import { ExportService } from '../../../../core/services/export.service';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { FormsModule } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-role-management',
@@ -16,6 +19,7 @@ import { FormsModule } from '@angular/forms';
     CommonModule,
     FormsModule,
     ToastModule,
+    ButtonModule,
     AdminSidebarComponent,
     RoleFiltersComponent,
     RoleTableComponent,
@@ -55,6 +59,22 @@ import { FormsModule } from '@angular/forms';
             </nav>
           </div>
           <div class="flex items-center gap-2">
+            <button
+              class="px-3 py-2 bg-green-600 text-white rounded-md font-medium transition-colors duration-150 hover:bg-green-700 cursor-pointer flex items-center gap-2"
+              (click)="exportToExcel()"
+              [disabled]="exportingExcel"
+              title="Export to Excel"
+            >
+              <i
+                class="pi"
+                [class.pi-spin]="exportingExcel"
+                [class.pi-spinner]="exportingExcel"
+                [class.pi-file-excel]="!exportingExcel"
+              ></i>
+              <span>{{
+                exportingExcel ? 'Exporting...' : 'Export Excel'
+              }}</span>
+            </button>
             <button
               class="p-2.5 text-text-muted hover:text-text hover:bg-neutral-100 cursor-pointer rounded-lg transition-all duration-200"
               title="Refresh"
@@ -122,8 +142,11 @@ export class RoleManagementComponent {
   };
   loading = false;
 
+  exportingExcel = false;
+
   constructor(
     private deptRoleService: DepartmentRoleService,
+    private exportService: ExportService,
     private messageService: MessageService,
     private confirm: ConfirmationService
   ) {
@@ -293,4 +316,35 @@ export class RoleManagementComponent {
     return { valid: true };
   }
   trackByName = (_: number, r: RoleRow) => r.name;
+
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters: any = {};
+      // Add any active filters here if needed
+
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('role_management', filters)
+      );
+
+      if (blob) {
+        const filename = `roles_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Roles exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export roles to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
 }

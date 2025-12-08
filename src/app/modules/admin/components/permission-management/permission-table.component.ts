@@ -102,6 +102,13 @@ export interface PermissionRuleRow {
                   </button>
                   <button
                     class="w-full px-3 py-2 text-left hover:bg-neutral-50 flex items-center gap-2 cursor-pointer"
+                    (click)="onExportPdf(r)"
+                  >
+                    <i class="pi pi-file-pdf"></i>
+                    <span>Export PDF</span>
+                  </button>
+                  <button
+                    class="w-full px-3 py-2 text-left hover:bg-neutral-50 flex items-center gap-2 cursor-pointer"
                     (click)="onEdit(r)"
                   >
                     <i class="pi pi-pencil"></i>
@@ -165,6 +172,7 @@ export class PermissionTableComponent {
   @Output() edit = new EventEmitter<PermissionRuleRow>();
   @Output() toggle = new EventEmitter<PermissionRuleRow>();
   @Output() remove = new EventEmitter<PermissionRuleRow>();
+  @Output() exportPdf = new EventEmitter<PermissionRuleRow>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() limitChange = new EventEmitter<number>();
 
@@ -248,5 +256,9 @@ export class PermissionTableComponent {
   onDelete(r: PermissionRuleRow): void {
     this.openMenuFor = null;
     this.remove.emit(r);
+  }
+  onExportPdf(r: PermissionRuleRow): void {
+    this.openMenuFor = null;
+    this.exportPdf.emit(r);
   }
 }

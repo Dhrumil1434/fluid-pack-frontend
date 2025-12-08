@@ -7,8 +7,8 @@ export const environment = {
   production: false,
 
   // API Configuration
-  apiUrl: 'https://fluid-pack-backend.onrender.com/api',
-  baseUrl: 'https://fluid-pack-backend.onrender.com',
+  apiUrl: 'http://localhost:5000/api',
+  baseUrl: 'http://localhost:5000',
   apiVersion: 'v1',
 
   // Application Info

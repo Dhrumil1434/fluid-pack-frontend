@@ -19,6 +19,7 @@ import { TablePaginationComponent } from '../../../admin/components/user-managem
 import { ListFiltersComponent } from '../../../admin/components/shared/list/list-filters.component';
 import { ListTableShellComponent } from '../../../admin/components/shared/list/list-table-shell.component';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
+import { NgxDocViewerModule } from 'ngx-doc-viewer';
 
 interface MachineDocument {
   _id?: string;
@@ -92,6 +93,7 @@ interface Category {
     ListFiltersComponent,
     ListTableShellComponent,
     PageHeaderComponent,
+    NgxDocViewerModule,
   ],
   templateUrl: './qc-machine-selection.component.html',
   styleUrls: ['./qc-machine-selection.component.css'],
@@ -188,6 +190,13 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   selectedFiles: File[] = [];
   selectedImages: File[] = [];
   selectedDocuments: File[] = [];
+
+  // Document preview state
+  previewDocumentVisible = false;
+  previewedDocument: File | null = null;
+  documentPreviewUrl: string | null = null;
+  previewLoading = false;
+  previewTextContent = '';
   uploadProgress = 0;
   uploading = false;
   uploadNotes = '';
@@ -239,6 +248,10 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    // Clean up document preview URL
+    if (this.documentPreviewUrl) {
+      URL.revokeObjectURL(this.documentPreviewUrl);
+    }
   }
 
   loadCategories(): Promise<void> {
@@ -965,6 +978,148 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (files && files.length > 0) {
       this.selectedDocuments = Array.from(files);
     }
+  }
+
+  // Document preview methods for uploaded files (before submission)
+  previewUploadedDocument(doc: File, _index: number): void {
+    this.previewedDocument = doc;
+    this.previewLoading = true;
+    this.previewDocumentVisible = true;
+
+    // Create blob URL for preview (local file preview)
+    if (this.documentPreviewUrl) {
+      URL.revokeObjectURL(this.documentPreviewUrl);
+    }
+
+    // Create blob from file for ngx-doc-viewer
+    const blob = new Blob([doc], { type: doc.type });
+    this.documentPreviewUrl = URL.createObjectURL(blob);
+
+    // For text files, read content
+    if (this.isTextFile(doc)) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        this.previewTextContent = (e.target?.result as string) || '';
+        this.previewLoading = false;
+      };
+      reader.onerror = () => {
+        this.previewTextContent = 'Error reading file content.';
+        this.previewLoading = false;
+      };
+      reader.readAsText(doc);
+    } else {
+      // Small delay to ensure blob URL is ready
+      setTimeout(() => {
+        this.previewLoading = false;
+      }, 100);
+    }
+  }
+
+  closeDocumentPreview(): void {
+    this.previewDocumentVisible = false;
+    if (this.documentPreviewUrl) {
+      URL.revokeObjectURL(this.documentPreviewUrl);
+      this.documentPreviewUrl = null;
+    }
+    this.previewedDocument = null;
+    this.previewTextContent = '';
+  }
+
+  downloadPreviewedDocument(): void {
+    if (!this.previewedDocument) return;
+    const url = URL.createObjectURL(this.previewedDocument);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = this.previewedDocument.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  // File type helpers for uploaded files
+  isPdfFile(file: File): boolean {
+    return (
+      file.type === 'application/pdf' ||
+      file.name.toLowerCase().endsWith('.pdf')
+    );
+  }
+
+  isWordFile(file: File): boolean {
+    return (
+      file.type === 'application/msword' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      file.name.toLowerCase().endsWith('.doc') ||
+      file.name.toLowerCase().endsWith('.docx')
+    );
+  }
+
+  isExcelFile(file: File): boolean {
+    return (
+      file.type === 'application/vnd.ms-excel' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.name.toLowerCase().endsWith('.xls') ||
+      file.name.toLowerCase().endsWith('.xlsx')
+    );
+  }
+
+  isImageFile(file: File): boolean {
+    return file.type.startsWith('image/');
+  }
+
+  isTextFile(file: File): boolean {
+    return (
+      file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')
+    );
+  }
+
+  isOfficeFile(file: File): boolean {
+    return (
+      this.isWordFile(file) ||
+      this.isExcelFile(file) ||
+      this.isPowerPointFile(file)
+    );
+  }
+
+  isPowerPointFile(file: File): boolean {
+    return (
+      file.type === 'application/vnd.ms-powerpoint' ||
+      file.type ===
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+      file.name.toLowerCase().endsWith('.ppt') ||
+      file.name.toLowerCase().endsWith('.pptx')
+    );
+  }
+
+  isArchiveFile(file: File): boolean {
+    return (
+      file.type === 'application/zip' ||
+      file.type === 'application/x-rar-compressed' ||
+      file.type === 'application/x-7z-compressed' ||
+      file.type === 'application/x-zip-compressed' ||
+      file.name.toLowerCase().endsWith('.zip') ||
+      file.name.toLowerCase().endsWith('.rar') ||
+      file.name.toLowerCase().endsWith('.7z')
+    );
+  }
+
+  getViewerType(file: File): 'google' | 'office' | 'mammoth' | 'pdf' | 'url' {
+    if (this.isPdfFile(file)) {
+      return 'pdf';
+    } else if (this.isOfficeFile(file)) {
+      return 'office';
+    }
+    return 'url';
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
   // Helper method to proceed with opening the attach modal
@@ -1959,14 +2114,96 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   downloadDocument(doc: any): void {
-    // Create a temporary link element to trigger download
-    const link = document.createElement('a');
-    link.href = this.documentUrl(doc.file_path);
-    link.download = doc.name;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const url = this.documentUrl(doc.file_path);
+    const fileName = this.getDocumentFileName(doc);
+
+    // For Cloudinary URLs, we need to fetch and create a blob to ensure proper filename
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          // Clean up the blob URL
+          window.URL.revokeObjectURL(blobUrl);
+        })
+        .catch(error => {
+          console.error('Error downloading document:', error);
+          // Fallback to direct link
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+    } else {
+      // For local files, use direct download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  /**
+   * Get the proper filename for a document with extension
+   */
+  getDocumentFileName(doc: any): string {
+    let fileName = doc.name || doc.originalname || doc.filename || 'document';
+
+    // Remove any existing extension to avoid duplicates
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+
+    // Get extension from file_path if available, or from document_type
+    let extension = '';
+    if (doc.file_path) {
+      const match = doc.file_path.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // If no extension from URL, try to get from document_type/mimetype
+    if (!extension && doc.document_type) {
+      const mimeToExt: { [key: string]: string } = {
+        'application/pdf': 'pdf',
+        'application/msword': 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+          'docx',
+        'application/vnd.ms-excel': 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+          'xlsx',
+        'text/plain': 'txt',
+        'application/zip': 'zip',
+        'application/x-rar-compressed': 'rar',
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+      };
+      extension = mimeToExt[doc.document_type] || '';
+    }
+
+    // If still no extension, try to extract from original filename
+    if (!extension && (doc.originalname || doc.name)) {
+      const originalName = doc.originalname || doc.name;
+      const match = originalName.match(/\.([a-zA-Z0-9]+)$/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // Return filename with extension
+    return extension ? `${nameWithoutExt}.${extension}` : fileName;
   }
 
   previewDocument(doc: any): void {
@@ -1976,6 +2213,11 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   documentUrl(filePath: string): string {
+    if (!filePath) return '';
+    // If it's already a full URL (Cloudinary or other external URLs), return as-is
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
     // Construct the full URL for the document using environment baseUrl
     const baseUrl = environment.apiUrl.replace(/\/?api\/?$/, '');
     // Ensure filePath starts with / if it doesn't already

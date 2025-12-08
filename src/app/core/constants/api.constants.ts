@@ -66,6 +66,10 @@ export const API_ENDPOINTS = {
   NOTIFICATION_UNREAD_COUNT: '/notifications/unread-count',
   NOTIFICATION_MARK_READ: '/notifications/:id/read',
   NOTIFICATION_MARK_ALL_READ: '/notifications/mark-all-read',
+
+  // Export
+  EXPORT_EXCEL: '/admin/export/:pageId/excel',
+  EXPORT_PDF: '/admin/export/:pageId/:recordId/pdf',
 } as const;
 
 export const HTTP_STATUS_CODES = {

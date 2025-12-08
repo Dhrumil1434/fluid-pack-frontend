@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
 import { UserService } from '../../../../core/services/user.service';
+import { ExportService } from '../../../../core/services/export.service';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 import { UserTableComponent } from './user-table.component';
 import { ApproveRejectDialogComponent } from './approve-reject-dialog.component';
 import { AddUserModalComponent } from './add-user-modal.component';
@@ -79,11 +81,23 @@ export class UserManagementComponent implements OnInit {
   // Row-level processing state for button loaders
   rowProcessing: {
     userId: string | null;
-    action: 'approve' | 'reject' | 'edit' | 'view' | 'delete' | null;
+    action:
+      | 'approve'
+      | 'reject'
+      | 'edit'
+      | 'view'
+      | 'delete'
+      | 'export-pdf'
+      | null;
   } = { userId: null, action: null };
+
+  // Export state
+  exportingExcel = false;
+  exportingPdf = false;
 
   constructor(
     private userService: UserService,
+    private exportService: ExportService,
     private fb: FormBuilder,
     private messageService: MessageService,
     private route: ActivatedRoute,
@@ -413,6 +427,13 @@ export class UserManagementComponent implements OnInit {
     this.rowProcessing = { userId: null, action: null };
   }
 
+  onExportUserPdf(user: User): void {
+    this.rowProcessing = { userId: user._id, action: 'export-pdf' };
+    this.exportUserToPdf(user._id).finally(() => {
+      this.rowProcessing = { userId: null, action: null };
+    });
+  }
+
   closeDeleteDialog(): void {
     this.showDeleteDialog = false;
     this.userToDelete = null;
@@ -500,5 +521,75 @@ export class UserManagementComponent implements OnInit {
       queryParamsHandling: 'merge',
     });
     this.qp = q;
+  }
+
+  // Export methods
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters = this.getExportFilters();
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('user_management', filters)
+      );
+      if (blob) {
+        const filename = `users_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Users exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export users to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
+
+  async exportUserToPdf(userId: string): Promise<void> {
+    try {
+      this.exportingPdf = true;
+      const blob = await firstValueFrom(
+        this.exportService.exportToPdf('user_management', userId)
+      );
+      if (blob) {
+        const filename = `user_${userId}_${new Date().toISOString().split('T')[0]}.pdf`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'User exported to PDF successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export user to PDF',
+      });
+    } finally {
+      this.exportingPdf = false;
+    }
+  }
+
+  private getExportFilters(): any {
+    const formValue = this.filtersForm.value;
+    const filters: any = {};
+    if (formValue.search) filters.search = formValue.search;
+    if (formValue.role) filters.role = formValue.role;
+    if (formValue.department) filters.department = formValue.department;
+    if (formValue.status) {
+      filters.isApproved = formValue.status === 'approved';
+    }
+    if (formValue.dateFrom) filters.dateFrom = formValue.dateFrom;
+    if (formValue.dateTo) filters.dateTo = formValue.dateTo;
+    return filters;
   }
 }

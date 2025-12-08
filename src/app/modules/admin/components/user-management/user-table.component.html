@@ -101,6 +101,24 @@
           </td>
           <td class="px-4 py-3 w-64" *ngIf="visibleColumns['actions']">
             <div class="flex gap-2 flex-col sm:flex-row sm:flex-wrap">
+              <!-- Export PDF -->
+              <button
+                pButton
+                type="button"
+                class="cursor-pointer"
+                icon="pi pi-file-pdf"
+                label="PDF"
+                [outlined]="true"
+                severity="danger"
+                class="p-button-sm"
+                [loading]="
+                  processing.userId === u._id &&
+                  processing.action === 'export-pdf'
+                "
+                (click)="onExportPdfClick(u)"
+                title="Export to PDF"
+              ></button>
+
               <!-- View -->
               <button
                 pButton

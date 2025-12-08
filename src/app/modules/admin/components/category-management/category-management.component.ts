@@ -13,6 +13,9 @@ import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.com
 import { TablePaginationComponent } from '../user-management/table-pagination.component';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
 import { CategoryService } from '../../../../core/services/category.service';
+import { ExportService } from '../../../../core/services/export.service';
+import { MessageService } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
 import {
   Category,
   CreateCategoryRequest,
@@ -23,6 +26,7 @@ import {
 } from '../../../../core/models/category.model';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-category-management',
@@ -36,7 +40,9 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
     AdminSidebarComponent,
     TablePaginationComponent,
     PageHeaderComponent,
+    ToastModule,
   ],
+  providers: [MessageService],
   template: `
     <app-admin-sidebar
       [collapsed]="sidebarCollapsed"
@@ -61,6 +67,20 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
         ]"
       >
         <div headerActions class="flex items-center gap-2">
+          <button
+            class="px-4 py-2 bg-green-600 text-white rounded-md font-medium transition-colors duration-150 hover:bg-green-700 cursor-pointer flex items-center gap-2 shadow-sm"
+            (click)="exportToExcel()"
+            [disabled]="exportingExcel"
+            title="Export to Excel"
+          >
+            <i
+              class="pi"
+              [class.pi-spin]="exportingExcel"
+              [class.pi-spinner]="exportingExcel"
+              [class.pi-file-excel]="!exportingExcel"
+            ></i>
+            <span>{{ exportingExcel ? 'Exporting...' : 'Export Excel' }}</span>
+          </button>
           <button
             class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer flex items-center gap-2 shadow-sm"
             (click)="openCreate()"
@@ -191,6 +211,19 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
                 </td>
                 <td class="px-4 py-2">
                   <div class="flex gap-2">
+                    <button
+                      class="px-2 py-1 border rounded text-xs text-red-600"
+                      (click)="exportCategoryToPdf(c)"
+                      title="Export to PDF"
+                      [disabled]="exportingPdf === c._id"
+                    >
+                      <i
+                        class="pi"
+                        [class.pi-spin]="exportingPdf === c._id"
+                        [class.pi-spinner]="exportingPdf === c._id"
+                        [class.pi-file-pdf]="exportingPdf !== c._id"
+                      ></i>
+                    </button>
                     <button
                       class="px-2 py-1 border rounded text-xs"
                       (click)="openView(c)"
@@ -859,12 +892,18 @@ export class CategoryManagementComponent implements OnInit, OnDestroy {
   // Layout state
   sidebarCollapsed = false;
 
+  // Export state
+  exportingExcel = false;
+  exportingPdf: string | null = null;
+
   // Search debounce
   private searchInput$ = new Subject<string>();
   private subs = new Subscription();
 
   constructor(
     private categoryService: CategoryService,
+    private exportService: ExportService,
+    private messageService: MessageService,
     private fb: FormBuilder
   ) {
     this.form = this.fb.group({
@@ -1269,4 +1308,76 @@ export class CategoryManagementComponent implements OnInit, OnDestroy {
   }
 
   trackById = (_: number, item: { _id: string }) => item._id;
+
+  /**
+   * Export categories to Excel
+   */
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters: any = {
+        search: this.filters.search || undefined,
+        level: this.filters.level,
+        includeInactive: this.filters.includeInactive || undefined,
+        sortBy: 'sort_order',
+        sortOrder: 'asc',
+      };
+
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('category_management', filters)
+      );
+
+      if (blob) {
+        const filename = `categories_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Categories exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export categories to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
+
+  /**
+   * Export category to PDF
+   */
+  async exportCategoryToPdf(category: Category): Promise<void> {
+    if (!category._id) return;
+
+    try {
+      this.exportingPdf = category._id;
+      const blob = await firstValueFrom(
+        this.exportService.exportToPdf('category_management', category._id)
+      );
+
+      if (blob) {
+        const filename = `category_${category._id}_${new Date().toISOString().split('T')[0]}.pdf`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'Category exported to PDF successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export category to PDF',
+      });
+    } finally {
+      this.exportingPdf = null;
+    }
+  }
 }

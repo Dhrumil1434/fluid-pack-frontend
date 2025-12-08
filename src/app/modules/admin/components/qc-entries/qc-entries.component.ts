@@ -15,7 +15,11 @@ import { LoaderService } from '../../../../core/services/loader.service';
 import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import { QCEntryService } from '../../../../core/services/qc-entry.service';
 import { CategoryService } from '../../../../core/services/category.service';
+import { ExportService } from '../../../../core/services/export.service';
+import { MessageService } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
 import { environment } from '../../../../../environments/environment';
+import { firstValueFrom } from 'rxjs';
 
 // Components
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
@@ -108,7 +112,9 @@ interface ApprovalStats {
     ListFiltersComponent,
     ListTableShellComponent,
     TablePaginationComponent,
+    ToastModule,
   ],
+  providers: [MessageService],
   templateUrl: './qc-entries.component.html',
   styleUrls: ['./qc-entries.component.css'],
 })
@@ -120,6 +126,10 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   sidebarCollapsed = false;
   loading = false;
   actionLoading = false;
+
+  // Export state
+  exportingExcel = false;
+  exportingPdf: string | null = null;
 
   // Data
   approvals: QCApproval[] = [];
@@ -251,6 +261,8 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     private errorHandler: ErrorHandlerService,
     private qcEntryService: QCEntryService,
     private categoryService: CategoryService,
+    private exportService: ExportService,
+    private messageService: MessageService,
     private fb: FormBuilder
   ) {
     this.filtersForm = this.fb.group({
@@ -1123,13 +1135,98 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   }
 
   downloadDocument(doc: any): void {
-    const link = document.createElement('a');
-    link.href = this.documentUrl(doc.file_path || doc.path || doc.filename);
-    link.download = doc.originalName || doc.name || doc.filename;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const url = this.documentUrl(doc.file_path || doc.path || doc.filename);
+    const fileName = this.getDocumentFileName(doc);
+
+    // For Cloudinary URLs, we need to fetch and create a blob to ensure proper filename
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          // Clean up the blob URL
+          window.URL.revokeObjectURL(blobUrl);
+        })
+        .catch(error => {
+          console.error('Error downloading document:', error);
+          // Fallback to direct link
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+    } else {
+      // For local files, use direct download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
+  /**
+   * Get the proper filename for a document with extension
+   */
+  getDocumentFileName(doc: any): string {
+    let fileName = doc.originalName || doc.name || doc.filename || 'document';
+
+    // Remove any existing extension to avoid duplicates
+    const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+
+    // Get extension from file_path if available, or from document_type
+    let extension = '';
+    const filePath = doc.file_path || doc.path || doc.filename || '';
+    if (filePath) {
+      const match = filePath.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // If no extension from URL, try to get from document_type/mimetype
+    if (!extension && (doc.document_type || doc.mimeType)) {
+      const mimeType = doc.document_type || doc.mimeType;
+      const mimeToExt: { [key: string]: string } = {
+        'application/pdf': 'pdf',
+        'application/msword': 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+          'docx',
+        'application/vnd.ms-excel': 'xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+          'xlsx',
+        'text/plain': 'txt',
+        'application/zip': 'zip',
+        'application/x-rar-compressed': 'rar',
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+      };
+      extension = mimeToExt[mimeType] || '';
+    }
+
+    // If still no extension, try to extract from original filename
+    if (!extension && (doc.originalName || doc.name || doc.filename)) {
+      const originalName = doc.originalName || doc.name || doc.filename;
+      const match = originalName.match(/\.([a-zA-Z0-9]+)$/);
+      if (match) {
+        extension = match[1];
+      }
+    }
+
+    // Return filename with extension
+    return extension ? `${nameWithoutExt}.${extension}` : fileName;
   }
 
   previewDocument(doc: any): void {
@@ -2313,5 +2410,97 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         this.errorHandler.showServerError();
       },
     });
+  }
+
+  /**
+   * Export QC entries to Excel
+   */
+  async exportToExcel(): Promise<void> {
+    try {
+      this.exportingExcel = true;
+      const filters: any = {
+        search: this.searchTerm || undefined,
+        category_id: this.filtersForm.get('category')?.value || undefined,
+        is_approved:
+          this.filtersForm.get('status')?.value === 'APPROVED'
+            ? true
+            : this.filtersForm.get('status')?.value === 'PENDING'
+              ? false
+              : undefined,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      };
+
+      const blob = await firstValueFrom(
+        this.exportService.exportToExcel('qc_entries', filters)
+      );
+
+      if (blob) {
+        const filename = `qc_entries_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'QC entries exported to Excel successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export QC entries to Excel',
+      });
+    } finally {
+      this.exportingExcel = false;
+    }
+  }
+
+  /**
+   * Export QC entry to PDF
+   */
+  async exportQCEntryToPdf(approval: QCApproval): Promise<void> {
+    if (!approval._id) return;
+
+    // Get the QC entry ID from the approval
+    const qcEntryId =
+      typeof approval.qcEntryId === 'object'
+        ? approval.qcEntryId?._id
+        : approval.qcEntryId;
+
+    if (!qcEntryId) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Export Failed',
+        detail: 'QC entry ID not found',
+      });
+      return;
+    }
+
+    try {
+      this.exportingPdf = approval._id;
+      const blob = await firstValueFrom(
+        this.exportService.exportToPdf('qc_entries', qcEntryId)
+      );
+
+      if (blob) {
+        const filename = `qc_entry_${qcEntryId}_${new Date().toISOString().split('T')[0]}.pdf`;
+        this.exportService.downloadBlob(blob, filename);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Export Successful',
+          detail: 'QC entry exported to PDF successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Export Failed',
+        detail: error?.error?.message || 'Failed to export QC entry to PDF',
+      });
+    } finally {
+      this.exportingPdf = null;
+    }
   }
 }

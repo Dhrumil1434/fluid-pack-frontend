@@ -86,6 +86,11 @@ export class AdminSidebarComponent implements OnInit {
       ],
     },
     {
+      label: 'SO Management',
+      icon: 'pi pi-file-edit',
+      route: '/admin/so-management',
+    },
+    {
       label: 'Dispatch',
       icon: 'pi pi-truck',
       route: '/admin/dispatch',

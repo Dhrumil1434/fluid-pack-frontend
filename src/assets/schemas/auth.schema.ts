@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { departmentSchema, roleSchema } from './fluid-pack.schema';
 
 // Login request schema for Fluid Pack backend
 export const userLoginSchemaDto = z.object({

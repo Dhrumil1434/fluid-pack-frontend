@@ -1,0 +1,1753 @@
+<!-- QC Machine Selection Page - Matching Admin Machines Structure -->
+<div
+  class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
+>
+  <app-qc-sidebar
+    [collapsed]="sidebarCollapsed"
+    (collapseChange)="onSidebarCollapseChange($event)"
+  ></app-qc-sidebar>
+
+  <div
+    class="transition-all duration-300"
+    [class.ml-16]="sidebarCollapsed"
+    [class.ml-64]="!sidebarCollapsed"
+  >
+    <!-- Header -->
+    <app-page-header
+      title="Machine Selection"
+      [sidebarCollapsed]="sidebarCollapsed"
+      (toggleSidebar)="toggleSidebar()"
+      [breadcrumbs]="[
+        { label: 'Dashboard', route: '/qc/dashboard' },
+        { label: 'Machine Selection' },
+      ]"
+    >
+    </app-page-header>
+
+    <main class="p-6 space-y-4">
+      <!-- Filters Section - Matching Admin -->
+      <app-list-filters
+        searchLabel="Search machines"
+        searchPlaceholder="Name, metadata, created by..."
+        (searchChange)="onSearchChange($event)"
+        (apply)="reload()"
+        (clear)="clearFilters()"
+      >
+        <div filters-extra class="flex flex-wrap items-end gap-3">
+          <select
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            [(ngModel)]="filters.category_id"
+            (change)="onCategoryFilterChange()"
+          >
+            <option [ngValue]="undefined">All categories</option>
+            <option
+              *ngFor="let cat of categories; trackBy: trackById"
+              [value]="cat._id"
+            >
+              {{ getCategoryDisplayName(cat) }}
+            </option>
+          </select>
+          <!-- Metadata Key Autocomplete -->
+          <div class="relative">
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Metadata Key"
+              [(ngModel)]="filters.metadata_key"
+              (input)="onMetadataKeyChange()"
+              (focus)="showMetadataKeySuggestions = true"
+              (blur)="hideMetadataSuggestions()"
+            />
+            <div
+              *ngIf="
+                showMetadataKeySuggestions && metadataKeySuggestions.length > 0
+              "
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+            >
+              <div
+                *ngFor="
+                  let key of metadataKeySuggestions;
+                  trackBy: trackByIndex
+                "
+                class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                (mousedown)="selectMetadataKey(key)"
+              >
+                {{ key }}
+              </div>
+            </div>
+          </div>
+          <!-- Metadata Value -->
+          <input
+            *ngIf="filters.metadata_key"
+            type="text"
+            class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+            placeholder="Metadata Value"
+            [(ngModel)]="filters.metadata_value"
+            (input)="onMetadataValueChange()"
+          />
+          <!-- Dispatch Date From -->
+          <input
+            type="date"
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            placeholder="Dispatch Date From"
+            [(ngModel)]="filters.dispatch_date_from"
+            (change)="reload()"
+          />
+          <!-- Dispatch Date To -->
+          <input
+            type="date"
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            placeholder="Dispatch Date To"
+            [(ngModel)]="filters.dispatch_date_to"
+            (change)="reload()"
+          />
+          <!-- Party Name Autocomplete -->
+          <div class="relative">
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Party Name"
+              [(ngModel)]="filters.party_name"
+              (input)="onPartyNameChange()"
+              (focus)="onPartyNameChange()"
+              (blur)="hidePartyNameSuggestions()"
+            />
+            <div
+              *ngIf="
+                showPartyNameSuggestions && partyNameSuggestions.length > 0
+              "
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+            >
+              <div
+                *ngFor="
+                  let suggestion of partyNameSuggestions;
+                  trackBy: trackByIndex
+                "
+                class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                (mousedown)="selectPartyName(suggestion)"
+              >
+                {{ suggestion }}
+              </div>
+            </div>
+          </div>
+          <!-- Machine Sequence Autocomplete -->
+          <div class="relative">
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Machine Sequence"
+              [(ngModel)]="filters.machine_sequence"
+              (input)="onMachineSequenceChange()"
+              (focus)="onMachineSequenceChange()"
+              (blur)="hideMachineSequenceSuggestions()"
+            />
+            <div
+              *ngIf="
+                showMachineSequenceSuggestions &&
+                machineSequenceSuggestions.length > 0
+              "
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+            >
+              <div
+                *ngFor="
+                  let suggestion of machineSequenceSuggestions;
+                  trackBy: trackByIndex
+                "
+                class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                (mousedown)="selectMachineSequence(suggestion)"
+              >
+                {{ suggestion }}
+              </div>
+            </div>
+          </div>
+          <!-- Location Autocomplete -->
+          <div class="relative">
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Location"
+              [(ngModel)]="filters.location"
+              (input)="onLocationChange()"
+              (focus)="onLocationChange()"
+              (blur)="hideLocationSuggestions()"
+            />
+            <div
+              *ngIf="showLocationSuggestions && locationSuggestions.length > 0"
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+            >
+              <div
+                *ngFor="
+                  let suggestion of locationSuggestions;
+                  trackBy: trackByIndex
+                "
+                class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                (mousedown)="selectLocation(suggestion)"
+              >
+                {{ suggestion }}
+              </div>
+            </div>
+          </div>
+          <!-- Mobile Number Autocomplete -->
+          <div class="relative">
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="Mobile Number"
+              [(ngModel)]="filters.mobile_number"
+              (input)="onMobileNumberChange()"
+              (focus)="onMobileNumberChange()"
+              (blur)="hideMobileNumberSuggestions()"
+            />
+            <div
+              *ngIf="
+                showMobileNumberSuggestions &&
+                mobileNumberSuggestions.length > 0
+              "
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+            >
+              <div
+                *ngFor="
+                  let suggestion of mobileNumberSuggestions;
+                  trackBy: trackByIndex
+                "
+                class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
+                (mousedown)="selectMobileNumber(suggestion)"
+              >
+                {{ suggestion }}
+              </div>
+            </div>
+          </div>
+          <!-- Sort By -->
+          <select
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            [(ngModel)]="filters.sortBy"
+            (change)="reload()"
+          >
+            <option [ngValue]="undefined">Sort By</option>
+            <option value="createdAt">Created Date</option>
+            <option value="name">Name</option>
+            <option value="category">Category</option>
+            <option value="dispatch_date">Dispatch Date</option>
+            <option value="party_name">Party Name</option>
+            <option value="machine_sequence">Sequence</option>
+            <option value="location">Location</option>
+            <option value="mobile_number">Mobile Number</option>
+            <option value="created_by">Created By</option>
+          </select>
+          <!-- Sort Order -->
+          <select
+            *ngIf="filters.sortBy"
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            [(ngModel)]="filters.sortOrder"
+            (change)="reload()"
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </div>
+      </app-list-filters>
+
+      <!-- Table Section - Matching Admin -->
+      <app-list-table-shell title="Machines">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-left border-b border-gray-200">
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Sequence
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Name
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Category
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Subcategory
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Party
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Location
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Mobile
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Dispatch Date
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Created By
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Docs
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Approved
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
+              >
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr
+              *ngFor="let m of machines; trackBy: trackByMachineId"
+              class="hover:bg-gray-50 transition-colors duration-150"
+              [ngClass]="{
+                'bg-yellow-50 border-l-4 border-yellow-400': hasQCEntry(m._id),
+              }"
+            >
+              <!-- Sequence Column - Read Only -->
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center">
+                  <span
+                    *ngIf="m.machine_sequence"
+                    class="inline-flex items-center font-mono text-sm font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-md border border-primary/20"
+                    [title]="'Sequence: ' + m.machine_sequence"
+                  >
+                    {{ m.machine_sequence }}
+                  </span>
+                  <span
+                    *ngIf="!m.machine_sequence"
+                    class="text-gray-400 text-sm"
+                    >-</span
+                  >
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">
+                  {{ m.name }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ m.category_id?.name || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span
+                  *ngIf="m.subcategory_id"
+                  class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
+                >
+                  {{ getSubcategoryDisplayName(m.subcategory_id) }}
+                </span>
+                <span *ngIf="!m.subcategory_id" class="text-gray-400 text-sm"
+                  >-</span
+                >
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ m.party_name || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ m.location || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ m.mobile_number || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{
+                    m.dispatch_date
+                      ? (m.dispatch_date | date: 'dd-MM-yyyy')
+                      : '-'
+                  }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ m.created_by?.username || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap text-center">
+                <span
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                >
+                  {{ m.documents?.length || 0 }}
+                </span>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <span
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                  [ngClass]="{
+                    'bg-success/20 text-success': m.is_approved,
+                    'bg-warning/20 text-warning': !m.is_approved,
+                  }"
+                >
+                  {{ m.is_approved ? 'Yes' : 'No' }}
+                </span>
+              </td>
+              <!-- Actions Column - Only View and Attach Documents -->
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <button
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="openView(m)"
+                    title="View machine details"
+                  >
+                    <i class="pi pi-eye text-xs mr-1"></i>
+                    View
+                  </button>
+                  <button
+                    *ngIf="!hasQCEntry(m._id)"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="openDocumentModal(m)"
+                    title="Attach Documents & Create Request"
+                  >
+                    <i class="pi pi-upload text-xs mr-1"></i>
+                    Attach
+                  </button>
+                  <button
+                    *ngIf="hasQCEntry(m._id)"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded-md hover:bg-warning/20 hover:border-warning/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="openQCRecordModal(m)"
+                    title="View QC Record Information"
+                  >
+                    <i class="pi pi-info-circle text-xs mr-1"></i>
+                    QC Record
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="machines.length === 0">
+              <td colspan="12" class="px-4 py-12 text-center text-gray-500">
+                <div class="flex flex-col items-center justify-center">
+                  <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
+                  <p class="text-sm font-medium">No machines found</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div table-footer class="w-full">
+          <app-table-pagination
+            [page]="page"
+            [pages]="pages"
+            [total]="total"
+            [limit]="limit"
+            (pageChange)="onPageChange($event)"
+            (limitChange)="onLimitChange($event)"
+          ></app-table-pagination>
+        </div>
+      </app-list-table-shell>
+
+      <!-- View Modal - Matching Admin Structure -->
+      <div
+        *ngIf="viewVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="viewVisible = false"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="viewVisible = false"
+          (keydown.space)="viewVisible = false"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
+        >
+          <div
+            class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+          >
+            <h3 class="text-lg font-semibold text-text">Machine Details</h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="viewVisible = false"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="md:col-span-2">
+                <span class="block text-xs text-text-muted mb-1">Name</span>
+                {{ selected?.name }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Party Name</span
+                >
+                {{ selected?.party_name || '-' }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Location</span>
+                {{ selected?.location || '-' }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Mobile Number</span
+                >
+                {{ selected?.mobile_number || '-' }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Dispatch Date</span
+                >
+                {{
+                  selected?.dispatch_date
+                    ? (selected?.dispatch_date | date: 'dd-MM-yyyy')
+                    : '-'
+                }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Category</span>
+                {{
+                  selected?.category_id?.name || selected?.category_id || '-'
+                }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Subcategory</span
+                >
+                <span *ngIf="selected?.subcategory_id" class="text-sm">
+                  {{
+                    selected && selected.subcategory_id
+                      ? getSubcategoryDisplayName(selected.subcategory_id)
+                      : '-'
+                  }}
+                </span>
+                <span
+                  *ngIf="!selected?.subcategory_id"
+                  class="text-gray-400 text-sm"
+                  >-</span
+                >
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Machine Sequence</span
+                >
+                <span
+                  *ngIf="selected?.machine_sequence"
+                  class="font-mono text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                >
+                  {{ selected?.machine_sequence }}
+                </span>
+                <span *ngIf="!selected?.machine_sequence" class="text-gray-400"
+                  >-</span
+                >
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Approved</span>
+                {{ selected?.is_approved ? 'Yes' : 'No' }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Created By</span
+                >
+                {{ selected?.created_by?.username }} ({{
+                  selected?.created_by?.email
+                }})
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Updated By</span
+                >
+                {{ selected?.updatedBy?.username || '—' }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Created</span>
+                {{ selected?.createdAt | date: 'medium' }}
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Updated</span>
+                {{ selected?.updatedAt | date: 'medium' }}
+              </div>
+              <div class="md:col-span-2">
+                <span class="block text-xs text-text-muted mb-1">Images</span>
+                <div
+                  class="mt-1 flex gap-2 flex-wrap"
+                  *ngIf="selected?.images?.length; else noimg"
+                >
+                  <img
+                    *ngFor="
+                      let img of selected?.images;
+                      let i = index;
+                      trackBy: trackByIndex
+                    "
+                    [src]="imageUrl(img)"
+                    class="w-16 h-16 object-cover rounded border cursor-pointer"
+                    (click)="openPreview(selected?.images || [], i)"
+                    (keydown.enter)="openPreview(selected?.images || [], i)"
+                    (keydown.space)="openPreview(selected?.images || [], i)"
+                    tabindex="0"
+                    role="button"
+                  />
+                </div>
+                <ng-template #noimg>
+                  <span class="text-xs text-text-muted">No images</span>
+                </ng-template>
+              </div>
+              <div class="md:col-span-2">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="block text-xs text-text-muted">Documents</span>
+                  <button
+                    *ngIf="selected?.documents?.length"
+                    class="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-light transition-colors"
+                    (click)="openDocumentsModal()"
+                  >
+                    <i class="pi pi-file mr-1"></i>
+                    View All Documents ({{ selected?.documents?.length || 0 }})
+                  </button>
+                </div>
+                <div
+                  class="mt-1 flex gap-2 flex-wrap"
+                  *ngIf="selected?.documents?.length; else nodocs"
+                >
+                  <div
+                    *ngFor="
+                      let doc of selected?.documents | slice: 0 : 3;
+                      let i = index;
+                      trackBy: trackByIndex
+                    "
+                    class="flex items-center gap-2 px-3 py-2 bg-neutral-100 rounded-md border text-sm hover:bg-neutral-200 transition-colors"
+                  >
+                    <i class="pi pi-file text-primary"></i>
+                    <span class="truncate max-w-40 font-medium">{{
+                      doc.name
+                    }}</span>
+                  </div>
+                  <div
+                    *ngIf="(selected?.documents?.length || 0) > 3"
+                    class="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/20 text-sm text-primary font-medium"
+                  >
+                    <i class="pi pi-plus"></i>
+                    <span
+                      >+{{ (selected?.documents?.length || 0) - 3 }} more</span
+                    >
+                  </div>
+                </div>
+                <ng-template #nodocs>
+                  <div class="flex items-center gap-2 text-sm text-text-muted">
+                    <i class="pi pi-file"></i>
+                    <span>No documents attached</span>
+                  </div>
+                </ng-template>
+              </div>
+              <div class="md:col-span-2" *ngIf="selected?.metadata">
+                <span class="block text-xs text-text-muted mb-1">Metadata</span>
+                <div class="border rounded divide-y">
+                  <div
+                    class="p-2 grid grid-cols-5 gap-2"
+                    *ngFor="
+                      let kv of selected?.metadata | keyvalue;
+                      trackBy: trackByKey
+                    "
+                  >
+                    <div class="col-span-2 text-xs font-medium">
+                      {{ kv.key }}
+                    </div>
+                    <div class="col-span-3 text-xs break-all">
+                      {{ kv.value }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="viewVisible = false"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lightbox Modal - Matching Admin -->
+      <div
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+        *ngIf="lightboxImages?.length"
+      >
+        <div class="relative w-full max-w-4xl mx-4">
+          <button
+            class="absolute -top-10 right-0 text-white p-2"
+            (click)="closeLightbox()"
+          >
+            <i class="pi pi-times text-2xl"></i>
+          </button>
+          <div class="bg-black rounded-lg overflow-hidden">
+            <div
+              class="relative flex items-center justify-center"
+              style="min-height: 300px"
+            >
+              <button
+                class="absolute left-2 text-white bg-black/40 rounded-full p-2"
+                (click)="lightboxPrev()"
+              >
+                <i class="pi pi-chevron-left"></i>
+              </button>
+              <img
+                [src]="imageUrl(lightboxImages[lightboxIndex])"
+                class="max-h-[70vh] w-auto object-contain"
+              />
+              <button
+                class="absolute right-2 text-white bg-black/40 rounded-full p-2"
+                (click)="lightboxNext()"
+              >
+                <i class="pi pi-chevron-right"></i>
+              </button>
+            </div>
+            <div class="p-2 bg-neutral-900 flex gap-2 overflow-x-auto">
+              <img
+                *ngFor="
+                  let p of lightboxImages;
+                  let i = index;
+                  trackBy: trackByIndex
+                "
+                [src]="imageUrl(p)"
+                class="w-14 h-14 object-cover rounded border cursor-pointer"
+                [class.border-primary]="i === lightboxIndex"
+                (click)="lightboxGo(i)"
+                (keydown.enter)="lightboxGo(i)"
+                (keydown.space)="lightboxGo(i)"
+                tabindex="0"
+                role="button"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documents Modal - Matching Admin -->
+      <div
+        *ngIf="documentsVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="documentsVisible = false"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="documentsVisible = false"
+          (keydown.space)="documentsVisible = false"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
+        >
+          <div
+            class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+          >
+            <h3 class="text-lg font-semibold text-text">
+              Machine Documents - {{ selected?.name }}
+            </h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="documentsVisible = false"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <div *ngIf="selected?.documents?.length; else noDocuments">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div
+                  *ngFor="
+                    let doc of selected?.documents;
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  class="border border-neutral-300 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0">
+                      <div
+                        class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center"
+                      >
+                        <i class="pi pi-file text-primary text-xl"></i>
+                      </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <h4
+                        class="font-medium text-sm text-text truncate"
+                        [title]="doc.name"
+                      >
+                        {{ doc.name }}
+                      </h4>
+                      <p class="text-xs text-text-muted mt-1">
+                        {{ doc.document_type || 'Document' }}
+                      </p>
+                      <div class="flex gap-2 mt-3">
+                        <button
+                          class="px-3 py-1 text-xs bg-primary text-white rounded hover:bg-primary-light"
+                          (click)="downloadDocument(doc)"
+                        >
+                          <i class="pi pi-download mr-1"></i>
+                          Download
+                        </button>
+                        <button
+                          class="px-3 py-1 text-xs border border-neutral-300 rounded hover:bg-neutral-50"
+                          (click)="previewDocument(doc)"
+                        >
+                          <i class="pi pi-eye mr-1"></i>
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <ng-template #noDocuments>
+              <div class="text-center py-12">
+                <i class="pi pi-file text-4xl text-neutral-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-text mb-2">No Documents</h3>
+                <p class="text-text-muted">
+                  This machine doesn't have any documents attached.
+                </p>
+              </div>
+            </ng-template>
+          </div>
+          <div
+            class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="documentsVisible = false"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Document Upload Modal with Extended QC Fields -->
+      <div
+        *ngIf="showDocumentModal"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4"
+      >
+        <div
+          class="bg-white w-full max-w-4xl rounded-xl shadow-xl border border-gray-300 my-8"
+        >
+          <div
+            class="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10 flex items-center justify-between"
+          >
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">
+                Create QC Entry & Request Approval
+              </h3>
+              <p class="text-sm text-gray-600">
+                Fill in all machine and QC details. Approval request will be
+                created automatically.
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="onCancelUpload()"
+              [disabled]="uploading"
+              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              title="Close"
+            >
+              <i class="pi pi-times text-xl"></i>
+            </button>
+          </div>
+
+          <div class="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <!-- Machine Information Section -->
+            <h4 class="text-md font-semibold text-gray-900 mb-4 border-b pb-2">
+              Machine Information
+            </h4>
+
+            <!-- Machine Name -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Machine Name <span class="text-red-500">*</span></label
+              >
+              <input
+                type="text"
+                [(ngModel)]="uploadName"
+                placeholder="Enter machine name"
+                required
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            <!-- Category and Subcategory -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Category <span class="text-red-500">*</span></label
+                >
+                <select
+                  [(ngModel)]="uploadCategoryId"
+                  (change)="onUploadCategoryChange()"
+                  required
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="">Select Category</option>
+                  <option
+                    *ngFor="let cat of categories; trackBy: trackById"
+                    [value]="cat._id"
+                  >
+                    {{ cat.name }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Subcategory</label
+                >
+                <select
+                  [(ngModel)]="uploadSubcategoryId"
+                  [disabled]="!uploadCategoryId || subcategories.length === 0"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100"
+                >
+                  <option value="">Select Subcategory</option>
+                  <option
+                    *ngFor="let subcat of subcategories; trackBy: trackById"
+                    [value]="subcat._id"
+                  >
+                    {{ subcat.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Machine Sequence -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Machine Sequence</label
+              >
+              <input
+                type="text"
+                [(ngModel)]="uploadMachineSequence"
+                placeholder="Enter machine sequence"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            <!-- Party Name, Location, Mobile -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Party Name <span class="text-red-500">*</span></label
+                >
+                <input
+                  type="text"
+                  [(ngModel)]="uploadPartyName"
+                  placeholder="Enter party name"
+                  required
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Location <span class="text-red-500">*</span></label
+                >
+                <input
+                  type="text"
+                  [(ngModel)]="uploadLocation"
+                  placeholder="Enter location"
+                  required
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Mobile Number <span class="text-red-500">*</span></label
+                >
+                <input
+                  type="text"
+                  [(ngModel)]="uploadMobileNumber"
+                  placeholder="Enter mobile number"
+                  required
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <!-- Dispatch Date -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Dispatch Date</label
+              >
+              <input
+                type="date"
+                [(ngModel)]="uploadDispatchDate"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            <!-- Existing Images Preview -->
+            <div *ngIf="getExistingImages().length > 0" class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Existing Machine Images</label
+              >
+              <div class="flex gap-2 flex-wrap">
+                <div
+                  *ngFor="
+                    let img of getExistingImages();
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  class="relative group"
+                >
+                  <img
+                    [src]="imageUrl(img)"
+                    [alt]="'Machine image ' + (i + 1)"
+                    class="w-24 h-24 object-cover rounded border border-gray-300 cursor-pointer hover:border-primary transition-colors"
+                    (click)="openPreview(getExistingImages(), i)"
+                    (keyup.enter)="openPreview(getExistingImages(), i)"
+                    (keyup.space)="openPreview(getExistingImages(), i)"
+                    tabindex="0"
+                    role="button"
+                  />
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                Click on image to preview. These are existing images from the
+                machine.
+              </p>
+            </div>
+
+            <!-- Images Upload -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Upload New Images</label
+              >
+              <label
+                class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <i class="pi pi-image text-primary mr-2 text-xl"></i>
+                <span class="text-sm text-gray-700"
+                  >Click to select images</span
+                >
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  (change)="onUploadImageSelected($event)"
+                  class="hidden"
+                />
+              </label>
+              <p class="text-xs text-gray-500 mt-1">
+                Supported formats: JPG, PNG, GIF (Max 10MB per file, max 10
+                images)
+              </p>
+              <div *ngIf="selectedImages.length > 0" class="mt-2 space-y-2">
+                <div
+                  *ngFor="
+                    let file of selectedImages;
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  class="flex items-center justify-between p-2 bg-gray-50 rounded"
+                >
+                  <span class="text-sm text-gray-700">{{ file.name }}</span>
+                  <button
+                    type="button"
+                    (click)="selectedImages.splice(i, 1)"
+                    class="text-red-500 hover:text-red-700"
+                  >
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Existing Documents Preview -->
+            <div *ngIf="getExistingDocuments().length > 0" class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Existing Machine Documents</label
+              >
+              <div class="space-y-2">
+                <div
+                  *ngFor="
+                    let doc of getExistingDocuments();
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  class="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
+                >
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-file text-primary"></i>
+                    <span class="text-sm text-gray-700">{{ doc.name }}</span>
+                    <span
+                      *ngIf="doc.document_type"
+                      class="text-xs text-gray-500"
+                      >({{ doc.document_type }})</span
+                    >
+                  </div>
+                  <a
+                    [href]="imageUrl(doc.file_path)"
+                    target="_blank"
+                    class="text-primary hover:text-primary/80 text-sm"
+                    title="View document"
+                  >
+                    <i class="pi pi-external-link"></i>
+                  </a>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                These are existing documents from the machine.
+              </p>
+            </div>
+
+            <!-- Documents Upload -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Upload New Machine Documents</label
+              >
+              <label
+                class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <i class="pi pi-file text-primary mr-2 text-xl"></i>
+                <span class="text-sm text-gray-700"
+                  >Click to select documents</span
+                >
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xlsx,.xls"
+                  (change)="onUploadDocumentSelected($event)"
+                  class="hidden"
+                />
+              </label>
+              <p class="text-xs text-gray-500 mt-1">
+                Supported formats: PDF, DOC, DOCX, XLSX, XLS (Max 10MB per file)
+              </p>
+              <div *ngIf="selectedDocuments.length > 0" class="mt-2 space-y-2">
+                <div
+                  *ngFor="
+                    let file of selectedDocuments;
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="flex-shrink-0">
+                      <div
+                        class="w-10 h-10 rounded-lg flex items-center justify-center"
+                        [ngClass]="{
+                          'bg-red-100': isPdfFile(file),
+                          'bg-blue-100': isWordFile(file),
+                          'bg-green-100': isExcelFile(file),
+                          'bg-gray-100':
+                            !isPdfFile(file) &&
+                            !isWordFile(file) &&
+                            !isExcelFile(file),
+                        }"
+                      >
+                        <i
+                          class="text-lg"
+                          [ngClass]="{
+                            'pi pi-file-pdf text-red-600': isPdfFile(file),
+                            'pi pi-file-word text-blue-600': isWordFile(file),
+                            'pi pi-file-excel text-green-600':
+                              isExcelFile(file),
+                            'pi pi-file text-gray-600':
+                              !isPdfFile(file) &&
+                              !isWordFile(file) &&
+                              !isExcelFile(file),
+                          }"
+                        ></i>
+                      </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div
+                        class="text-sm font-medium text-gray-900 truncate"
+                        [title]="file.name"
+                      >
+                        {{ file.name }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        {{ formatFileSize(file.size) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      class="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      (click)="previewUploadedDocument(file, i)"
+                      [title]="'Preview ' + file.name"
+                    >
+                      <i class="pi pi-eye text-sm"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      (click)="selectedDocuments.splice(i, 1)"
+                    >
+                      <i class="pi pi-times text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- QC Inspection Details Section -->
+            <h4
+              class="text-md font-semibold text-gray-900 mb-4 mt-8 border-b pb-2"
+            >
+              QC Inspection Details
+            </h4>
+
+            <!-- QC Notes -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >QC Notes</label
+              >
+              <textarea
+                [(ngModel)]="uploadNotes"
+                placeholder="Enter QC inspection notes, findings, or recommendations..."
+                rows="4"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              ></textarea>
+            </div>
+
+            <!-- Quality Score -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Quality Score (0-100)</label
+              >
+              <input
+                type="number"
+                [(ngModel)]="uploadQualityScore"
+                min="0"
+                max="100"
+                placeholder="Enter quality score"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+            </div>
+
+            <!-- Dates: QC Date, Inspection Date, Next Inspection Date -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >QC Date</label
+                >
+                <input
+                  type="date"
+                  [(ngModel)]="uploadQcDate"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Inspection Date</label
+                >
+                <input
+                  type="date"
+                  [(ngModel)]="uploadInspectionDate"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2"
+                  >Next Inspection Date</label
+                >
+                <input
+                  type="date"
+                  [(ngModel)]="uploadNextInspectionDate"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <!-- QC File Upload -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Upload QC Documents</label
+              >
+              <label
+                class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <i class="pi pi-upload text-primary mr-2 text-xl"></i>
+                <span class="text-sm text-gray-700"
+                  >Click to select QC files</span
+                >
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.ppt,.pptx,.zip,.rar,.7z,.jpg,.jpeg,.png,.gif,.webp"
+                  (change)="onFileSelected($event)"
+                  class="hidden"
+                />
+              </label>
+              <p class="text-xs text-gray-500 mt-1">
+                Supported formats: Images (JPEG, JPG, PNG, GIF, WebP) and
+                Documents (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, PPT, PPTX, ZIP,
+                RAR, 7Z) - Max 10MB per file
+              </p>
+              <div *ngIf="selectedFiles.length > 0" class="mt-2 space-y-2">
+                <div
+                  *ngFor="
+                    let file of selectedFiles;
+                    let i = index;
+                    trackBy: trackByIndex
+                  "
+                  class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div class="flex-shrink-0">
+                      <div
+                        class="w-10 h-10 rounded-lg flex items-center justify-center"
+                        [ngClass]="{
+                          'bg-red-100': isPdfFile(file),
+                          'bg-blue-100': isWordFile(file),
+                          'bg-green-100': isExcelFile(file),
+                          'bg-purple-100': isPowerPointFile(file),
+                          'bg-yellow-100': isArchiveFile(file),
+                          'bg-gray-100':
+                            !isPdfFile(file) &&
+                            !isWordFile(file) &&
+                            !isExcelFile(file) &&
+                            !isPowerPointFile(file) &&
+                            !isArchiveFile(file) &&
+                            !isImageFile(file),
+                        }"
+                      >
+                        <i
+                          class="text-lg"
+                          [ngClass]="{
+                            'pi pi-file-pdf text-red-600': isPdfFile(file),
+                            'pi pi-file-word text-blue-600': isWordFile(file),
+                            'pi pi-file-excel text-green-600':
+                              isExcelFile(file),
+                            'pi pi-file text-purple-600':
+                              isPowerPointFile(file),
+                            'pi pi-file-archive text-yellow-600':
+                              isArchiveFile(file),
+                            'pi pi-image text-blue-500': isImageFile(file),
+                            'pi pi-file text-gray-600':
+                              !isPdfFile(file) &&
+                              !isWordFile(file) &&
+                              !isExcelFile(file) &&
+                              !isPowerPointFile(file) &&
+                              !isArchiveFile(file) &&
+                              !isImageFile(file),
+                          }"
+                        ></i>
+                      </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div
+                        class="text-sm font-medium text-gray-900 truncate"
+                        [title]="file.name"
+                      >
+                        {{ file.name }}
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        {{ formatFileSize(file.size) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      class="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      (click)="previewUploadedDocument(file, i)"
+                      [title]="'Preview ' + file.name"
+                    >
+                      <i class="pi pi-eye text-sm"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      (click)="selectedFiles.splice(i, 1)"
+                    >
+                      <i class="pi pi-times text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Report Link -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Report Link (Optional)</label
+              >
+              <input
+                type="url"
+                [ngModel]="uploadReportLink"
+                (ngModelChange)="onReportLinkInput($event)"
+                placeholder="https://link-to-report-or-drive"
+                class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <div
+                *ngIf="reportLinkTouched && reportLinkErrorMsg"
+                class="mt-1 text-xs text-error"
+              >
+                {{ reportLinkErrorMsg }}
+              </div>
+            </div>
+
+            <!-- Upload Progress -->
+            <div *ngIf="uploading" class="mb-6">
+              <div
+                class="flex items-center justify-between text-sm text-gray-600 mb-2"
+              >
+                <span>Uploading...</span>
+                <span>{{ uploadProgress }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  class="bg-primary h-2 rounded-full transition-all duration-300"
+                  [style.width.%]="uploadProgress"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="flex items-center justify-end gap-3 pt-4 border-t">
+              <button
+                (click)="onCancelUpload()"
+                [disabled]="uploading"
+                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                (click)="onUploadSubmit()"
+                [disabled]="
+                  uploading ||
+                  !uploadName.trim() ||
+                  !uploadCategoryId ||
+                  !uploadPartyName.trim() ||
+                  !uploadLocation.trim() ||
+                  !uploadMobileNumber.trim() ||
+                  !!reportLinkErrorMsg
+                "
+                class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors duration-200 flex items-center gap-2"
+              >
+                <i *ngIf="uploading" class="pi pi-spin pi-spinner"></i>
+                <i *ngIf="!uploading" class="pi pi-check"></i>
+                <span *ngIf="!uploading">Create QC Entry</span>
+                <span *ngIf="uploading">Creating...</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- QC Record Info Modal -->
+<div
+  *ngIf="showQCRecordModal"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+  (click)="closeQCRecordModal()"
+  (keyup.enter)="closeQCRecordModal()"
+  (keyup.escape)="closeQCRecordModal()"
+  role="button"
+  tabindex="0"
+>
+  <div
+    class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
+    (click)="$event.stopPropagation()"
+    (keydown.enter)="$event.stopPropagation()"
+    (keydown.space)="$event.stopPropagation()"
+  >
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between p-6 border-b border-gray-200">
+      <h3 class="text-lg font-semibold text-gray-900">
+        QC Record Already Exists
+      </h3>
+      <button
+        type="button"
+        class="text-gray-400 hover:text-gray-600 transition-colors"
+        (click)="closeQCRecordModal()"
+      >
+        <i class="pi pi-times text-xl"></i>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-6 space-y-4">
+      <div
+        class="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+      >
+        <i class="pi pi-exclamation-triangle text-yellow-600 text-2xl"></i>
+        <div>
+          <p class="font-medium text-yellow-900">
+            This machine already has a QC record.
+          </p>
+          <p class="text-sm text-yellow-700 mt-1">
+            You cannot create a new QC entry for this machine.
+          </p>
+        </div>
+      </div>
+
+      <div *ngIf="selectedMachineForQCRecord" class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Machine Name
+          </label>
+          <p class="text-sm text-gray-900">
+            {{ selectedMachineForQCRecord.name }}
+          </p>
+        </div>
+
+        <div *ngIf="selectedMachineForQCRecord.machine_sequence">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Machine Sequence
+          </label>
+          <p class="text-sm text-gray-900 font-mono">
+            {{ selectedMachineForQCRecord.machine_sequence }}
+          </p>
+        </div>
+      </div>
+
+      <div *ngIf="qcRecordInfo" class="space-y-3 pt-3 border-t border-gray-200">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            QC Record Created By
+          </label>
+          <p class="text-sm text-gray-900 font-semibold">
+            {{ qcRecordInfo.createdBy }}
+          </p>
+        </div>
+
+        <div *ngIf="qcRecordInfo.createdAt">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Created Date
+          </label>
+          <p class="text-sm text-gray-900">
+            {{ qcRecordInfo.createdAt | date: 'dd-MM-yyyy HH:mm' }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div
+      class="flex items-center justify-end gap-3 p-6 border-t border-gray-200"
+    >
+      <button
+        type="button"
+        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        (click)="closeQCRecordModal()"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Document Preview Modal -->
+<div
+  class="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]"
+  *ngIf="previewDocumentVisible"
+  (click)="closeDocumentPreview()"
+  (keyup.enter)="closeDocumentPreview()"
+  (keyup.escape)="closeDocumentPreview()"
+  role="button"
+  tabindex="0"
+>
+  <div
+    class="bg-white w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col"
+    (click)="$event.stopPropagation()"
+    (keydown.enter)="$event.stopPropagation()"
+    (keydown.space)="$event.stopPropagation()"
+  >
+    <div
+      class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0"
+    >
+      <div class="flex items-center gap-3">
+        <div
+          class="w-10 h-10 rounded-lg flex items-center justify-center"
+          [ngClass]="{
+            'bg-red-100': previewedDocument && isPdfFile(previewedDocument),
+            'bg-blue-100': previewedDocument && isWordFile(previewedDocument),
+            'bg-green-100': previewedDocument && isExcelFile(previewedDocument),
+            'bg-purple-100':
+              previewedDocument && isPowerPointFile(previewedDocument),
+            'bg-yellow-100':
+              previewedDocument && isArchiveFile(previewedDocument),
+            'bg-gray-100':
+              previewedDocument &&
+              !isPdfFile(previewedDocument) &&
+              !isWordFile(previewedDocument) &&
+              !isExcelFile(previewedDocument) &&
+              !isPowerPointFile(previewedDocument) &&
+              !isArchiveFile(previewedDocument),
+          }"
+        >
+          <i
+            class="text-xl"
+            [ngClass]="{
+              'pi pi-file-pdf text-red-600':
+                previewedDocument && isPdfFile(previewedDocument),
+              'pi pi-file-word text-blue-600':
+                previewedDocument && isWordFile(previewedDocument),
+              'pi pi-file-excel text-green-600':
+                previewedDocument && isExcelFile(previewedDocument),
+              'pi pi-file text-purple-600':
+                previewedDocument && isPowerPointFile(previewedDocument),
+              'pi pi-file-archive text-yellow-600':
+                previewedDocument && isArchiveFile(previewedDocument),
+              'pi pi-file text-gray-600':
+                previewedDocument &&
+                !isPdfFile(previewedDocument) &&
+                !isWordFile(previewedDocument) &&
+                !isExcelFile(previewedDocument) &&
+                !isPowerPointFile(previewedDocument) &&
+                !isArchiveFile(previewedDocument),
+            }"
+          ></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">
+            {{ previewedDocument?.name || 'Document Preview' }}
+          </h3>
+          <p class="text-sm text-gray-500" *ngIf="previewedDocument">
+            {{ formatFileSize(previewedDocument.size) }}
+          </p>
+        </div>
+      </div>
+      <button
+        class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        (click)="closeDocumentPreview()"
+      >
+        <i class="pi pi-times text-xl"></i>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6">
+      <div
+        *ngIf="previewLoading"
+        class="flex items-center justify-center py-12"
+      >
+        <div class="flex items-center gap-3 text-gray-500">
+          <i class="pi pi-spinner pi-spin text-2xl"></i>
+          <span>Loading preview...</span>
+        </div>
+      </div>
+      <div
+        *ngIf="!previewLoading && previewedDocument && documentPreviewUrl"
+        class="w-full"
+      >
+        <!-- Use ngx-doc-viewer for Office documents and PDFs (exclude archives) -->
+        <div
+          *ngIf="
+            (isOfficeFile(previewedDocument) || isPdfFile(previewedDocument)) &&
+            !isArchiveFile(previewedDocument)
+          "
+          class="w-full border rounded-lg overflow-hidden"
+        >
+          <ngx-doc-viewer
+            [url]="documentPreviewUrl"
+            [viewer]="getViewerType(previewedDocument)"
+            style="width: 100%; height: 70vh"
+          ></ngx-doc-viewer>
+        </div>
+        <!-- Image Preview -->
+        <div *ngIf="isImageFile(previewedDocument)" class="flex justify-center">
+          <img
+            [src]="documentPreviewUrl"
+            [alt]="previewedDocument.name"
+            class="max-w-full max-h-[70vh] object-contain rounded-lg border"
+          />
+        </div>
+        <!-- Text Preview (for .txt files) -->
+        <div *ngIf="isTextFile(previewedDocument)" class="w-full">
+          <div
+            class="bg-gray-50 border rounded-lg p-4 max-h-[70vh] overflow-y-auto"
+          >
+            <pre class="text-sm whitespace-pre-wrap font-mono">{{
+              previewTextContent
+            }}</pre>
+          </div>
+        </div>
+        <!-- Archive Files -->
+        <div
+          *ngIf="isArchiveFile(previewedDocument)"
+          class="flex flex-col items-center justify-center py-12"
+        >
+          <div
+            class="w-24 h-24 rounded-full flex items-center justify-center mb-4 bg-yellow-100"
+          >
+            <i class="pi pi-file-archive text-4xl text-yellow-600"></i>
+          </div>
+          <h4 class="text-lg font-semibold text-gray-900 mb-2">Archive File</h4>
+          <p class="text-sm text-gray-500 text-center mb-4">
+            Archive files (ZIP, RAR, 7Z) cannot be previewed in the browser.
+            <br />
+            The file will be uploaded correctly and can be downloaded after
+            creation.
+          </p>
+          <button
+            type="button"
+            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+            (click)="downloadPreviewedDocument()"
+          >
+            <i class="pi pi-download mr-2"></i>
+            Download File
+          </button>
+        </div>
+
+        <!-- Unsupported File Type -->
+        <div
+          *ngIf="
+            !isOfficeFile(previewedDocument) &&
+            !isPdfFile(previewedDocument) &&
+            !isImageFile(previewedDocument) &&
+            !isTextFile(previewedDocument) &&
+            !isArchiveFile(previewedDocument)
+          "
+          class="flex flex-col items-center justify-center py-12"
+        >
+          <div
+            class="w-24 h-24 rounded-full flex items-center justify-center mb-4 bg-gray-100"
+          >
+            <i class="pi pi-file text-4xl text-gray-600"></i>
+          </div>
+          <h4 class="text-lg font-semibold text-gray-900 mb-2">
+            Preview Not Available
+          </h4>
+          <p class="text-sm text-gray-500 text-center mb-4">
+            This file type cannot be previewed in the browser.
+            <br />
+            The file will be uploaded correctly and can be downloaded after
+            creation.
+          </p>
+          <button
+            type="button"
+            class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+            (click)="downloadPreviewedDocument()"
+          >
+            <i class="pi pi-download mr-2"></i>
+            Download File
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

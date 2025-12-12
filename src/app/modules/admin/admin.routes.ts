@@ -34,33 +34,33 @@ export const adminRoutes: Routes = [
   {
     path: 'machines',
     loadComponent: () =>
-      import(
-        './components/machine-management/machine-management.component'
-      ).then(m => m.MachineManagementComponent),
+      import('./components/machine-management/machine-management.component').then(
+        m => m.MachineManagementComponent
+      ),
     canActivate: [AdminGuard],
   },
   {
     path: 'approvals',
     loadComponent: () =>
-      import(
-        './components/approval-management/approval-management.component'
-      ).then(m => m.ApprovalManagementComponent),
+      import('./components/approval-management/approval-management.component').then(
+        m => m.ApprovalManagementComponent
+      ),
     canActivate: [AdminGuard],
   },
   {
     path: 'categories',
     loadComponent: () =>
-      import(
-        './components/category-management/category-management.component'
-      ).then(m => m.CategoryManagementComponent),
+      import('./components/category-management/category-management.component').then(
+        m => m.CategoryManagementComponent
+      ),
     canActivate: [AdminGuard],
   },
   {
     path: 'departments',
     loadComponent: () =>
-      import(
-        './components/department-management/department-management.component'
-      ).then(m => m.DepartmentManagementComponent),
+      import('./components/department-management/department-management.component').then(
+        m => m.DepartmentManagementComponent
+      ),
     canActivate: [AdminGuard],
   },
   {
@@ -74,9 +74,9 @@ export const adminRoutes: Routes = [
   {
     path: 'permissions',
     loadComponent: () =>
-      import(
-        './components/permission-management/permission-management.component'
-      ).then(m => m.PermissionManagementComponent),
+      import('./components/permission-management/permission-management.component').then(
+        m => m.PermissionManagementComponent
+      ),
     canActivate: [AdminGuard],
   },
   {
@@ -90,9 +90,17 @@ export const adminRoutes: Routes = [
   {
     path: 'sequence-management',
     loadComponent: () =>
-      import(
-        './components/sequence-management/sequence-management.component'
-      ).then(m => m.SequenceManagementComponent),
+      import('./components/sequence-management/sequence-management.component').then(
+        m => m.SequenceManagementComponent
+      ),
+    canActivate: [AdminGuard],
+  },
+  {
+    path: 'so-management',
+    loadComponent: () =>
+      import('./components/so-management/so-management.component').then(
+        m => m.SOManagementComponent
+      ),
     canActivate: [AdminGuard],
   },
 ];

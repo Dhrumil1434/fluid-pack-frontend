@@ -5,14 +5,12 @@ export interface MachineDocument {
   uploaded_at: Date;
 }
 
+import { SO } from './so.model';
+
 export interface Machine {
   _id: string;
-  name: string;
-  category_id: {
-    _id: string;
-    name: string;
-    description: string;
-  };
+  so_id: string; // Reference to SO
+  so?: SO; // Populated SO data (optional, for display)
   created_by: {
     _id: string;
     username: string;
@@ -21,12 +19,9 @@ export interface Machine {
   is_approved: boolean;
   images: string[];
   documents: MachineDocument[];
-  party_name?: string;
-  location?: string;
-  mobile_number?: string;
+  location: string;
   dispatch_date?: string | Date;
   machine_sequence?: string;
-  subcategory_id?: string;
   updatedBy?: {
     _id: string;
     username: string;
@@ -39,57 +34,54 @@ export interface Machine {
 }
 
 export interface CreateMachineRequest {
-  name: string;
-  category_id: string;
-  party_name?: string;
-  location?: string;
-  mobile_number?: string;
+  so_id: string; // Required: Reference to SO
+  location: string; // Required
   dispatch_date?: string | Date;
-  machine_sequence?: string;
-  subcategory_id?: string;
   images?: string[];
   documents?: MachineDocument[];
   metadata?: Record<string, unknown>;
 }
 
 export interface UpdateMachineRequest {
-  name?: string;
-  category_id?: string;
-  party_name?: string;
+  so_id?: string; // Optional: Update SO reference if needed
   location?: string;
-  mobile_number?: string;
   dispatch_date?: string | Date;
-  machine_sequence?: string;
-  subcategory_id?: string;
+  machine_sequence?: string; // Can be updated but usually auto-generated
   images?: string[];
   documents?: MachineDocument[];
   metadata?: Record<string, unknown>;
+  removedDocuments?: Array<{
+    _id?: string;
+    name?: string;
+    file_path?: string;
+    document_type?: string;
+  }>;
+  removedImages?: string[];
 }
 
 export interface MachineFilters {
-  category_id?: string;
+  so_id?: string; // Filter by SO ID
+  category_id?: string; // Filter by SO's category_id
   is_approved?: boolean;
   created_by?: string;
-  search?: string;
+  search?: string; // Search in SO name, SO party_name, location, machine_sequence
   has_sequence?: boolean;
   metadata_key?: string;
   metadata_value?: string;
   dispatch_date_from?: string;
   dispatch_date_to?: string;
   // Specific field filters for suggestion-based search
-  party_name?: string;
+  party_name?: string; // Filter by SO's party_name
   machine_sequence?: string;
   location?: string;
-  mobile_number?: string;
   sortBy?:
     | 'createdAt'
-    | 'name'
-    | 'category'
+    | 'name' // Sort by SO name
+    | 'category' // Sort by SO category
     | 'dispatch_date'
-    | 'party_name'
+    | 'party_name' // Sort by SO party_name
     | 'machine_sequence'
     | 'location'
-    | 'mobile_number'
     | 'created_by';
   sortOrder?: 'asc' | 'desc';
   page?: number;

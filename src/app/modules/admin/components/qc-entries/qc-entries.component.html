@@ -1915,332 +1915,141 @@
           </div>
 
           <div class="flex-1 overflow-y-auto p-6">
-            <!-- Filters Section - Matching QC Machine Selection -->
-            <app-list-filters
-              searchLabel="Search machines"
-              searchPlaceholder="Name, metadata, created by..."
-              (searchChange)="onMachineSearchChange($event)"
-              (apply)="loadMachinesForQC()"
-              (clear)="clearMachineFilters()"
-            >
-              <div filters-extra class="flex flex-wrap items-end gap-3">
-                <select
-                  class="px-3 py-2 border border-neutral-300 rounded-md"
-                  [(ngModel)]="machineFilters.category_id"
-                  (change)="onMachineCategoryFilterChange()"
+            <!-- Machine Selection - Searchable Dropdown -->
+            <div class="space-y-6">
+              <div class="space-y-1">
+                <label class="text-sm font-medium text-gray-700"
+                  >Select Machine <span class="text-red-500">*</span></label
                 >
-                  <option [ngValue]="undefined">All categories</option>
-                  <option
-                    *ngFor="let cat of categories; trackBy: trackById"
-                    [value]="cat._id"
-                  >
-                    {{ cat.name }}
-                  </option>
-                </select>
-                <!-- Metadata Key Autocomplete -->
                 <div class="relative">
                   <input
                     type="text"
-                    class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
-                    placeholder="Metadata Key"
-                    [(ngModel)]="machineFilters.metadata_key"
-                    (input)="onMachineMetadataKeyChange()"
-                    (focus)="showMetadataKeySuggestions = true"
-                    (blur)="hideMachineMetadataSuggestions()"
-                  />
-                  <div
-                    *ngIf="
-                      showMetadataKeySuggestions &&
-                      metadataKeySuggestions.length > 0
+                    class="w-full border rounded px-3 py-2"
+                    [class.border-red-500]="
+                      selectedMachineForQC === null && machineSearchInput.trim()
                     "
-                    class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                    [(ngModel)]="machineSearchInput"
+                    (input)="onMachineInputChange()"
+                    (focus)="onMachineInputFocus()"
+                    (blur)="hideMachineSuggestions()"
+                    placeholder="Search machine by SO name, party name, mobile number, category, location, or sequence..."
+                    [ngModelOptions]="{ standalone: true }"
+                  />
+                  <button
+                    *ngIf="selectedMachineForQC"
+                    type="button"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    (click)="clearMachineSelection()"
+                    title="Clear selection"
                   >
+                    <i class="pi pi-times"></i>
+                  </button>
+                  <div
+                    *ngIf="showMachineSuggestions"
+                    class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                  >
+                    <ng-container *ngIf="machineSuggestions.length > 0">
+                      <div
+                        *ngFor="
+                          let m of machineSuggestions;
+                          trackBy: trackByMachineId
+                        "
+                        class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                        (mousedown)="selectMachineForQCDropdown(m)"
+                      >
+                        <div class="font-medium">
+                          {{ getMachineNameForQC(m) }}
+                        </div>
+                        <div class="text-xs text-neutral-600">
+                          Party: {{ getMachinePartyNameForQC(m) }} | Category:
+                          {{ getMachineCategoryForQC(m) }}
+                          <span
+                            *ngIf="
+                              getMachineSubcategoryForQC(m) !== '-' &&
+                              getMachineSubcategoryForQC(m)
+                            "
+                          >
+                            | Subcategory: {{ getMachineSubcategoryForQC(m) }}
+                          </span>
+                          <span *ngIf="m.machine_sequence">
+                            | Sequence: {{ m.machine_sequence }}
+                          </span>
+                          <span *ngIf="m.location">
+                            | Location: {{ m.location }}
+                          </span>
+                        </div>
+                      </div>
+                    </ng-container>
                     <div
-                      *ngFor="
-                        let key of metadataKeySuggestions;
-                        let i = index;
-                        trackBy: trackByIndex
+                      *ngIf="
+                        machineSuggestions.length === 0 &&
+                        machineSearchInput.trim()
                       "
-                      class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm"
-                      (mousedown)="selectMachineMetadataKey(key)"
+                      class="px-3 py-4 text-sm text-neutral-500 text-center"
                     >
-                      {{ key }}
+                      No machines found matching "{{ machineSearchInput }}"
                     </div>
                   </div>
                 </div>
-                <!-- Metadata Value -->
-                <input
-                  *ngIf="machineFilters.metadata_key"
-                  type="text"
-                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
-                  placeholder="Metadata Value"
-                  [(ngModel)]="machineFilters.metadata_value"
-                  (input)="onMachineMetadataValueChange()"
-                />
-                <!-- Dispatch Date From -->
-                <input
-                  type="date"
-                  class="px-3 py-2 border border-neutral-300 rounded-md"
-                  placeholder="Dispatch Date From"
-                  [(ngModel)]="machineFilters.dispatch_date_from"
-                  (change)="loadMachinesForQC()"
-                />
-                <!-- Dispatch Date To -->
-                <input
-                  type="date"
-                  class="px-3 py-2 border border-neutral-300 rounded-md"
-                  placeholder="Dispatch Date To"
-                  [(ngModel)]="machineFilters.dispatch_date_to"
-                  (change)="loadMachinesForQC()"
-                />
-                <!-- Sort By -->
-                <select
-                  class="px-3 py-2 border border-neutral-300 rounded-md"
-                  [(ngModel)]="machineFilters.sortBy"
-                  (change)="loadMachinesForQC()"
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    selectedMachineForQC === null && machineSearchInput.trim()
+                  "
                 >
-                  <option [ngValue]="undefined">Sort By</option>
-                  <option value="createdAt">Created Date</option>
-                  <option value="name">Name</option>
-                  <option value="category">Category</option>
-                  <option value="dispatch_date">Dispatch Date</option>
-                </select>
-                <!-- Sort Order -->
-                <select
-                  *ngIf="machineFilters.sortBy"
-                  class="px-3 py-2 border border-neutral-300 rounded-md"
-                  [(ngModel)]="machineFilters.sortOrder"
-                  (change)="loadMachinesForQC()"
-                >
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
-                </select>
+                  Please select a machine
+                </div>
               </div>
-            </app-list-filters>
 
-            <!-- Table Section - Matching QC Machine Selection -->
-            <app-list-table-shell title="Select Machine">
-              <table class="min-w-full text-sm">
-                <thead>
-                  <tr class="bg-gray-50 text-left border-b border-gray-200">
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      QC Sequence
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Name
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Category
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Subcategory
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Party
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Location
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Mobile
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Dispatch Date
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Created By
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center"
-                    >
-                      Docs
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                      Approved
-                    </th>
-                    <th
-                      class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-32"
-                    >
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <tr
-                    *ngFor="
-                      let m of filteredMachines;
-                      trackBy: trackByMachineId
-                    "
-                    class="hover:bg-gray-50 transition-colors duration-150"
-                    [ngClass]="{
-                      'bg-primary/5': selectedMachineForQC?._id === m._id,
-                    }"
-                  >
-                    <!-- QC Sequence Column -->
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="flex items-center">
-                        <span
-                          *ngIf="m.machine_sequence"
-                          class="inline-flex items-center font-mono text-sm font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-md border border-primary/20"
-                          [title]="
-                            'QC Sequence: ' +
-                            formatSequenceWithQC(m.machine_sequence)
-                          "
-                        >
-                          {{ formatSequenceWithQC(m.machine_sequence) }}
-                        </span>
-                        <span
-                          *ngIf="!m.machine_sequence"
-                          class="text-gray-400 text-sm"
-                          >-</span
-                        >
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm font-medium text-gray-900">
-                        {{ m.name }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">
-                        {{ m.category_id?.name || '-' }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <span
-                        *ngIf="m.subcategory_id"
-                        class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
-                      >
-                        {{ getSubcategoryDisplayName(m.subcategory_id) }}
-                      </span>
-                      <span
-                        *ngIf="!m.subcategory_id"
-                        class="text-gray-400 text-sm"
-                        >-</span
-                      >
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">
-                        {{ m.party_name || '-' }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">
-                        {{ m.location || '-' }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">
-                        {{ m.mobile_number || '-' }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">
-                        {{
-                          m.dispatch_date
-                            ? (m.dispatch_date | date: 'dd-MM-yyyy')
-                            : '-'
-                        }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">
-                        {{ m.created_by?.username || '-' }}
-                      </div>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-center">
-                      <span
-                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                      >
-                        {{ m.documents?.length || 0 }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <span
-                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                        [ngClass]="{
-                          'bg-success/20 text-success': m.is_approved,
-                          'bg-warning/20 text-warning': !m.is_approved,
-                        }"
-                      >
-                        {{ m.is_approved ? 'Yes' : 'No' }}
-                      </span>
-                    </td>
-                    <!-- Action Column - Select Machine -->
-                    <td class="px-4 py-3 whitespace-nowrap">
-                      <button
-                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md active:scale-95"
-                        [ngClass]="
-                          selectedMachineForQC?._id === m._id
-                            ? 'text-white bg-primary border border-primary hover:bg-primary/90'
-                            : 'text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:border-primary/30'
-                        "
-                        (click)="selectMachineForQC(m)"
-                        [title]="
-                          selectedMachineForQC?._id === m._id
-                            ? 'Selected'
-                            : 'Select this machine'
-                        "
-                      >
-                        <i
-                          [class]="
-                            selectedMachineForQC?._id === m._id
-                              ? 'pi pi-check text-xs mr-1'
-                              : 'pi pi-check-circle text-xs mr-1'
-                          "
-                        ></i>
-                        <span>{{
-                          selectedMachineForQC?._id === m._id
-                            ? 'Selected'
-                            : 'Select'
-                        }}</span>
-                      </button>
-                    </td>
-                  </tr>
-                  <tr *ngIf="filteredMachines.length === 0 && !loading">
-                    <td
-                      colspan="12"
-                      class="px-4 py-12 text-center text-gray-500"
-                    >
-                      <div class="flex flex-col items-center justify-center">
-                        <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
-                        <p class="text-sm font-medium">No machines found</p>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <div table-footer class="w-full">
-                <app-table-pagination
-                  [page]="machinePage"
-                  [pages]="machinePages"
-                  [total]="machineTotal"
-                  [limit]="machineLimit"
-                  (pageChange)="onMachinePageChange($event)"
-                  (limitChange)="onMachineLimitChange($event)"
-                ></app-table-pagination>
+              <!-- Selected Machine Details Display -->
+              <div
+                *ngIf="selectedMachineForQC"
+                class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md"
+              >
+                <div class="text-sm font-medium text-blue-900 mb-2">
+                  Selected Machine Details:
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span class="font-medium">Name:</span>
+                    {{ getMachineNameForQC(selectedMachineForQC) }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Party:</span>
+                    {{ getMachinePartyNameForQC(selectedMachineForQC) }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Category:</span>
+                    {{ getMachineCategoryForQC(selectedMachineForQC) }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Subcategory:</span>
+                    {{ getMachineSubcategoryForQC(selectedMachineForQC) }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Mobile:</span>
+                    {{ getMachineMobileNumberForQC(selectedMachineForQC) }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Location:</span>
+                    {{ selectedMachineForQC.location || '-' }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Sequence:</span>
+                    {{ selectedMachineForQC.machine_sequence || '-' }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Dispatch Date:</span>
+                    {{
+                      selectedMachineForQC.dispatch_date
+                        ? (selectedMachineForQC.dispatch_date
+                          | date: 'dd-MM-yyyy')
+                        : '-'
+                    }}
+                  </div>
+                </div>
               </div>
-            </app-list-table-shell>
+            </div>
 
             <!-- QC Entry Form -->
             <div *ngIf="selectedMachineForQC" class="space-y-6">

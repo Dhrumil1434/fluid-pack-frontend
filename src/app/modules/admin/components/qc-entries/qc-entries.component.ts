@@ -16,6 +16,7 @@ import { ErrorHandlerService } from '../../../../core/services/error-handler.ser
 import { QCEntryService } from '../../../../core/services/qc-entry.service';
 import { CategoryService } from '../../../../core/services/category.service';
 import { ExportService } from '../../../../core/services/export.service';
+import { MachineService } from '../../../../core/services/machine.service';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { environment } from '../../../../../environments/environment';
@@ -34,13 +35,19 @@ interface QCApproval {
     | string
     | {
         _id: string;
-        name: string;
         machine_sequence?: string;
-        category_id: {
-          _id: string;
-          name: string;
-        };
+        location?: string;
         images: string[];
+        so_id?:
+          | {
+              _id: string;
+              name: string;
+              category_id?: { _id: string; name: string } | string;
+              subcategory_id?: { _id: string; name: string } | string;
+              party_name?: string;
+              mobile_number?: string;
+            }
+          | string;
       };
   requestedBy?: {
     _id: string;
@@ -198,6 +205,12 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   machineTotal = 0;
   machinePages = 0;
   selectedMachineForQC: any = null;
+
+  // Machine searchable dropdown state
+  machineSearchInput = '';
+  showMachineSuggestions = false;
+  machineSuggestions: any[] = [];
+  availableMachines: any[] = []; // All approved machines for dropdown
   qcEntryForm: FormGroup;
   selectedFiles: File[] = [];
   selectedImages: File[] = [];
@@ -262,6 +275,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     private qcEntryService: QCEntryService,
     private categoryService: CategoryService,
     private exportService: ExportService,
+    private machineService: MachineService,
     private messageService: MessageService,
     private fb: FormBuilder
   ) {
@@ -680,6 +694,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         if (pagesCount < 0) pagesCount = 0;
 
         // Normalize status values to uppercase and ensure _id is preserved
+        // Also ensure machine SO data is properly structured
         this.approvals = approvalsArray.map((approval: any) => {
           // Ensure _id is preserved - check both _id and id fields
           // MongoDB aggregation returns _id as ObjectId, convert to string
@@ -700,6 +715,21 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
             console.warn('⚠️ Approval missing ID:', approval);
           }
 
+          // Ensure machine SO data is properly structured
+          if (approval.machineId && typeof approval.machineId === 'object') {
+            const soIdValue = approval.machineId.so_id;
+            // SO should already be populated from backend, but ensure structure is correct
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              // SO is properly populated, keep as is
+            } else if (soIdValue && typeof soIdValue === 'string') {
+              // SO is just an ID, we'll handle this on display
+            }
+          }
+
           const normalized = {
             ...approval,
             _id: approvalId,
@@ -707,15 +737,6 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
               ? String(approval.status).toUpperCase()
               : 'PENDING',
           };
-
-          console.log('📋 Approval normalized:', {
-            originalStatus: approval.status,
-            normalizedStatus: normalized.status,
-            originalId: approval._id || approval.id,
-            normalizedId: normalized._id,
-            idType: typeof normalized._id,
-            idLength: normalized._id?.length,
-          });
 
           return normalized;
         }) as unknown as QCApproval[];
@@ -1007,15 +1028,42 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         if (machine) {
           this.selectedMachine = this.normalizeMachine(machine);
 
-          // Load subcategories for the machine's category
-          if (machine.category_id?._id || machine.category_id) {
-            const catId =
-              machine.category_id?._id ||
-              (typeof machine.category_id === 'string'
-                ? machine.category_id
-                : machine.category_id?._id);
-            if (catId && typeof catId === 'string') {
-              this.loadSubcategories(catId);
+          // Load subcategories for the machine's category (from SO)
+          const soIdValue = machine.so_id;
+          if (
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
+          ) {
+            const categoryIdValue = soIdValue.category_id;
+            if (categoryIdValue) {
+              const catId =
+                (typeof categoryIdValue === 'object' && categoryIdValue !== null
+                  ? categoryIdValue._id
+                  : categoryIdValue) || '';
+              if (catId && typeof catId === 'string') {
+                this.loadSubcategories(catId);
+              }
+            }
+          } else {
+            // Fallback: try to get category from machine.so_id if available
+            const fallbackSoId = (machine as any).so_id;
+            if (
+              fallbackSoId &&
+              typeof fallbackSoId === 'object' &&
+              fallbackSoId !== null
+            ) {
+              const fallbackCategoryId = fallbackSoId.category_id;
+              if (fallbackCategoryId) {
+                const catId =
+                  (typeof fallbackCategoryId === 'object' &&
+                  fallbackCategoryId !== null
+                    ? fallbackCategoryId._id
+                    : fallbackCategoryId) || '';
+                if (catId && typeof catId === 'string') {
+                  this.loadSubcategories(catId);
+                }
+              }
             }
           }
         }
@@ -1030,18 +1078,43 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
         ) {
           this.selectedMachine = approval.machineId;
 
-          // Try to load subcategories from approval data
+          // Try to load subcategories from approval data (from SO)
+          const machineIdObj = approval.machineId as any;
+          const soIdValue = machineIdObj?.so_id;
           if (
-            approval.machineId.category_id?._id ||
-            approval.machineId.category_id
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
           ) {
-            const catId =
-              approval.machineId.category_id?._id ||
-              (typeof approval.machineId.category_id === 'string'
-                ? approval.machineId.category_id
-                : approval.machineId.category_id?._id);
-            if (catId && typeof catId === 'string') {
-              this.loadSubcategories(catId);
+            const categoryIdValue = soIdValue.category_id;
+            if (categoryIdValue) {
+              const catId =
+                (typeof categoryIdValue === 'object' && categoryIdValue !== null
+                  ? categoryIdValue._id
+                  : categoryIdValue) || '';
+              if (catId && typeof catId === 'string') {
+                this.loadSubcategories(catId);
+              }
+            }
+          } else {
+            // Fallback: try to get category from approval.machineId.so_id if available
+            const fallbackSoId = (approval.machineId as any).so_id;
+            if (
+              fallbackSoId &&
+              typeof fallbackSoId === 'object' &&
+              fallbackSoId !== null
+            ) {
+              const fallbackCategoryId = fallbackSoId.category_id;
+              if (fallbackCategoryId) {
+                const catId =
+                  (typeof fallbackCategoryId === 'object' &&
+                  fallbackCategoryId !== null
+                    ? fallbackCategoryId._id
+                    : fallbackCategoryId) || '';
+                if (catId && typeof catId === 'string') {
+                  this.loadSubcategories(catId);
+                }
+              }
             }
           }
         }
@@ -1266,18 +1339,32 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   getMachineName(approval: QCApproval | null): string {
     if (!approval?.machineId) return 'Unknown Machine';
     if (typeof approval.machineId === 'object' && approval.machineId) {
-      return approval.machineId.name || 'Unknown Machine';
+      // Extract name from SO (machines now reference SO)
+      const soIdValue = approval.machineId.so_id;
+      if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+        return soIdValue.name || 'Unknown Machine';
+      }
+      // Fallback to machine ID if SO is not populated
+      return approval.machineId._id || 'Unknown Machine';
     }
     return 'Unknown Machine';
   }
 
   getMachineCategoryName(approval: QCApproval | null): string {
     if (!approval?.machineId) return '-';
-    if (
-      typeof approval.machineId === 'object' &&
-      approval.machineId?.category_id
-    ) {
-      return approval.machineId.category_id.name || '-';
+    if (typeof approval.machineId === 'object' && approval.machineId) {
+      // Extract category from SO
+      const soIdValue = approval.machineId.so_id;
+      if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+        const categoryId = soIdValue.category_id;
+        if (
+          categoryId &&
+          typeof categoryId === 'object' &&
+          categoryId !== null
+        ) {
+          return categoryId.name || '-';
+        }
+      }
     }
     return '-';
   }
@@ -1354,25 +1441,33 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   getApprovalMachineName(approval: QCApproval | null): string {
     if (!approval?.machineId) return '';
-    if (
-      typeof approval.machineId === 'object' &&
-      approval.machineId &&
-      'name' in approval.machineId
-    ) {
-      return approval.machineId.name || '';
+    if (typeof approval.machineId === 'object' && approval.machineId) {
+      // Extract name from SO (machines now reference SO)
+      const soIdValue = approval.machineId.so_id;
+      if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+        return soIdValue.name || '';
+      }
+      // Fallback to machine ID if SO is not populated
+      return approval.machineId._id || '';
     }
     return '';
   }
 
   getApprovalMachineCategoryName(approval: QCApproval | null): string {
     if (!approval?.machineId) return '-';
-    if (
-      typeof approval.machineId === 'object' &&
-      approval.machineId &&
-      'category_id' in approval.machineId &&
-      approval.machineId.category_id
-    ) {
-      return approval.machineId.category_id.name || '-';
+    if (typeof approval.machineId === 'object' && approval.machineId) {
+      // Extract category from SO
+      const soIdValue = approval.machineId.so_id;
+      if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+        const categoryId = soIdValue.category_id;
+        if (
+          categoryId &&
+          typeof categoryId === 'object' &&
+          categoryId !== null
+        ) {
+          return categoryId.name || '-';
+        }
+      }
     }
     return '-';
   }
@@ -1616,12 +1711,65 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     this.resetQCEntryForm();
     this.metadataKeySuggestions = [];
     this.showMetadataKeySuggestions = false;
-    this.loadMachinesForQC();
+    this.machineSearchInput = '';
+    this.showMachineSuggestions = false;
+    this.selectedMachineForQC = null;
+    this.loadMachinesForQCDropdown();
   }
 
   closeCreateQCEntryModal(): void {
     this.showCreateQCEntryModal = false;
     this.resetQCEntryForm();
+  }
+
+  // Load machines for dropdown (all approved machines, excluding those with pending QC approvals)
+  loadMachinesForQCDropdown(): void {
+    // Load approved machines with maximum allowed limit (100 per backend validation)
+    // For dropdown, we'll load first 100 and use search to find specific machines
+    const params: any = {
+      page: 1,
+      limit: 100, // Maximum allowed by backend validation
+      is_approved: true,
+    };
+
+    this.machineService.getAllMachines(params).subscribe({
+      next: (res: any) => {
+        const data = res?.data || res;
+        const serverMachines: any[] = (data?.machines ||
+          data?.items ||
+          data ||
+          []) as any[];
+
+        // Map machines to ensure proper SO data structure
+        let refined = serverMachines
+          .filter(m => !!m && m.is_approved === true)
+          .map(m => this.normalizeMachineForQC(m));
+
+        // Exclude machines that already have a non-rejected QC approval
+        this.fetchBlockedApprovalsSet()
+          .then(() => {
+            refined = refined.filter(
+              m => !this.blockedApprovalMachineIds.has(m._id)
+            );
+
+            this.availableMachines = refined;
+            // Initialize suggestions with first 50 machines
+            this.machineSuggestions = this.availableMachines.slice(0, 50);
+            console.log(
+              `Loaded ${this.availableMachines.length} available machines for QC entry dropdown`
+            );
+          })
+          .catch(() => {
+            this.availableMachines = refined;
+            this.machineSuggestions = this.availableMachines.slice(0, 50);
+          });
+      },
+      error: (error: any) => {
+        console.error('Error loading machines for dropdown:', error);
+        this.availableMachines = [];
+        this.machineSuggestions = [];
+      },
+    });
   }
 
   loadMachinesForQC(): void {
@@ -1657,7 +1805,7 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       params.sortOrder = this.machineFilters.sortOrder || 'desc';
     }
 
-    this.api.get<any>('/machines', params).subscribe({
+    this.machineService.getAllMachines(params).subscribe({
       next: (res: any) => {
         const data = res?.data || res;
         const serverMachines: any[] = (data?.machines ||
@@ -1665,10 +1813,27 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
           data ||
           []) as any[];
 
-        // Normalize and enforce approved-only
+        // Map machines to ensure proper SO data structure
         let refined = serverMachines
           .filter(m => !!m && m.is_approved === true)
-          .map(m => this.normalizeMachineForQC(m));
+          .map(m => {
+            // Ensure SO data is properly structured
+            const machine = this.normalizeMachineForQC(m);
+            const soIdValue = machine.so_id;
+
+            // If so_id is populated as an object, keep it; otherwise it's just an ID
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              // SO is already populated, keep as is
+              return machine;
+            }
+
+            // If so_id is a string, we'll need to handle it on display
+            return machine;
+          });
 
         // Exclude machines that already have a non-rejected QC approval
         this.fetchBlockedApprovalsSet()
@@ -1739,15 +1904,283 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
     } else {
       normalizedMetadata = {};
     }
+
+    // Ensure SO data structure is correct
+    const soIdValue = m?.so_id;
+    let soData = soIdValue;
+
+    // If so_id is populated as an object, use it directly
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      soData = soIdValue;
+    }
+
     return {
       ...m,
       metadata: normalizedMetadata,
+      so_id: soData, // Keep SO data as is (either object or string ID)
     };
+  }
+
+  // Helper methods to extract machine data from SO
+  public getMachineNameForQC(m: any): string {
+    if (!m) return '-';
+    const soIdValue = m.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.name || '-';
+    }
+    return m._id || '-';
+  }
+
+  public getMachineCategoryForQC(m: any): string {
+    if (!m) return '-';
+    const soIdValue = m.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const categoryId = soIdValue.category_id;
+      if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+        return categoryId.name || '-';
+      }
+    }
+    return '-';
+  }
+
+  public getMachineSubcategoryForQC(m: any): string {
+    if (!m) return '-';
+    const soIdValue = m.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const subcategoryId = soIdValue.subcategory_id;
+      if (
+        subcategoryId &&
+        typeof subcategoryId === 'object' &&
+        subcategoryId !== null
+      ) {
+        return subcategoryId.name || '-';
+      }
+    }
+    return '-';
+  }
+
+  public getMachinePartyNameForQC(m: any): string {
+    if (!m) return '-';
+    const soIdValue = m.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.party_name || '-';
+    }
+    return '-';
+  }
+
+  public getMachineMobileNumberForQC(m: any): string {
+    if (!m) return '-';
+    const soIdValue = m.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.mobile_number || '-';
+    }
+    return '-';
   }
 
   onMachineSearchChange(search: string): void {
     this.machineFilters.search = search;
     this.machineSearchSubject.next(search);
+  }
+
+  // Machine searchable dropdown methods
+  onMachineInputChange(): void {
+    const query = this.machineSearchInput.trim();
+
+    // If no machines loaded, load them first
+    if (!this.availableMachines || this.availableMachines.length === 0) {
+      this.loadMachinesForQCDropdown();
+      // Wait a bit for machines to load, then show suggestions
+      setTimeout(() => {
+        this.updateMachineSuggestions(query);
+      }, 300);
+      return;
+    }
+
+    this.updateMachineSuggestions(query);
+  }
+
+  updateMachineSuggestions(query: string): void {
+    const queryLower = query.toLowerCase();
+
+    if (!query) {
+      // Show first 50 machines when input is empty
+      this.machineSuggestions = this.availableMachines.slice(0, 50);
+      this.showMachineSuggestions = true;
+      return;
+    }
+
+    // Enhanced search: search across SO fields and machine fields
+    this.machineSuggestions = this.availableMachines
+      .filter(m => {
+        // Get SO data
+        const soIdValue = m.so_id;
+        if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+          // Search in SO name
+          if (soIdValue.name?.toLowerCase().includes(queryLower)) return true;
+          // Search in party name
+          if (soIdValue.party_name?.toLowerCase().includes(queryLower))
+            return true;
+          // Search in mobile number
+          if (soIdValue.mobile_number?.includes(query)) return true;
+
+          // Check category name
+          if (
+            typeof soIdValue.category_id === 'object' &&
+            soIdValue.category_id !== null &&
+            soIdValue.category_id.name?.toLowerCase().includes(queryLower)
+          ) {
+            return true;
+          }
+
+          // Check subcategory name
+          if (
+            soIdValue.subcategory_id &&
+            typeof soIdValue.subcategory_id === 'object' &&
+            soIdValue.subcategory_id !== null &&
+            soIdValue.subcategory_id.name?.toLowerCase().includes(queryLower)
+          ) {
+            return true;
+          }
+        }
+
+        // Search in machine sequence
+        if (m.machine_sequence?.toLowerCase().includes(queryLower)) return true;
+        // Search in location
+        if (m.location?.toLowerCase().includes(queryLower)) return true;
+
+        return false;
+      })
+      .slice(0, 50); // Limit results to 50 for performance
+
+    // Show suggestions if there are results OR if user has typed something (to show "no results" message)
+    this.showMachineSuggestions = true;
+  }
+
+  selectMachineForQCDropdown(machine: any): void {
+    this.selectedMachineForQC = machine;
+
+    // Extract SO data - machines now reference SO
+    const soIdValue = machine.so_id;
+    let soName = '';
+    let categoryId = '';
+    let subcategoryId = '';
+    let partyName = '';
+    let mobileNumber = '';
+
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      soName = soIdValue.name || '';
+      partyName = soIdValue.party_name || '';
+      mobileNumber = soIdValue.mobile_number || '';
+
+      // Extract category ID
+      const categoryIdValue = soIdValue.category_id;
+      if (
+        categoryIdValue &&
+        typeof categoryIdValue === 'object' &&
+        categoryIdValue !== null
+      ) {
+        categoryId = categoryIdValue._id?.toString() || '';
+      } else if (typeof categoryIdValue === 'string') {
+        categoryId = categoryIdValue;
+      }
+
+      // Extract subcategory ID
+      const subcategoryIdValue = soIdValue.subcategory_id;
+      if (
+        subcategoryIdValue &&
+        typeof subcategoryIdValue === 'object' &&
+        subcategoryIdValue !== null
+      ) {
+        subcategoryId = subcategoryIdValue._id?.toString() || '';
+      } else if (typeof subcategoryIdValue === 'string') {
+        subcategoryId = subcategoryIdValue;
+      }
+    }
+
+    // Set search input to show selected machine
+    this.machineSearchInput = soName
+      ? `${soName} - ${partyName || machine.machine_sequence || machine._id}`
+      : machine.machine_sequence || machine._id;
+    this.showMachineSuggestions = false;
+
+    // Populate form fields with machine data
+    this.qcEntryName = soName;
+    this.qcEntryCategoryId = categoryId;
+    this.qcEntrySubcategoryId = subcategoryId;
+    this.qcEntryMachineSequence = machine.machine_sequence || '';
+    this.qcEntryPartyName = partyName;
+    this.qcEntryLocation = machine.location || '';
+    this.qcEntryMobileNumber = mobileNumber;
+    this.qcEntryDispatchDate = machine.dispatch_date
+      ? new Date(machine.dispatch_date).toISOString().split('T')[0]
+      : '';
+
+    // Load subcategories for the selected category, then set subcategory ID
+    if (categoryId) {
+      this.loadSubcategories(categoryId, subcategoryId);
+    } else {
+      this.subcategories = [];
+      this.qcEntrySubcategoryId = '';
+    }
+
+    // Update form group
+    this.qcEntryForm.patchValue({
+      machineId: machine._id,
+      name: this.qcEntryName,
+      category_id: this.qcEntryCategoryId,
+      subcategory_id: this.qcEntrySubcategoryId,
+      machine_sequence: this.qcEntryMachineSequence,
+      party_name: this.qcEntryPartyName,
+      location: this.qcEntryLocation,
+      mobile_number: this.qcEntryMobileNumber,
+      dispatch_date: this.qcEntryDispatchDate,
+    });
+  }
+
+  clearMachineSelection(): void {
+    this.selectedMachineForQC = null;
+    this.machineSearchInput = '';
+    this.showMachineSuggestions = false;
+    // Clear form fields
+    this.qcEntryName = '';
+    this.qcEntryCategoryId = '';
+    this.qcEntrySubcategoryId = '';
+    this.qcEntryMachineSequence = '';
+    this.qcEntryPartyName = '';
+    this.qcEntryLocation = '';
+    this.qcEntryMobileNumber = '';
+    this.qcEntryDispatchDate = '';
+    this.subcategories = [];
+    this.qcEntryForm.patchValue({
+      machineId: '',
+      name: '',
+      category_id: '',
+      subcategory_id: '',
+      machine_sequence: '',
+      party_name: '',
+      location: '',
+      mobile_number: '',
+      dispatch_date: '',
+    });
+  }
+
+  onMachineInputFocus(): void {
+    // When input is focused, show suggestions if available
+    if (!this.availableMachines || this.availableMachines.length === 0) {
+      this.loadMachinesForQCDropdown();
+      // Wait a bit for machines to load, then show suggestions
+      setTimeout(() => {
+        this.updateMachineSuggestions(this.machineSearchInput.trim());
+      }, 300);
+    } else {
+      this.updateMachineSuggestions(this.machineSearchInput.trim());
+    }
+  }
+
+  hideMachineSuggestions(): void {
+    setTimeout(() => {
+      this.showMachineSuggestions = false;
+    }, 200);
   }
 
   onMachineCategoryFilterChange(): void {
@@ -1819,50 +2252,8 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
   }
 
   selectMachineForQC(machine: any): void {
-    this.selectedMachineForQC = machine;
-
-    // Populate form fields with machine data
-    this.qcEntryName = machine.name || '';
-    const categoryId =
-      machine.category_id?._id ||
-      (typeof machine.category_id === 'string' ? machine.category_id : '') ||
-      '';
-    const subcategoryId =
-      machine.subcategory_id?._id ||
-      (typeof machine.subcategory_id === 'string'
-        ? machine.subcategory_id
-        : '') ||
-      '';
-
-    this.qcEntryCategoryId = categoryId;
-    this.qcEntrySubcategoryId = subcategoryId;
-    this.qcEntryMachineSequence = machine.machine_sequence || '';
-    this.qcEntryPartyName = machine.party_name || '';
-    this.qcEntryLocation = machine.location || '';
-    this.qcEntryMobileNumber = machine.mobile_number || '';
-    this.qcEntryDispatchDate = machine.dispatch_date
-      ? new Date(machine.dispatch_date).toISOString().split('T')[0]
-      : '';
-
-    // Load subcategories for the selected category, then set subcategory ID
-    if (categoryId) {
-      this.loadSubcategories(categoryId, subcategoryId);
-    } else {
-      this.subcategories = [];
-      this.qcEntrySubcategoryId = '';
-    }
-
-    // Update form group
-    this.qcEntryForm.patchValue({
-      name: this.qcEntryName,
-      category_id: this.qcEntryCategoryId,
-      subcategory_id: this.qcEntrySubcategoryId,
-      machine_sequence: this.qcEntryMachineSequence,
-      party_name: this.qcEntryPartyName,
-      location: this.qcEntryLocation,
-      mobile_number: this.qcEntryMobileNumber,
-      dispatch_date: this.qcEntryDispatchDate,
-    });
+    // Use the dropdown selection method
+    this.selectMachineForQCDropdown(machine);
   }
 
   onCategoryChange(): void {
@@ -2105,6 +2496,8 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   resetQCEntryForm(): void {
     this.selectedMachineForQC = null;
+    this.machineSearchInput = '';
+    this.showMachineSuggestions = false;
     this.selectedFiles = [];
     this.selectedImages = [];
     this.selectedDocuments = [];

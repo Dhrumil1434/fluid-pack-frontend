@@ -37,10 +37,12 @@
       >
         <button
           class="w-full flex items-center justify-between px-4 py-3 text-text hover:text-primary hover:bg-bg-soft rounded-lg transition-all duration-200 group nav-button"
-          [class.bg-bg-soft]="isActiveRoute(item.route)"
-          [class.text-primary]="isActiveRoute(item.route)"
-          [class.active]="isActiveRoute(item.route)"
-          (click)="onMenuItemClick(item)"
+          [class.bg-bg-soft]="isActiveRoute(item.route) || hasActiveChild(item)"
+          [class.text-primary]="
+            isActiveRoute(item.route) || hasActiveChild(item)
+          "
+          [class.active]="isActiveRoute(item.route) || hasActiveChild(item)"
+          (click)="onMenuItemClick(item, $event)"
           [title]="collapsed ? item.label : ''"
         >
           <div class="flex items-center space-x-3">

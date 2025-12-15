@@ -25,16 +25,34 @@ import { QcSidebarComponent } from '../shared/qc-sidebar/qc-sidebar.component';
 
 interface QCApproval {
   _id?: string;
-  machineId?: {
-    _id?: string;
-    name?: string;
-    machine_sequence?: string;
-    category_id?: {
-      _id?: string;
-      name?: string;
-    };
-    images?: string[];
-  };
+  machineId?:
+    | string
+    | {
+        _id?: string;
+        name?: string; // Deprecated - use so_id.name instead
+        machine_sequence?: string;
+        location?: string;
+        dispatch_date?: string | Date;
+        category_id?:
+          | {
+              _id?: string;
+              name?: string;
+            }
+          | string; // Deprecated - use so_id.category_id instead
+        so_id?:
+          | string
+          | {
+              _id: string;
+              name: string;
+              category_id?: { _id: string; name: string } | string;
+              subcategory_id?: { _id: string; name: string } | string;
+              party_name?: string;
+              mobile_number?: string;
+              description?: string;
+              is_active?: boolean;
+            };
+        images?: string[];
+      };
   requestedBy?: {
     _id?: string;
     username?: string;
@@ -443,15 +461,35 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     if (this.viewMode === 'my') {
       const me = this.authService.getCurrentUser();
       console.log('[QC Approval Management] Current user:', me);
-      if (me?.username) {
-        params.requestedBy = me.username;
-        console.log(
-          '[QC Approval Management] Filtering by requestedBy (username):',
-          me.username
-        );
+      if (me) {
+        // Prefer _id for more reliable filtering, fallback to username
+        // Backend will look up user by _id, username, name, or email
+        if (me._id) {
+          params.requestedBy = me._id;
+          console.log(
+            '[QC Approval Management] Filtering by requestedBy (user ID):',
+            me._id
+          );
+        } else if (me.username) {
+          params.requestedBy = me.username;
+          console.log(
+            '[QC Approval Management] Filtering by requestedBy (username):',
+            me.username
+          );
+        } else if (me.email) {
+          params.requestedBy = me.email;
+          console.log(
+            '[QC Approval Management] Filtering by requestedBy (email):',
+            me.email
+          );
+        } else {
+          console.warn(
+            '[QC Approval Management] No user identifier found (no _id, username, or email)'
+          );
+        }
       } else {
         console.warn(
-          '[QC Approval Management] No username found for current user'
+          '[QC Approval Management] No current user found - cannot filter by user'
         );
       }
       source$ = this.qcEntryService.getQCApprovals(params);
@@ -496,8 +534,11 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
             id: this.approvals[0]._id,
             status: this.approvals[0].status,
             approvalType: this.approvals[0].approvalType,
-            machineId: this.approvals[0].machineId?._id,
-            machineName: this.approvals[0].machineId?.name,
+            machineId:
+              typeof this.approvals[0].machineId === 'object'
+                ? this.approvals[0].machineId?._id
+                : this.approvals[0].machineId,
+            machineName: this.getMachineName(this.approvals[0]),
             requestedBy:
               this.approvals[0].requestedBy?.username ||
               this.approvals[0].requestedBy?.name,
@@ -1215,34 +1256,93 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  // Helper methods matching admin dashboard
+  // Helper methods matching admin dashboard - updated for SO-based structure
   getMachineName(approval: QCApproval | null): string {
     if (!approval?.machineId) return 'Unknown Machine';
-    if (typeof approval.machineId === 'object' && approval.machineId) {
-      return approval.machineId.name || 'Unknown Machine';
+    if (typeof approval.machineId === 'string') return 'Unknown Machine';
+
+    // First try to get from SO
+    const soIdValue = approval.machineId.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.name || 'Unknown Machine';
     }
-    return 'Unknown Machine';
+
+    // Fallback to legacy name field
+    return approval.machineId.name || 'Unknown Machine';
   }
 
   getMachineCategoryName(approval: QCApproval | null): string {
     if (!approval?.machineId) return '-';
-    if (
-      typeof approval.machineId === 'object' &&
-      approval.machineId?.category_id
-    ) {
-      return approval.machineId.category_id.name || '-';
+    if (typeof approval.machineId === 'string') return '-';
+
+    // First try to get from SO
+    const soIdValue = approval.machineId.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const categoryId = soIdValue.category_id;
+      if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+        return categoryId.name || '-';
+      }
     }
+
+    // Fallback to legacy category_id
+    const categoryId = approval.machineId.category_id;
+    if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+      return categoryId.name || '-';
+    }
+
+    return '-';
+  }
+
+  getMachineSubcategoryName(approval: QCApproval | null): string {
+    if (!approval?.machineId) return '-';
+    if (typeof approval.machineId === 'string') return '-';
+
+    // First try to get from SO
+    const soIdValue = approval.machineId.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const subcategoryId = soIdValue.subcategory_id;
+      if (
+        subcategoryId &&
+        typeof subcategoryId === 'object' &&
+        subcategoryId !== null
+      ) {
+        return subcategoryId.name || '-';
+      }
+    }
+
+    return '-';
+  }
+
+  getMachinePartyName(approval: QCApproval | null): string {
+    if (!approval?.machineId) return '-';
+    if (typeof approval.machineId === 'string') return '-';
+
+    // First try to get from SO
+    const soIdValue = approval.machineId.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.party_name || '-';
+    }
+
+    return '-';
+  }
+
+  getMachineMobileNumber(approval: QCApproval | null): string {
+    if (!approval?.machineId) return '-';
+    if (typeof approval.machineId === 'string') return '-';
+
+    // First try to get from SO
+    const soIdValue = approval.machineId.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.mobile_number || '-';
+    }
+
     return '-';
   }
 
   getMachineImages(approval: QCApproval | null): string[] {
     if (!approval?.machineId) return [];
-    if (typeof approval.machineId === 'object' && approval.machineId?.images) {
-      return Array.isArray(approval.machineId.images)
-        ? approval.machineId.images
-        : [];
-    }
-    return [];
+    if (typeof approval.machineId === 'string') return [];
+    return approval.machineId.images || [];
   }
 
   getDocumentName(doc: any): string {

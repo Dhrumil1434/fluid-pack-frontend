@@ -58,36 +58,16 @@ export class MachineService {
    * Create a new machine with images (multipart/form-data)
    */
   createMachineForm(data: {
-    name: string;
-    category_id: string;
-    subcategory_id?: string;
-    party_name?: string;
-    location?: string;
-    mobile_number?: string;
+    so_id: string; // Required: Reference to SO
+    location: string; // Required
     dispatch_date?: string | Date;
-    machine_sequence?: string;
     images?: File[];
     documents?: File[];
     metadata?: Record<string, unknown>;
   }): Observable<ApiResponse<Machine>> {
     const form = new FormData();
-    form.append('name', data.name);
-    form.append('category_id', data.category_id);
-    if (data.subcategory_id) {
-      form.append('subcategory_id', data.subcategory_id);
-    }
-    if (data.machine_sequence) {
-      form.append('machine_sequence', data.machine_sequence);
-    }
-    if (data.party_name) {
-      form.append('party_name', data.party_name);
-    }
-    if (data.location) {
-      form.append('location', data.location);
-    }
-    if (data.mobile_number) {
-      form.append('mobile_number', data.mobile_number);
-    }
+    form.append('so_id', data.so_id);
+    form.append('location', data.location);
     // Always append dispatch_date (empty string will be converted to null on backend)
     const dispatchDate = data.dispatch_date
       ? typeof data.dispatch_date === 'string'
@@ -123,30 +103,23 @@ export class MachineService {
   updateMachineForm(
     id: string,
     data: {
-      name?: string;
-      category_id?: string;
-      subcategory_id?: string;
-      party_name?: string;
+      so_id?: string; // Optional: Update SO reference if needed
       location?: string;
-      mobile_number?: string;
       dispatch_date?: string | Date;
-      machine_sequence?: string;
+      machine_sequence?: string; // Can be updated but usually auto-generated
       images?: File[];
       documents?: File[];
       metadata?: Record<string, unknown>;
       removedDocuments?: any[];
+      removedImages?: string[];
     }
   ): Observable<ApiResponse<Machine>> {
     const form = new FormData();
-    if (data.name) form.append('name', data.name);
-    if (data.category_id) form.append('category_id', data.category_id);
-    if (data.subcategory_id) form.append('subcategory_id', data.subcategory_id);
+    if (data.so_id) form.append('so_id', data.so_id);
+    if (data.location) form.append('location', data.location);
     // Allow empty string for machine_sequence to clear it
     if (data.machine_sequence !== undefined)
       form.append('machine_sequence', data.machine_sequence);
-    if (data.party_name) form.append('party_name', data.party_name);
-    if (data.location) form.append('location', data.location);
-    if (data.mobile_number) form.append('mobile_number', data.mobile_number);
     // Always append dispatch_date (empty string will be converted to null on backend)
     if (data.dispatch_date !== undefined) {
       const dispatchDate = data.dispatch_date
@@ -161,6 +134,9 @@ export class MachineService {
     }
     if (data.removedDocuments && data.removedDocuments.length > 0) {
       form.append('removedDocuments', JSON.stringify(data.removedDocuments));
+    }
+    if (data.removedImages && data.removedImages.length > 0) {
+      form.append('removedImages', JSON.stringify(data.removedImages));
     }
     if (data.images && data.images.length) {
       data.images.forEach(file => form.append('images', file));

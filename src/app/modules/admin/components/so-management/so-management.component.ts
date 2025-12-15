@@ -179,7 +179,7 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ so.category_id?.name || '-' }}
+                      {{ so.category_id.name || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -220,12 +220,12 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                     <span
                       class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                     >
-                      {{ so.documents?.length || 0 }}
+                      {{ so.documents.length || 0 }}
                     </span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ so.created_by?.username || '-' }}
+                      {{ so.created_by.username || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">

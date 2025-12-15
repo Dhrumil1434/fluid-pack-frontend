@@ -26,7 +26,20 @@ interface ApprovalRow {
   createdAt: string;
   requestedBy?: { username?: string; email?: string } | string;
   machineId?:
-    | { name?: string; _id?: string; machine_sequence?: string }
+    | {
+        _id?: string;
+        machine_sequence?: string;
+        so_id?:
+          | {
+              _id?: string;
+              name?: string;
+              category_id?: { name?: string } | string;
+              subcategory_id?: { name?: string } | string;
+              party_name?: string;
+              mobile_number?: string;
+            }
+          | string;
+      }
     | string;
 }
 
@@ -583,7 +596,33 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: res => {
           const d: any = res as any;
-          this.rows = Array.isArray(d?.approvals) ? d.approvals : [];
+          const approvals = Array.isArray(d?.approvals) ? d.approvals : [];
+
+          // Map approvals to ensure proper SO data structure
+          this.rows = approvals.map((approval: any) => {
+            const machineIdValue = approval.machineId;
+            if (
+              machineIdValue &&
+              typeof machineIdValue === 'object' &&
+              machineIdValue !== null
+            ) {
+              // Ensure so_id is properly structured
+              const soIdValue = machineIdValue.so_id;
+              if (
+                soIdValue &&
+                typeof soIdValue === 'object' &&
+                soIdValue !== null
+              ) {
+                // SO is already populated, keep as is
+                return approval;
+              } else if (soIdValue && typeof soIdValue === 'string') {
+                // SO is just an ID, we'll need to handle this on display
+                return approval;
+              }
+            }
+            return approval;
+          });
+
           this.total = Number(d?.total) || this.rows.length || 0;
           this.pages =
             Number(d?.pages) || Math.ceil(this.total / this.limit) || 1;
@@ -718,7 +757,15 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
     const m = a.machineId as any;
     if (!m) return '-';
     if (typeof m === 'string') return m;
-    return m?.name || '-';
+
+    // Extract name from SO (machines now reference SO)
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.name || '-';
+    }
+
+    // Fallback to machine ID if SO is not populated
+    return m?._id || '-';
   }
 
   getMachineSequence(a: ApprovalRow): string | null {

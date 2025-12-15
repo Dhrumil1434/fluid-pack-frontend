@@ -31,17 +31,35 @@ interface MachineDocument {
 
 interface Machine {
   _id: string;
-  name: string;
-  category_id: {
-    _id: string;
-    name: string;
-    description?: string;
-  } | null;
-  subcategory_id?: {
-    _id: string;
-    name: string;
-    description?: string;
-  } | null;
+  name?: string; // Deprecated - use so_id.name instead
+  category_id?:
+    | {
+        _id: string;
+        name: string;
+        description?: string;
+      }
+    | string
+    | null; // Deprecated - use so_id.category_id instead
+  subcategory_id?:
+    | {
+        _id: string;
+        name: string;
+        description?: string;
+      }
+    | string
+    | null; // Deprecated - use so_id.subcategory_id instead
+  so_id?:
+    | string
+    | {
+        _id: string;
+        name: string;
+        category_id?: { _id: string; name: string } | string;
+        subcategory_id?: { _id: string; name: string } | string;
+        party_name?: string;
+        mobile_number?: string;
+        description?: string;
+        is_active?: boolean;
+      };
   machine_sequence?: string;
   // Normalize metadata to array of key/value for client-side filtering,
   // while still accepting object from backend
@@ -68,10 +86,10 @@ interface Machine {
   updatedAt?: string;
   is_approved: boolean;
   approvalStatus?: string;
-  is_active: boolean;
-  party_name?: string;
+  is_active?: boolean; // Deprecated - use so_id.is_active instead
+  party_name?: string; // Deprecated - use so_id.party_name instead
   location?: string;
-  mobile_number?: string;
+  mobile_number?: string; // Deprecated - use so_id.mobile_number instead
   dispatch_date?: string | Date;
 }
 
@@ -1125,12 +1143,27 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   // Helper method to proceed with opening the attach modal
   private proceedWithAttachModal(machine: Machine): void {
     this.selectedMachineForUpload = machine;
-    // Populate fields from machine
-    this.uploadName = machine.name || '';
+    // Populate fields from machine - use SO data
+    this.uploadName = this.getSOName(machine);
 
-    // Extract category ID - handle both object and string
+    // Extract category ID - first try from SO, then fallback to legacy
     let categoryId = '';
-    if (machine.category_id) {
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const categoryIdValue = soIdValue.category_id;
+      if (
+        categoryIdValue &&
+        typeof categoryIdValue === 'object' &&
+        categoryIdValue !== null
+      ) {
+        categoryId = String(categoryIdValue._id || '');
+      } else if (typeof categoryIdValue === 'string') {
+        categoryId = categoryIdValue;
+      }
+    }
+
+    // Fallback to legacy category_id
+    if (!categoryId && machine.category_id) {
       if (
         typeof machine.category_id === 'object' &&
         machine.category_id !== null
@@ -1141,9 +1174,23 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Extract subcategory ID - handle both object and string
+    // Extract subcategory ID - first try from SO, then fallback to legacy
     let subcategoryId = '';
-    if (machine.subcategory_id) {
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const subcategoryIdValue = soIdValue.subcategory_id;
+      if (
+        subcategoryIdValue &&
+        typeof subcategoryIdValue === 'object' &&
+        subcategoryIdValue !== null
+      ) {
+        subcategoryId = String(subcategoryIdValue._id || '');
+      } else if (typeof subcategoryIdValue === 'string') {
+        subcategoryId = subcategoryIdValue;
+      }
+    }
+
+    // Fallback to legacy subcategory_id
+    if (!subcategoryId && machine.subcategory_id) {
       if (
         typeof machine.subcategory_id === 'object' &&
         machine.subcategory_id !== null
@@ -1174,11 +1221,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     categoryId: string,
     subcategoryId: string
   ): void {
-    // Set all fields first
+    // Set all fields first - use SO data
+    this.uploadName = this.getSOName(machine);
     this.uploadMachineSequence = machine.machine_sequence || '';
-    this.uploadPartyName = machine.party_name || '';
+    this.uploadPartyName = this.getPartyName(machine);
     this.uploadLocation = machine.location || '';
-    this.uploadMobileNumber = machine.mobile_number || '';
+    this.uploadMobileNumber = this.getMobileNumber(machine);
     this.uploadDispatchDate = machine.dispatch_date
       ? typeof machine.dispatch_date === 'string'
         ? machine.dispatch_date.split('T')[0]
@@ -1915,10 +1963,30 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     return `${base}/${path}`;
   }
 
+  // Helper methods to extract data from SO structure
+  getSOName(machine: Machine): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.name || '-';
+    }
+    // Fallback to legacy name field
+    return machine.name || '-';
+  }
+
   getCategoryName(machine: Machine): string {
     if (!machine) return 'Unknown';
 
-    // Handle populated object from backend
+    // First try to get from SO
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const categoryId = soIdValue.category_id;
+      if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+        return categoryId.name || 'Unknown';
+      }
+    }
+
+    // Fallback to legacy category_id
     if (
       machine.category_id &&
       typeof machine.category_id === 'object' &&
@@ -1937,6 +2005,54 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     }
 
     return 'Unknown';
+  }
+
+  getSubcategoryName(machine: Machine): string {
+    if (!machine) return '-';
+
+    // First try to get from SO
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const subcategoryId = soIdValue.subcategory_id;
+      if (
+        subcategoryId &&
+        typeof subcategoryId === 'object' &&
+        subcategoryId !== null
+      ) {
+        return subcategoryId.name || '-';
+      }
+    }
+
+    // Fallback to legacy subcategory_id
+    if (
+      machine.subcategory_id &&
+      typeof machine.subcategory_id === 'object' &&
+      machine.subcategory_id !== null
+    ) {
+      return machine.subcategory_id.name || '-';
+    }
+
+    return '-';
+  }
+
+  getPartyName(machine: Machine): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.party_name || '-';
+    }
+    // Fallback to legacy party_name field
+    return machine.party_name || '-';
+  }
+
+  getMobileNumber(machine: Machine): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.mobile_number || '-';
+    }
+    // Fallback to legacy mobile_number field
+    return machine.mobile_number || '-';
   }
 
   getCategoryDisplayName(cat: any): string {
@@ -2064,7 +2180,7 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     this.lightboxIndex = i;
   }
 
-  // Normalize incoming machine to ensure metadata is key/value array and preserve category/subcategory
+  // Normalize incoming machine to ensure metadata is key/value array and preserve SO data
   private normalizeMachine(m: any): Machine {
     let normalizedMetadata:
       | Array<{ key: string; value: string }>
@@ -2084,15 +2200,41 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       normalizedMetadata = {};
     }
 
-    // Preserve category_id and subcategory_id as-is from backend
-    // Backend should populate them as objects with _id, name, etc.
-    // Don't modify them - just preserve what backend sends
+    // Ensure SO data structure is correct
+    const soIdValue = m?.so_id;
+    let soData = soIdValue;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      // SO is already populated, keep as is
+      soData = soIdValue;
+    } else if (soIdValue && typeof soIdValue === 'string') {
+      // SO is just an ID string, keep as is (will be populated by backend)
+      soData = soIdValue;
+    }
+
     return {
       ...m,
       metadata: normalizedMetadata,
-      // Preserve category_id and subcategory_id exactly as backend sends them
+      so_id: soData,
+      // Keep legacy fields for backward compatibility but prefer so_id
       category_id: m?.category_id || null,
       subcategory_id: m?.subcategory_id || null,
+      name:
+        m?.name ||
+        (soData && typeof soData === 'object' ? soData.name : undefined),
+      party_name:
+        m?.party_name ||
+        (soData && typeof soData === 'object' ? soData.party_name : undefined),
+      mobile_number:
+        m?.mobile_number ||
+        (soData && typeof soData === 'object'
+          ? soData.mobile_number
+          : undefined),
+      is_active:
+        m?.is_active !== undefined
+          ? m.is_active
+          : soData && typeof soData === 'object'
+            ? soData.is_active
+            : undefined,
     } as Machine;
   }
 

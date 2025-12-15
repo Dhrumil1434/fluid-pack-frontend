@@ -17,20 +17,28 @@ import {
   FormArray,
   AbstractControl,
 } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { BaseApiService } from '../../../../core/services/base-api.service';
-import { API_ENDPOINTS } from '../../../../core/constants/api.constants';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { ElementRef, ViewChild } from '@angular/core';
 import { CategoryService } from '../../../../core/services/category.service';
 import { SequenceGenerationRequest } from '../../../../core/models/category.model';
 import { MachineService } from '../../../../core/services/machine.service';
+import { SOService } from '../../../../core/services/so.service';
+import { SO } from '../../../../core/models/so.model';
 import { NgxDocViewerModule } from 'ngx-doc-viewer';
 
 @Component({
   selector: 'app-create-machine-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ToastModule, NgxDocViewerModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    FormsModule,
+    ToastModule,
+    NgxDocViewerModule,
+  ],
   template: `
     <p-toast></p-toast>
     <div
@@ -55,106 +63,143 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
             (ngSubmit)="onSubmit()"
           >
             <div class="space-y-1">
-              <label class="text-sm">Name</label>
-              <input
-                type="text"
-                class="w-full border rounded px-3 py-2"
-                [class.border-red-500]="
-                  form.controls['name'].touched && form.controls['name'].invalid
-                "
-                formControlName="name"
-                (blur)="form.controls['name'].markAsTouched()"
-                (input)="form.controls['name'].markAsTouched()"
-              />
-              <div
-                class="text-xs text-error"
-                *ngIf="
-                  form.controls['name'].touched && form.controls['name'].invalid
-                "
-              >
-                <span *ngIf="form.controls['name'].errors?.['required']">
-                  Machine name is required
-                </span>
-                <span *ngIf="form.controls['name'].errors?.['minlength']">
-                  Machine name must be at least 2 characters long
-                </span>
-                <span *ngIf="form.controls['name'].errors?.['maxlength']">
-                  Machine name cannot exceed 100 characters
-                </span>
-                <span *ngIf="form.controls['name'].errors?.['pattern']">
-                  Machine name can only contain letters, numbers, spaces, and
-                  common punctuation
-                </span>
-              </div>
-            </div>
-            <div class="space-y-1">
-              <label class="text-sm">Category</label>
-              <select
-                class="w-full border rounded px-3 py-2"
-                [class.border-red-500]="
-                  form.controls['category_id'].touched &&
-                  form.controls['category_id'].invalid
-                "
-                formControlName="category_id"
-                (change)="onCategoryChange()"
-                (blur)="form.controls['category_id'].markAsTouched()"
-              >
-                <option value="" disabled>Select category</option>
-                <option *ngFor="let c of categories" [value]="c._id">
-                  {{ c.name }}
-                </option>
-              </select>
-              <div
-                class="text-xs text-error"
-                *ngIf="
-                  form.controls['category_id'].touched &&
-                  form.controls['category_id'].invalid
-                "
-              >
-                <span *ngIf="form.controls['category_id'].errors?.['required']">
-                  Category ID is required
-                </span>
-                <span *ngIf="form.controls['category_id'].errors?.['pattern']">
-                  Invalid category ID format
-                </span>
-              </div>
-            </div>
-            <div class="space-y-1" *ngIf="subcategories.length > 0">
-              <label class="text-sm">Subcategory (Optional)</label>
-              <select
-                class="w-full border rounded px-3 py-2"
-                formControlName="subcategory_id"
-              >
-                <option value="">No subcategory</option>
-                <option *ngFor="let sc of subcategories" [value]="sc._id">
-                  {{ sc.name }}
-                </option>
-              </select>
-              <div
-                class="text-xs text-error"
-                *ngIf="
-                  form.controls['subcategory_id'].touched &&
-                  form.controls['subcategory_id'].invalid &&
-                  form.controls['subcategory_id'].value
-                "
-              >
-                <span
-                  *ngIf="form.controls['subcategory_id'].errors?.['pattern']"
+              <label class="text-sm">SO (Sales Order) *</label>
+              <div class="relative">
+                <input
+                  type="text"
+                  class="w-full border rounded px-3 py-2"
+                  [class.border-red-500]="
+                    form.controls['so_id'].touched &&
+                    form.controls['so_id'].invalid
+                  "
+                  [(ngModel)]="soSearchInput"
+                  (input)="onSOInputChange()"
+                  (focus)="onSOInputChange()"
+                  (blur)="hideSOSuggestions()"
+                  placeholder="Search SO by name, party name, or category..."
+                  [ngModelOptions]="{ standalone: true }"
+                />
+                <button
+                  *ngIf="selectedSO"
+                  type="button"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:bg-red-50 rounded"
+                  (click)="clearSOSelection(); $event.stopPropagation()"
+                  title="Clear selection"
                 >
-                  Invalid subcategory ID format
+                  <i class="pi pi-times text-xs"></i>
+                </button>
+                <!-- SO Suggestions Dropdown -->
+                <div
+                  *ngIf="showSOSuggestions"
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                >
+                  <ng-container *ngIf="soSuggestions.length > 0">
+                    <div
+                      *ngFor="let so of soSuggestions"
+                      class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                      (mousedown)="selectSO(so)"
+                    >
+                      <div class="font-medium">{{ so.name }}</div>
+                      <div class="text-xs text-neutral-600">
+                        Party: {{ so.party_name }} | Category:
+                        {{
+                          typeof so.category_id === 'object' &&
+                          so.category_id !== null
+                            ? so.category_id.name
+                            : 'N/A'
+                        }}
+                        <span
+                          *ngIf="
+                            so.subcategory_id &&
+                            typeof so.subcategory_id === 'object' &&
+                            so.subcategory_id !== null
+                          "
+                        >
+                          | Subcategory: {{ so.subcategory_id.name }}
+                        </span>
+                      </div>
+                    </div>
+                  </ng-container>
+                  <div
+                    *ngIf="soSuggestions.length === 0 && soSearchInput.trim()"
+                    class="px-3 py-4 text-sm text-neutral-500 text-center"
+                  >
+                    No SOs found matching "{{ soSearchInput }}"
+                  </div>
+                </div>
+              </div>
+              <div
+                class="text-xs text-error"
+                *ngIf="
+                  form.controls['so_id'].touched &&
+                  form.controls['so_id'].invalid
+                "
+              >
+                <span *ngIf="form.controls['so_id'].errors?.['required']">
+                  SO is required
                 </span>
+                <span *ngIf="form.controls['so_id'].errors?.['pattern']">
+                  Invalid SO ID format
+                </span>
+              </div>
+              <!-- Selected SO Details Display -->
+              <div
+                *ngIf="selectedSO"
+                class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md"
+              >
+                <div class="text-sm font-medium text-blue-900 mb-2">
+                  Selected SO Details:
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span class="font-medium">Name:</span>
+                    {{ selectedSO.name }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Party:</span>
+                    {{ selectedSO.party_name }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Category:</span>
+                    {{
+                      selectedSO.category_id &&
+                      typeof selectedSO.category_id === 'object'
+                        ? selectedSO.category_id.name
+                        : 'N/A'
+                    }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Subcategory:</span>
+                    {{ selectedSO.subcategory_id?.name || 'N/A' }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Mobile:</span>
+                    {{ selectedSO.mobile_number }}
+                  </div>
+                  <div>
+                    <span class="font-medium">Status:</span>
+                    <span
+                      class="px-2 py-0.5 rounded text-xs"
+                      [ngClass]="{
+                        'bg-green-100 text-green-800': selectedSO.is_active,
+                        'bg-red-100 text-red-800': !selectedSO.is_active,
+                      }"
+                    >
+                      {{ selectedSO.is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="space-y-1">
               <div class="flex items-center justify-between">
                 <label class="text-sm">Machine Sequence</label>
                 <button
+                  *ngIf="selectedSO"
                   type="button"
                   class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   (click)="generateSequence()"
-                  [disabled]="
-                    !form.get('category_id')?.value || isGeneratingSequence
-                  "
+                  [disabled]="isGeneratingSequence"
                 >
                   <i
                     *ngIf="isGeneratingSequence"
@@ -171,40 +216,12 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
                 placeholder="Sequence will be generated automatically"
                 readonly
               />
-            </div>
-            <div class="space-y-1">
-              <label class="text-sm">Party Name</label>
-              <input
-                type="text"
-                class="w-full border rounded px-3 py-2"
-                [class.border-red-500]="
-                  form.controls['party_name'].touched &&
-                  form.controls['party_name'].invalid
-                "
-                formControlName="party_name"
-                placeholder="Enter party/company name"
-                (blur)="form.controls['party_name'].markAsTouched()"
-                (input)="form.controls['party_name'].markAsTouched()"
-              />
-              <div
-                class="text-xs text-error"
-                *ngIf="
-                  form.controls['party_name'].touched &&
-                  form.controls['party_name'].invalid
-                "
-              >
-                <span *ngIf="form.controls['party_name'].errors?.['required']">
-                  Party name is required
+              <div class="text-xs text-gray-500">
+                <span *ngIf="selectedSO">
+                  Sequence will be generated based on selected SO's category
                 </span>
-                <span *ngIf="form.controls['party_name'].errors?.['minlength']">
-                  Party name must be at least 2 characters long
-                </span>
-                <span *ngIf="form.controls['party_name'].errors?.['maxlength']">
-                  Party name cannot exceed 100 characters
-                </span>
-                <span *ngIf="form.controls['party_name'].errors?.['pattern']">
-                  Party name can only contain letters, numbers, spaces, and
-                  common punctuation
+                <span *ngIf="!selectedSO">
+                  Select an SO to generate sequence
                 </span>
               </div>
             </div>
@@ -237,76 +254,6 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
                 </span>
                 <span *ngIf="form.controls['location'].errors?.['maxlength']">
                   Location cannot exceed 100 characters
-                </span>
-              </div>
-            </div>
-            <div class="space-y-1">
-              <label class="text-sm">Mobile Number</label>
-              <input
-                type="tel"
-                class="w-full border rounded px-3 py-2"
-                [class.border-red-500]="
-                  form.controls['mobile_number'].touched &&
-                  form.controls['mobile_number'].invalid
-                "
-                formControlName="mobile_number"
-                placeholder="Enter mobile number (e.g., +1234567890 or 123-456-7890)"
-                (blur)="form.controls['mobile_number'].markAsTouched()"
-                (input)="form.controls['mobile_number'].markAsTouched()"
-              />
-              <div
-                class="text-xs text-error"
-                *ngIf="
-                  form.controls['mobile_number'].touched &&
-                  form.controls['mobile_number'].invalid
-                "
-              >
-                <span
-                  *ngIf="form.controls['mobile_number'].errors?.['required']"
-                >
-                  Mobile number is required
-                </span>
-                <span
-                  *ngIf="form.controls['mobile_number'].errors?.['minlength']"
-                >
-                  Mobile number must be at least 10 characters long
-                </span>
-                <span
-                  *ngIf="form.controls['mobile_number'].errors?.['maxlength']"
-                >
-                  Mobile number cannot exceed 20 characters
-                </span>
-                <span
-                  *ngIf="form.controls['mobile_number'].errors?.['pattern']"
-                >
-                  Mobile number can only contain numbers, spaces, hyphens,
-                  parentheses, and optional + prefix
-                </span>
-                <span
-                  *ngIf="
-                    form.controls['mobile_number'].errors?.[
-                      'mobileNumberDigits'
-                    ]
-                  "
-                >
-                  {{
-                    form.controls['mobile_number'].errors?.[
-                      'mobileNumberDigits'
-                    ]?.message || 'Invalid digit count'
-                  }}
-                </span>
-                <span
-                  *ngIf="
-                    form.controls['mobile_number'].errors?.[
-                      'mobileNumberFormat'
-                    ]
-                  "
-                >
-                  {{
-                    form.controls['mobile_number'].errors?.[
-                      'mobileNumberFormat'
-                    ]?.message || 'Invalid phone number format'
-                  }}
                 </span>
               </div>
             </div>
@@ -819,11 +766,13 @@ export class CreateMachineModalComponent
   @Input() set visible(v: boolean) {
     this._visible = v;
     if (v) {
-      // Refresh categories each time modal opens to stay in sync
-      this.fetchCategories();
-      // Reset subcategories and sequence when modal opens
-      this.subcategories = [];
-      this.form.patchValue({ subcategory_id: '', machine_sequence: '' });
+      // Load active SOs each time modal opens
+      this.loadActiveSOs();
+      // Reset SO selection and sequence when modal opens
+      this.selectedSO = null;
+      this.soSearchInput = '';
+      this.showSOSuggestions = false;
+      this.form.patchValue({ so_id: '', machine_sequence: '' });
       this.selectedSequence = '';
       // Load metadata suggestions
       this.loadMetadataSuggestions();
@@ -863,36 +812,25 @@ export class CreateMachineModalComponent
   showKeySuggestions: { [index: number]: boolean } = {};
   showValueSuggestions: { [index: number]: boolean } = {};
 
+  // SO Management
+  activeSOs: SO[] = [];
+  selectedSO: SO | null = null;
+  soSearchInput = '';
+  showSOSuggestions = false;
+  soSuggestions: SO[] = [];
+
   constructor(
     private fb: FormBuilder,
     private baseApi: BaseApiService,
     private messageService: MessageService,
     private categoryService: CategoryService,
-    private machineService: MachineService
+    private machineService: MachineService,
+    private soService: SOService
   ) {
     this.form = this.fb.group({
-      name: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
-        ],
-      ],
-      category_id: [
+      so_id: [
         '',
         [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
-      ],
-      subcategory_id: ['', [Validators.pattern(/^[0-9a-fA-F]{24}$/)]],
-      party_name: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
-        ],
       ],
       location: [
         '',
@@ -900,16 +838,6 @@ export class CreateMachineModalComponent
           Validators.required,
           Validators.minLength(2),
           Validators.maxLength(100),
-        ],
-      ],
-      mobile_number: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(10),
-          Validators.maxLength(20),
-          Validators.pattern(/^[+]?[0-9\s\-()]+$/),
-          this.mobileNumberValidator,
         ],
       ],
       dispatch_date: [''],
@@ -1179,25 +1107,15 @@ export class CreateMachineModalComponent
       }
       return;
     }
-    const formData = new FormData();
-    // Trim all string values before submission
-    formData.append('name', this.form.value.name.trim());
-    formData.append('category_id', this.form.value.category_id.trim());
-    // Only append subcategory_id if it's provided and not empty
-    const subcategoryId = this.form.value.subcategory_id?.trim();
-    if (subcategoryId) {
-      formData.append('subcategory_id', subcategoryId);
-    }
-    formData.append('party_name', this.form.value.party_name.trim());
-    formData.append('location', this.form.value.location.trim());
-    formData.append('mobile_number', this.form.value.mobile_number.trim());
-    // Always append dispatch_date (empty string will be converted to null on backend)
-    const dispatchDate = this.form.value.dispatch_date || '';
-    formData.append('dispatch_date', dispatchDate);
-    // Only append machine_sequence if it has a value
-    const machineSequence = this.form.value.machine_sequence?.trim();
-    if (machineSequence) {
-      formData.append('machine_sequence', machineSequence);
+    // Use machineService.createMachineForm which handles FormData creation
+    const soId = this.form.value.so_id?.trim();
+    if (!soId) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'SO is required',
+      });
+      return;
     }
 
     const metaObj: Record<string, unknown> = {};
@@ -1211,44 +1129,49 @@ export class CreateMachineModalComponent
       if (type === 'boolean') parsed = String(raw).toLowerCase() === 'true';
       metaObj[key] = parsed;
     }
-    if (Object.keys(metaObj).length > 0) {
-      formData.append('metadata', JSON.stringify(metaObj));
-    }
 
-    // Add image files
-    for (const f of this.selectedFiles) formData.append('images', f);
-
-    // Add document files
-    for (const f of this.selectedDocuments) formData.append('documents', f);
+    const machineSequence = this.form.value.machine_sequence?.trim();
 
     this.loading = true;
-    this.baseApi.post<any>(API_ENDPOINTS.MACHINES, formData).subscribe({
-      next: (response: any) => {
-        const machineId = response?.data?.machine?._id || response?.data?._id;
+    this.machineService
+      .createMachineForm({
+        so_id: soId,
+        location: this.form.value.location.trim(),
+        dispatch_date: this.form.value.dispatch_date || undefined,
+        images: this.selectedFiles.length > 0 ? this.selectedFiles : undefined,
+        documents:
+          this.selectedDocuments.length > 0
+            ? this.selectedDocuments
+            : undefined,
+        metadata: Object.keys(metaObj).length > 0 ? metaObj : undefined,
+      })
+      .subscribe({
+        next: (response: any) => {
+          const machineId = response?.data?.machine?._id || response?.data?._id;
 
-        // Auto-generate sequence after machine creation
-        if (machineId && !machineSequence) {
-          this.autoGenerateSequenceAfterCreation(machineId);
-        } else {
+          // Auto-generate sequence after machine creation (using SO's category)
+          if (machineId && !machineSequence && this.selectedSO?.category_id) {
+            this.autoGenerateSequenceAfterCreation(machineId);
+          } else {
+            this.loading = false;
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Created',
+              detail: 'Machine created and pending approval.',
+            });
+            this.created.emit();
+          }
+        },
+        error: err => {
           this.loading = false;
+          const detail = err?.error?.message || 'Failed to create machine';
           this.messageService.add({
-            severity: 'success',
-            summary: 'Created',
-            detail: 'Machine created and pending approval.',
+            severity: 'error',
+            summary: 'Error',
+            detail,
           });
-          this.created.emit();
-        }
-      },
-      error: err => {
-        this.loading = false;
-        const detail = err?.error?.message || 'Failed to create machine';
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail,
-        });
-      },
-    });
+        },
+      });
   }
 
   private fetchCategories(): void {
@@ -1565,10 +1488,8 @@ export class CreateMachineModalComponent
 
   // Auto-generate sequence after machine creation
   autoGenerateSequenceAfterCreation(machineId: string): void {
-    const categoryId = this.form.get('category_id')?.value;
-    const subcategoryId = this.form.get('subcategory_id')?.value;
-
-    if (!categoryId) {
+    // Get category from selected SO
+    if (!this.selectedSO || !this.selectedSO.category_id) {
       this.loading = false;
       this.messageService.add({
         severity: 'success',
@@ -1579,11 +1500,22 @@ export class CreateMachineModalComponent
       return;
     }
 
+    const categoryId =
+      typeof this.selectedSO.category_id === 'string'
+        ? this.selectedSO.category_id
+        : (this.selectedSO.category_id as any)?._id;
+
+    const subcategoryId = this.selectedSO.subcategory_id
+      ? typeof this.selectedSO.subcategory_id === 'string'
+        ? this.selectedSO.subcategory_id
+        : (this.selectedSO.subcategory_id as any)?._id
+      : undefined;
+
     this.isGeneratingSequence = true;
 
     const request: SequenceGenerationRequest = {
-      categoryId: categoryId,
-      subcategoryId: subcategoryId || undefined,
+      categoryId,
+      subcategoryId,
     };
 
     this.categoryService.generateSequence(request).subscribe({
@@ -1633,5 +1565,101 @@ export class CreateMachineModalComponent
         this.created.emit();
       },
     });
+  }
+
+  // SO Management Methods
+  loadActiveSOs(): void {
+    this.soService.getActiveSOs().subscribe({
+      next: res => {
+        if (res.success) {
+          this.activeSOs = res.data || [];
+          // Initialize suggestions with first 50 SOs for performance
+          this.soSuggestions = this.activeSOs.slice(0, 50);
+          console.log(`Loaded ${this.activeSOs.length} active SOs`);
+        } else {
+          console.warn('Failed to load active SOs:', res);
+          this.activeSOs = [];
+          this.soSuggestions = [];
+        }
+      },
+      error: error => {
+        console.error('Error loading active SOs:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load SOs. Please refresh the page.',
+        });
+        this.activeSOs = [];
+        this.soSuggestions = [];
+      },
+    });
+  }
+
+  onSOInputChange(): void {
+    const query = this.soSearchInput.trim().toLowerCase();
+    if (!query) {
+      this.soSuggestions = this.activeSOs.slice(0, 50); // Limit to first 50 for performance
+      this.showSOSuggestions = false;
+      return;
+    }
+
+    // Enhanced search: search in name, party_name, category name, subcategory name, and mobile number
+    this.soSuggestions = this.activeSOs
+      .filter(so => {
+        const nameMatch = so.name?.toLowerCase().includes(query) || false;
+        const partyMatch =
+          so.party_name?.toLowerCase().includes(query) || false;
+        const mobileMatch =
+          so.mobile_number?.toLowerCase().includes(query) || false;
+
+        // Check category name (handle both object and string)
+        const categoryName =
+          typeof so.category_id === 'object' && so.category_id !== null
+            ? so.category_id.name?.toLowerCase() || ''
+            : '';
+        const categoryMatch = categoryName.includes(query);
+
+        // Check subcategory name (handle both object and string)
+        const subcategoryName =
+          so.subcategory_id &&
+          typeof so.subcategory_id === 'object' &&
+          so.subcategory_id !== null
+            ? so.subcategory_id.name?.toLowerCase() || ''
+            : '';
+        const subcategoryMatch = subcategoryName.includes(query);
+
+        return (
+          nameMatch ||
+          partyMatch ||
+          mobileMatch ||
+          categoryMatch ||
+          subcategoryMatch
+        );
+      })
+      .slice(0, 50); // Limit results to 50 for performance
+
+    // Show suggestions if there are results OR if user has typed something (to show "no results" message)
+    this.showSOSuggestions = true;
+  }
+
+  selectSO(so: SO): void {
+    this.selectedSO = so;
+    this.form.patchValue({ so_id: so._id });
+    this.soSearchInput = `${so.name} - ${so.party_name}`;
+    this.showSOSuggestions = false;
+    this.form.get('so_id')?.markAsTouched();
+  }
+
+  clearSOSelection(): void {
+    this.selectedSO = null;
+    this.form.patchValue({ so_id: '' });
+    this.soSearchInput = '';
+    this.showSOSuggestions = false;
+  }
+
+  hideSOSuggestions(): void {
+    setTimeout(() => {
+      this.showSOSuggestions = false;
+    }, 200);
   }
 }

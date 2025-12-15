@@ -28,7 +28,7 @@
       <!-- Filters Section - Matching Admin -->
       <app-list-filters
         searchLabel="Search machines"
-        searchPlaceholder="Name, metadata, created by..."
+        searchPlaceholder="SO name, party name, mobile number, category, location, sequence..."
         (searchChange)="onSearchChange($event)"
         (apply)="reload()"
         (clear)="clearFilters()"
@@ -341,28 +341,29 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">
-                  {{ m.name }}
+                  {{ getSOName(m) }}
                 </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm text-gray-900">
-                  {{ m.category_id?.name || '-' }}
+                  {{ getCategoryName(m) }}
                 </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
-                <span
-                  *ngIf="m.subcategory_id"
-                  class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
-                >
-                  {{ getSubcategoryDisplayName(m.subcategory_id) }}
-                </span>
-                <span *ngIf="!m.subcategory_id" class="text-gray-400 text-sm"
-                  >-</span
-                >
+                <ng-container *ngIf="getSubcategoryName(m) !== '-'">
+                  <span
+                    class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
+                  >
+                    {{ getSubcategoryName(m) }}
+                  </span>
+                </ng-container>
+                <ng-container *ngIf="getSubcategoryName(m) === '-'">
+                  <span class="text-gray-400 text-sm">-</span>
+                </ng-container>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm text-gray-900">
-                  {{ m.party_name || '-' }}
+                  {{ getPartyName(m) }}
                 </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
@@ -372,7 +373,7 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm text-gray-900">
-                  {{ m.mobile_number || '-' }}
+                  {{ getMobileNumber(m) }}
                 </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
@@ -492,13 +493,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="md:col-span-2">
                 <span class="block text-xs text-text-muted mb-1">Name</span>
-                {{ selected?.name }}
+                {{ selected ? getSOName(selected) : '-' }}
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
                   >Party Name</span
                 >
-                {{ selected?.party_name || '-' }}
+                {{ selected ? getPartyName(selected) : '-' }}
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1">Location</span>
@@ -508,7 +509,7 @@
                 <span class="block text-xs text-text-muted mb-1"
                   >Mobile Number</span
                 >
-                {{ selected?.mobile_number || '-' }}
+                {{ selected ? getMobileNumber(selected) : '-' }}
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
@@ -522,23 +523,20 @@
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1">Category</span>
-                {{
-                  selected?.category_id?.name || selected?.category_id || '-'
-                }}
+                {{ selected ? getCategoryName(selected) : '-' }}
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
                   >Subcategory</span
                 >
-                <span *ngIf="selected?.subcategory_id" class="text-sm">
-                  {{
-                    selected && selected.subcategory_id
-                      ? getSubcategoryDisplayName(selected.subcategory_id)
-                      : '-'
-                  }}
+                <span
+                  *ngIf="selected && getSubcategoryName(selected) !== '-'"
+                  class="text-sm"
+                >
+                  {{ getSubcategoryName(selected) }}
                 </span>
                 <span
-                  *ngIf="!selected?.subcategory_id"
+                  *ngIf="!selected || getSubcategoryName(selected) === '-'"
                   class="text-gray-400 text-sm"
                   >-</span
                 >
@@ -763,7 +761,7 @@
             class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
           >
             <h3 class="text-lg font-semibold text-text">
-              Machine Documents - {{ selected?.name }}
+              Machine Documents - {{ selected ? getSOName(selected) : '-' }}
             </h3>
             <button
               class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"

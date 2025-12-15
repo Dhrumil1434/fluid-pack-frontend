@@ -15,6 +15,8 @@ import { TablePaginationComponent } from '../../admin/components/user-management
 import { ApprovalsService } from '../services/approvals.service';
 import { CategoryService } from '../../../core/services/category.service';
 import { MachineService } from '../../../core/services/machine.service';
+import { SOService } from '../../../core/services/so.service';
+import { SO } from '../../../core/models/so.model';
 import {
   SequenceGenerationRequest,
   SequenceConfig,
@@ -27,9 +29,26 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 interface MachineRow {
   _id: string;
-  name: string;
-  category_id?: { name?: string } | string;
-  subcategory_id?: { name?: string; _id?: string } | string | null;
+  so_id: string; // Reference to SO
+  so?: {
+    _id: string;
+    name: string;
+    category_id?:
+      | {
+          _id: string;
+          name: string;
+        }
+      | string;
+    subcategory_id?:
+      | {
+          _id: string;
+          name: string;
+        }
+      | string
+      | null;
+    party_name?: string;
+    mobile_number?: string;
+  } | null; // Populated SO data (optional, for display)
   images?: string[];
   documents?: Array<{
     name: string;
@@ -37,9 +56,7 @@ interface MachineRow {
     document_type?: string;
   }>;
   is_approved: boolean;
-  party_name?: string;
   location?: string;
-  mobile_number?: string;
   machine_sequence?: string;
   dispatch_date?: string | Date;
   createdAt: string;
@@ -111,7 +128,7 @@ interface MachineRow {
         <!-- Filters & Search -->
         <app-list-filters
           searchLabel="Search machines"
-          searchPlaceholder="Name, party, location, metadata, created by..."
+          searchPlaceholder="Search by SO name, party name, location, sequence, or created by..."
           (searchChange)="onSearchChange($event)"
           (apply)="refresh()"
           (clear)="clearFilters()"
@@ -140,6 +157,68 @@ interface MachineRow {
               >
                 My
               </button>
+            </div>
+            <!-- SO Searchable Dropdown -->
+            <div class="relative min-w-64">
+              <input
+                type="text"
+                class="w-full px-3 py-2 border border-neutral-300 rounded-md"
+                [class.border-red-500]="selectedSO && !filters.so_id"
+                [(ngModel)]="soSearchInput"
+                (input)="onSOInputChange()"
+                (focus)="onSOInputChange()"
+                (blur)="hideSOSuggestions()"
+                placeholder="Search SO by name, party, mobile, or category..."
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <button
+                *ngIf="selectedSO"
+                type="button"
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:bg-red-50 rounded"
+                (click)="clearSOSelection(); $event.stopPropagation()"
+                title="Clear SO selection"
+              >
+                <i class="pi pi-times text-xs"></i>
+              </button>
+              <!-- SO Suggestions Dropdown -->
+              <div
+                *ngIf="showSOSuggestions"
+                class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+              >
+                <ng-container *ngIf="soSuggestions.length > 0">
+                  <div
+                    *ngFor="let so of soSuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                    (mousedown)="selectSO(so)"
+                  >
+                    <div class="font-medium">{{ so.name }}</div>
+                    <div class="text-xs text-neutral-600">
+                      Party: {{ so.party_name }} | Category:
+                      {{
+                        typeof so.category_id === 'object' &&
+                        so.category_id !== null
+                          ? so.category_id.name
+                          : 'N/A'
+                      }}
+                      <span
+                        *ngIf="
+                          so.subcategory_id &&
+                          typeof so.subcategory_id === 'object' &&
+                          so.subcategory_id !== null
+                        "
+                      >
+                        | Subcategory: {{ so.subcategory_id.name }}
+                      </span>
+                    </div>
+                  </div>
+                </ng-container>
+                <div
+                  *ngIf="soSuggestions.length === 0 && soSearchInput.trim()"
+                  class="px-3 py-4 text-sm text-neutral-500 text-center"
+                >
+                  No SOs found matching "{{ soSearchInput }}"
+                </div>
+              </div>
             </div>
             <select
               class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
@@ -377,7 +456,7 @@ interface MachineRow {
                         <span
                           *ngIf="
                             !m.machine_sequence &&
-                            (m.is_approved || !m.category_id)
+                            (m.is_approved || !m.so?.category_id)
                           "
                           class="text-gray-400 text-xs italic"
                           >No sequence</span
@@ -387,7 +466,7 @@ interface MachineRow {
                           *ngIf="
                             !m.machine_sequence &&
                             !m.is_approved &&
-                            !!m.category_id
+                            !!m.so?.category_id
                           "
                           class="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           (click)="generateSequenceForMachine(m)"
@@ -419,9 +498,9 @@ interface MachineRow {
                         <div class="ml-4">
                           <div
                             class="text-sm font-medium text-gray-900 truncate max-w-48"
-                            [title]="m.name"
+                            [title]="getSOName(m)"
                           >
-                            {{ m.name }}
+                            {{ getSOName(m) }}
                           </div>
                           <div
                             class="text-sm text-gray-500"
@@ -447,9 +526,9 @@ interface MachineRow {
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div
                         class="text-sm text-gray-900 truncate max-w-32"
-                        [title]="m.party_name"
+                        [title]="m.so?.party_name"
                       >
-                        {{ m.party_name || '-' }}
+                        {{ m.so?.party_name || '-' }}
                       </div>
                     </td>
 
@@ -467,10 +546,10 @@ interface MachineRow {
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div
                         class="text-sm text-gray-900"
-                        *ngIf="m.mobile_number; else noContact"
+                        *ngIf="m.so?.mobile_number; else noContact"
                       >
                         <i class="pi pi-phone text-gray-400 mr-1"></i>
-                        {{ m.mobile_number }}
+                        {{ m.so?.mobile_number }}
                       </div>
                       <ng-template #noContact>
                         <span class="text-sm text-gray-400">-</span>
@@ -1054,7 +1133,7 @@ interface MachineRow {
                 <div class="md:col-span-2">
                   <span class="block text-xs text-gray-500 mb-1">Name</span>
                   <span class="text-sm font-medium text-gray-900">{{
-                    viewMachine?.name
+                    viewMachine ? getSOName(viewMachine) : '-'
                   }}</span>
                 </div>
                 <div class="md:col-span-1">
@@ -1062,7 +1141,7 @@ interface MachineRow {
                     >Party Name</span
                   >
                   <span class="text-sm text-gray-900">{{
-                    viewMachine?.party_name || '-'
+                    viewMachine?.so?.party_name || '-'
                   }}</span>
                 </div>
                 <div class="md:col-span-1">
@@ -1076,7 +1155,7 @@ interface MachineRow {
                     >Mobile Number</span
                   >
                   <span class="text-sm text-gray-900">{{
-                    viewMachine?.mobile_number || '-'
+                    viewMachine?.so?.mobile_number || '-'
                   }}</span>
                 </div>
                 <div class="md:col-span-1">
@@ -1100,13 +1179,15 @@ interface MachineRow {
                     >Subcategory</span
                   >
                   <span
-                    *ngIf="viewMachine?.subcategory_id"
+                    *ngIf="viewMachine?.so?.subcategory_id"
                     class="text-sm text-gray-900"
                   >
-                    {{ getSubcategoryDisplayName(viewMachine?.subcategory_id) }}
+                    {{
+                      getSubcategoryDisplayName(viewMachine?.so?.subcategory_id)
+                    }}
                   </span>
                   <span
-                    *ngIf="!viewMachine?.subcategory_id"
+                    *ngIf="!viewMachine?.so?.subcategory_id"
                     class="text-gray-400 text-sm"
                     >-</span
                   >
@@ -1298,7 +1379,8 @@ interface MachineRow {
             <div>
               <h3 class="text-xl font-bold text-text">Edit Machine Sequence</h3>
               <p class="text-sm text-text-muted mt-1">
-                Update the sequence for {{ editingMachine?.name }}
+                Update the sequence for
+                {{ editingMachine ? getSOName(editingMachine) : '-' }}
               </p>
             </div>
             <button
@@ -1484,6 +1566,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   filters: {
     search?: string;
     category_id?: string;
+    so_id?: string; // SO filter
     metadata_key?: string;
     metadata_value?: string;
     dispatch_date_from?: string;
@@ -1502,6 +1585,12 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
   // Categories for filter
   filterCategories: Array<{ _id: string; name: string; level?: number }> = [];
+
+  // SO search and selection
+  soSearchInput = '';
+  soSuggestions: SO[] = [];
+  showSOSuggestions = false;
+  selectedSO: SO | null = null;
 
   // Search debounce
   private searchInput$ = new Subject<string>();
@@ -1539,7 +1628,8 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     private approvals: ApprovalsService,
     private messageService: MessageService,
     private categoryService: CategoryService,
-    private machineService: MachineService
+    private machineService: MachineService,
+    private soService: SOService
   ) {}
 
   ngOnInit(): void {
@@ -1582,10 +1672,19 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     }
   }
 
+  getSOName(m: MachineRow): string {
+    if (m.so?.name) return m.so.name;
+    if (m.so_id) return m.so_id;
+    return '-';
+  }
+
   categoryName(m: MachineRow): string {
-    if (!m.category_id) return '-';
-    if (typeof m.category_id === 'string') return m.category_id;
-    return m.category_id?.name || '-';
+    if (!m.so?.category_id) return '-';
+    if (typeof m.so.category_id === 'string') return m.so.category_id;
+    if (typeof m.so.category_id === 'object' && m.so.category_id !== null) {
+      return (m.so.category_id as { name?: string }).name || '-';
+    }
+    return '-';
   }
 
   getCategoryNameForView(): string {
@@ -1606,6 +1705,11 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     // Apply search
     if (this.filters.search?.trim()) {
       params['search'] = this.filters.search.trim();
+    }
+
+    // Apply SO filter
+    if (this.filters.so_id) {
+      params['so_id'] = this.filters.so_id;
     }
 
     // Apply category filter
@@ -1645,14 +1749,48 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
           data?.data?.pages ||
           Math.ceil(this.total / this.limit) ||
           0;
-        const mapped = list.map((m: any) => ({
-          ...m,
-          images: Array.isArray(m?.images)
-            ? m.images
-            : m?.images
-              ? [m.images]
-              : [],
-        }));
+        // Map machines and properly extract SO data
+        // Note: Backend populates so_id with the SO object, not a separate 'so' field
+        const mapped = list.map((m: any) => {
+          // Extract SO data - so_id is populated as an object by the backend
+          const soIdValue = m.so_id;
+          let soData = null;
+          let soIdString = null;
+
+          // Check if so_id is a populated object or just an ID string
+          if (
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
+          ) {
+            // so_id is populated - extract the SO data
+            soIdString = soIdValue._id?.toString() || null;
+            soData = {
+              _id: soIdString,
+              name: soIdValue.name || null,
+              category_id: soIdValue.category_id || null,
+              subcategory_id: soIdValue.subcategory_id || null,
+              party_name: soIdValue.party_name || null,
+              mobile_number: soIdValue.mobile_number || null,
+            };
+          } else if (soIdValue && typeof soIdValue === 'string') {
+            // so_id is just a string ID (not populated)
+            soIdString = soIdValue;
+            soData = null;
+          }
+
+          return {
+            ...m,
+            _id: m._id,
+            so_id: soIdString || null,
+            so: soData,
+            images: Array.isArray(m?.images)
+              ? m.images
+              : m?.images
+                ? [m.images]
+                : [],
+          };
+        });
         // annotate rows with latest approval status for clarity
         this.annotateApprovalStatuses(mapped)
           .then(annotated => {
@@ -1731,17 +1869,17 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
       // If configs haven't loaded yet or failed, still allow button if machine has category
       // The generate endpoint will return an error if no config exists
       return (
-        !!machine.category_id &&
+        !!machine.so?.category_id &&
         !machine.machine_sequence &&
         !machine.is_approved
       );
     }
 
-    if (!machine.category_id) return false;
+    if (!machine.so?.category_id) return false;
     const categoryId =
-      typeof machine.category_id === 'string'
-        ? machine.category_id
-        : (machine.category_id as any)?._id;
+      typeof machine.so.category_id === 'string'
+        ? machine.so.category_id
+        : machine.so.category_id._id;
 
     if (!categoryId) return false;
 
@@ -1751,7 +1889,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
   generateSequenceForMachine(machine: MachineRow): void {
     if (
-      !machine.category_id ||
+      !machine.so?.category_id ||
       machine.is_approved ||
       machine.machine_sequence
     ) {
@@ -1761,14 +1899,14 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     this.generatingSequenceForMachineId = machine._id;
 
     const categoryId =
-      typeof machine.category_id === 'string'
-        ? machine.category_id
-        : (machine.category_id as any)?._id || '';
+      typeof machine.so.category_id === 'string'
+        ? machine.so.category_id
+        : machine.so.category_id._id;
 
-    const subcategoryId = machine.subcategory_id
-      ? typeof machine.subcategory_id === 'string'
-        ? machine.subcategory_id
-        : (machine.subcategory_id as any)?._id
+    const subcategoryId = machine.so.subcategory_id
+      ? typeof machine.so.subcategory_id === 'string'
+        ? machine.so.subcategory_id
+        : machine.so.subcategory_id._id
       : undefined;
 
     const request: SequenceGenerationRequest = {
@@ -1800,12 +1938,14 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
               this.messageService.add({
                 severity: 'success',
                 summary: 'Sequence Generated',
-                detail: `Sequence "${generatedSequence}" generated successfully for "${machine.name}"`,
+                detail: `Sequence "${generatedSequence}" generated successfully for "${
+                  machine.so?.name || machine._id
+                }"`,
               });
             },
             error: (updateError: any) => {
               console.error(
-                `Error saving sequence for machine ${machine.name}:`,
+                `Error saving sequence for machine ${machine._id}:`,
                 updateError
               );
               this.generatingSequenceForMachineId = null;
@@ -1823,7 +1963,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error(
-          `Error generating sequence for machine ${machine.name}:`,
+          `Error generating sequence for machine ${machine._id}:`,
           error
         );
         this.generatingSequenceForMachineId = null;
@@ -1988,8 +2128,85 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     };
     this.searchTerm = '';
     this.filter.set('all');
+    this.clearSOSelection();
     this.page = 1;
     this.refresh();
+  }
+
+  // SO search and selection methods
+  onSOInputChange(): void {
+    const query = this.soSearchInput.trim();
+    if (!query) {
+      this.soSuggestions = [];
+      this.showSOSuggestions = false;
+      return;
+    }
+
+    this.showSOSuggestions = true;
+
+    // Search SOs by name, party_name, mobile_number, and category/subcategory names
+    this.soService.getActiveSOs().subscribe({
+      next: (response: any) => {
+        const sos: SO[] = response?.data || response || [];
+        const queryLower = query.toLowerCase();
+
+        const filtered = sos.filter(so => {
+          // Search in SO name
+          if (so.name?.toLowerCase().includes(queryLower)) return true;
+          // Search in party name
+          if (so.party_name?.toLowerCase().includes(queryLower)) return true;
+          // Search in mobile number
+          if (so.mobile_number?.includes(query)) return true;
+          // Search in category name
+          if (
+            typeof so.category_id === 'object' &&
+            so.category_id !== null &&
+            so.category_id.name?.toLowerCase().includes(queryLower)
+          )
+            return true;
+          // Search in subcategory name
+          if (
+            so.subcategory_id &&
+            typeof so.subcategory_id === 'object' &&
+            so.subcategory_id !== null &&
+            so.subcategory_id.name?.toLowerCase().includes(queryLower)
+          )
+            return true;
+          return false;
+        });
+
+        // Limit to 50 for performance
+        this.soSuggestions = filtered.slice(0, 50);
+      },
+      error: () => {
+        this.soSuggestions = [];
+      },
+    });
+  }
+
+  selectSO(so: SO): void {
+    this.selectedSO = so;
+    this.filters.so_id = so._id;
+    this.soSearchInput = so.name;
+    this.showSOSuggestions = false;
+    this.page = 1;
+    this.refresh();
+  }
+
+  clearSOSelection(): void {
+    this.selectedSO = null;
+    this.filters.so_id = undefined;
+    this.soSearchInput = '';
+    this.soSuggestions = [];
+    this.showSOSuggestions = false;
+    this.page = 1;
+    this.refresh();
+  }
+
+  hideSOSuggestions(): void {
+    setTimeout(() => {
+      this.showSOSuggestions = false;
+    }, 200);
   }
 
   // Load filter categories
@@ -2327,20 +2544,25 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
   // Load sequence config and generate suggestions
   loadSequenceConfigForEdit(machine: MachineRow): void {
+    if (!machine.so?.category_id) {
+      this.sequenceError = 'Machine must have an SO with a category';
+      return;
+    }
+
     const categoryId =
-      typeof machine.category_id === 'object'
-        ? (machine.category_id as any)?._id
-        : machine.category_id;
+      typeof machine.so.category_id === 'object'
+        ? machine.so.category_id._id
+        : machine.so.category_id;
 
     if (!categoryId) {
       this.sequenceError = 'Machine must have a category';
       return;
     }
 
-    const subcategoryId = machine.subcategory_id
-      ? typeof machine.subcategory_id === 'object'
-        ? (machine.subcategory_id as any)?._id
-        : machine.subcategory_id
+    const subcategoryId = machine.so.subcategory_id
+      ? typeof machine.so.subcategory_id === 'object'
+        ? machine.so.subcategory_id._id
+        : machine.so.subcategory_id
       : null;
 
     // Find config - first try subcategory-specific, then category-only
@@ -2407,14 +2629,14 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     const category = this.filterCategories.find(c => c._id === categoryId);
     const categoryName =
       category?.name ||
-      (typeof machine.category_id === 'object'
-        ? (machine.category_id as any)?.name
+      (typeof machine.so?.category_id === 'object'
+        ? machine.so.category_id?.name
         : 'CATEGORY');
     const categorySlug = categoryName.toUpperCase().replace(/\s+/g, '-');
 
-    const subcategoryName = machine.subcategory_id
-      ? typeof machine.subcategory_id === 'object'
-        ? (machine.subcategory_id as any)?.name
+    const subcategoryName = machine.so?.subcategory_id
+      ? typeof machine.so.subcategory_id === 'object'
+        ? machine.so.subcategory_id?.name
         : ''
       : '';
     const subcategorySlug = subcategoryName
@@ -2494,14 +2716,14 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
           );
           const categoryName =
             category?.name ||
-            (typeof machine.category_id === 'object'
-              ? (machine.category_id as any)?.name
+            (typeof machine.so?.category_id === 'object'
+              ? machine.so.category_id?.name
               : 'CATEGORY');
           const categorySlug = categoryName.toUpperCase().replace(/\s+/g, '-');
 
-          const subcategoryName = machine.subcategory_id
-            ? typeof machine.subcategory_id === 'object'
-              ? (machine.subcategory_id as any)?.name
+          const subcategoryName = machine.so?.subcategory_id
+            ? typeof machine.so.subcategory_id === 'object'
+              ? machine.so.subcategory_id?.name
               : ''
             : '';
           const subcategorySlug = subcategoryName
@@ -2534,14 +2756,15 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     machine: MachineRow,
     _config: SequenceConfig
   ): Promise<void> {
+    if (!machine.so?.category_id) return;
     const categoryId =
-      typeof machine.category_id === 'object'
-        ? (machine.category_id as any)?._id
-        : machine.category_id;
-    const subcategoryId = machine.subcategory_id
-      ? typeof machine.subcategory_id === 'object'
-        ? (machine.subcategory_id as any)?._id
-        : machine.subcategory_id
+      typeof machine.so.category_id === 'object'
+        ? machine.so.category_id._id
+        : machine.so.category_id;
+    const subcategoryId = machine.so.subcategory_id
+      ? typeof machine.so.subcategory_id === 'object'
+        ? machine.so.subcategory_id._id
+        : machine.so.subcategory_id
       : undefined;
 
     const suggestions: string[] = [];
@@ -2576,18 +2799,19 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   // Validate sequence format
   validateSequenceFormat(sequence: string): boolean {
     if (!this.sequenceFormat || !this.editingMachine) return false;
+    if (!this.editingMachine.so?.category_id) return false;
 
     const categoryId =
-      typeof this.editingMachine.category_id === 'object'
-        ? (this.editingMachine.category_id as any)?._id
-        : this.editingMachine.category_id;
+      typeof this.editingMachine.so.category_id === 'object'
+        ? this.editingMachine.so.category_id._id
+        : this.editingMachine.so.category_id;
 
     const category = this.filterCategories.find(c => c._id === categoryId);
     const categorySlug =
       category?.name?.toUpperCase().replace(/\s+/g, '-') || '[A-Z0-9-]+';
-    const subcategorySlug = this.editingMachine.subcategory_id
-      ? typeof this.editingMachine.subcategory_id === 'object'
-        ? (this.editingMachine.subcategory_id as any)?.name
+    const subcategorySlug = this.editingMachine.so?.subcategory_id
+      ? typeof this.editingMachine.so.subcategory_id === 'object'
+        ? this.editingMachine.so.subcategory_id?.name
             ?.toUpperCase()
             .replace(/\s+/g, '-')
         : ''

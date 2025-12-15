@@ -8,16 +8,33 @@ import { API_ENDPOINTS } from '../../../core/constants/api.constants';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { BaseApiService } from '../../../core/services/base-api.service';
+import { MachineService } from '../../../core/services/machine.service';
 import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
 
 interface MachineRow {
   _id: string;
-  name: string;
-  category?: { name: string } | string;
+  so_id: string; // Reference to SO
+  so?: {
+    _id: string;
+    name: string;
+    category_id?:
+      | {
+          _id: string;
+          name: string;
+        }
+      | string;
+    subcategory_id?:
+      | {
+          _id: string;
+          name: string;
+        }
+      | string
+      | null;
+    party_name?: string;
+    mobile_number?: string;
+  } | null; // Populated SO data
   is_approved: boolean;
-  party_name?: string;
   location?: string;
-  mobile_number?: string;
   machine_sequence?: string;
   documents?: Array<{
     name: string;
@@ -144,11 +161,15 @@ interface MachineRow {
                           -
                         </span>
                       </td>
-                      <td class="px-3 py-2">{{ m.name }}</td>
+                      <td class="px-3 py-2">
+                        {{ getSOName(m) }}
+                      </td>
                       <td class="px-3 py-2">{{ categoryName(m) }}</td>
-                      <td class="px-3 py-2">{{ m.party_name || '-' }}</td>
+                      <td class="px-3 py-2">{{ m.so?.party_name || '-' }}</td>
                       <td class="px-3 py-2">{{ m.location || '-' }}</td>
-                      <td class="px-3 py-2">{{ m.mobile_number || '-' }}</td>
+                      <td class="px-3 py-2">
+                        {{ m.so?.mobile_number || '-' }}
+                      </td>
                       <td class="px-3 py-2">
                         {{ m.createdAt | date: 'medium' }}
                       </td>
@@ -232,11 +253,13 @@ interface MachineRow {
                         -
                       </span>
                     </td>
-                    <td class="px-3 py-2">{{ m.name }}</td>
+                    <td class="px-3 py-2">
+                      {{ getSOName(m) }}
+                    </td>
                     <td class="px-3 py-2">{{ categoryName(m) }}</td>
-                    <td class="px-3 py-2">{{ m.party_name || '-' }}</td>
+                    <td class="px-3 py-2">{{ m.so?.party_name || '-' }}</td>
                     <td class="px-3 py-2">{{ m.location || '-' }}</td>
-                    <td class="px-3 py-2">{{ m.mobile_number || '-' }}</td>
+                    <td class="px-3 py-2">{{ m.so?.mobile_number || '-' }}</td>
                     <td class="px-3 py-2">
                       {{ m.createdAt | date: 'medium' }}
                     </td>
@@ -271,7 +294,8 @@ export class TechnicianDashboardComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private messageService: MessageService,
-    private baseApiService: BaseApiService
+    private baseApiService: BaseApiService,
+    private machineService: MachineService
   ) {}
 
   ngOnInit(): void {
@@ -281,18 +305,58 @@ export class TechnicianDashboardComponent implements OnInit {
 
   fetchRecent(): void {
     this.loading = true;
-    this.baseApiService
-      .get<any>(API_ENDPOINTS.MY_RECENT_MACHINES, { limit: 5 })
-      .subscribe({
-        next: res => {
-          const data = res.data || res;
-          this.machines = data.machines || data?.data?.machines || [];
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-        },
-      });
+    // Use MachineService to get machines with proper SO population
+    this.machineService.getAllMachines({ limit: 5, page: 1 }).subscribe({
+      next: (res: any) => {
+        const data = res?.data || res;
+        const machines = data.machines || data?.data?.machines || [];
+        // Map to MachineRow format with SO data
+        // Note: Backend populates so_id with the SO object, not a separate 'so' field
+        this.machines = machines.map((m: any) => {
+          // Extract SO data - so_id is populated as an object by the backend
+          const soIdValue = m.so_id;
+          let soData = null;
+          let soIdString = null;
+
+          // Check if so_id is a populated object or just an ID string
+          if (
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
+          ) {
+            // so_id is populated - extract the SO data
+            soIdString = soIdValue._id?.toString() || null;
+            soData = {
+              _id: soIdString,
+              name: soIdValue.name || null,
+              category_id: soIdValue.category_id || null,
+              subcategory_id: soIdValue.subcategory_id || null,
+              party_name: soIdValue.party_name || null,
+              mobile_number: soIdValue.mobile_number || null,
+            };
+          } else if (soIdValue && typeof soIdValue === 'string') {
+            // so_id is just a string ID (not populated)
+            soIdString = soIdValue;
+            soData = null;
+          }
+
+          return {
+            _id: m._id,
+            so_id: soIdString || null,
+            so: soData,
+            is_approved: m.is_approved || false,
+            location: m.location || null,
+            machine_sequence: m.machine_sequence || null,
+            documents: m.documents || [],
+            createdAt: m.createdAt || m.created_at || new Date().toISOString(),
+          };
+        });
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+      },
+    });
   }
 
   private checkCreatePermission(): void {
@@ -344,11 +408,18 @@ export class TechnicianDashboardComponent implements OnInit {
     this.createVisible = true;
   }
 
+  getSOName(m: MachineRow): string {
+    if (m.so?.name) return m.so.name;
+    if (m.so_id) return m.so_id;
+    return '-';
+  }
+
   categoryName(m: MachineRow): string {
-    const anyRef = m as any;
-    if (anyRef?.category?.name) return anyRef.category.name;
-    if (typeof anyRef?.category === 'string') return anyRef.category;
-    if (anyRef?.category_id?.name) return anyRef.category_id.name;
+    if (!m.so?.category_id) return '-';
+    if (typeof m.so.category_id === 'string') return m.so.category_id;
+    if (typeof m.so.category_id === 'object' && m.so.category_id !== null) {
+      return (m.so.category_id as { name?: string }).name || '-';
+    }
     return '-';
   }
 

@@ -1,6 +1,15 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, NavigationEnd } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 // Services
 import { AuthService } from '../../../../../core/services/auth.service';
@@ -21,7 +30,7 @@ interface SidebarItem {
   templateUrl: './admin-sidebar.component.html',
   styleUrls: ['./admin-sidebar.component.css'],
 })
-export class AdminSidebarComponent implements OnInit {
+export class AdminSidebarComponent implements OnInit, OnDestroy {
   @Input() collapsed = false;
   @Output() collapseChange = new EventEmitter<boolean>();
 
@@ -35,6 +44,9 @@ export class AdminSidebarComponent implements OnInit {
 
   // Track expanded menu items
   expandedItems: Set<string> = new Set();
+
+  // Router subscription for route changes
+  private routerSubscription?: Subscription;
 
   // Sidebar navigation items
   sidebarItems: SidebarItem[] = [
@@ -146,6 +158,50 @@ export class AdminSidebarComponent implements OnInit {
   ngOnInit() {
     this.loadCurrentUser();
     this.loadPendingApprovalsCount();
+    this.initializeExpandedItems();
+
+    // Subscribe to route changes to update expanded items
+    this.routerSubscription = this.router.events
+      .pipe(
+        filter(
+          (event): event is NavigationEnd => event instanceof NavigationEnd
+        )
+      )
+      .subscribe(() => {
+        this.initializeExpandedItems();
+      });
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
+  }
+
+  /**
+   * Initialize expanded menu items based on current route
+   */
+  private initializeExpandedItems(): void {
+    // Check each sidebar item to see if current route matches any of its children
+    this.sidebarItems.forEach(item => {
+      if (item.children && item.children.length > 0) {
+        // Check if current route matches any child route
+        const hasActiveChild = item.children.some(child =>
+          this.isActiveRoute(child.route)
+        );
+
+        // Also check if current route matches the parent route
+        const isParentActive = this.isActiveRoute(item.route);
+
+        // If any child is active or parent is active, expand the menu
+        if (hasActiveChild || isParentActive) {
+          this.expandedItems.add(item.route);
+        } else {
+          // Optionally collapse if no child is active
+          // this.expandedItems.delete(item.route);
+        }
+      }
+    });
   }
 
   /**
@@ -208,6 +264,16 @@ export class AdminSidebarComponent implements OnInit {
   }
 
   /**
+   * Check if any child route of an item is active
+   */
+  hasActiveChild(item: SidebarItem): boolean {
+    if (!item.children || item.children.length === 0) {
+      return false;
+    }
+    return item.children.some(child => this.isActiveRoute(child.route));
+  }
+
+  /**
    * Handle logout
    */
   logout() {
@@ -265,7 +331,12 @@ export class AdminSidebarComponent implements OnInit {
   /**
    * Handle menu item click
    */
-  onMenuItemClick(item: SidebarItem): void {
+  onMenuItemClick(item: SidebarItem, event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     if (item.children && item.children.length > 0) {
       // Toggle expand/collapse for items with children
       this.toggleExpand(item);

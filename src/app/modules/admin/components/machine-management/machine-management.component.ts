@@ -18,6 +18,8 @@ import { ListFiltersComponent } from '../shared/list/list-filters.component';
 import { ListTableShellComponent } from '../shared/list/list-table-shell.component';
 import { MachineService } from '../../../../core/services/machine.service';
 import { Machine } from '../../../../core/models/machine.model';
+import { SOService } from '../../../../core/services/so.service';
+import { SO } from '../../../../core/models/so.model';
 import { AdminSidebarComponent } from '../shared/admin-sidebar/admin-sidebar.component';
 import { TablePaginationComponent } from '../user-management/table-pagination.component';
 import { CategoryService } from '../../../../core/services/category.service';
@@ -312,7 +314,6 @@ import { firstValueFrom } from 'rxjs';
                 <option value="party_name">Party Name</option>
                 <option value="machine_sequence">Sequence</option>
                 <option value="location">Location</option>
-                <option value="mobile_number">Mobile Number</option>
                 <option value="created_by">Created By</option>
               </select>
               <!-- Sort Order -->
@@ -594,30 +595,30 @@ import { firstValueFrom } from 'rxjs';
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900">
-                      {{ m.name }}
+                      {{ getSOName(m) }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ m.category_id.name }}
+                      {{ getCategoryName(m) }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span
-                      *ngIf="m.subcategory_id"
+                      *ngIf="m.so?.subcategory_id"
                       class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
                     >
-                      {{ getSubcategoryDisplayName(m.subcategory_id) }}
+                      {{ m.so?.subcategory_id?.name }}
                     </span>
                     <span
-                      *ngIf="!m.subcategory_id"
+                      *ngIf="!m.so?.subcategory_id"
                       class="text-gray-400 text-sm"
                       >-</span
                     >
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ m.party_name || '-' }}
+                      {{ m.so?.party_name || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -625,11 +626,13 @@ import { firstValueFrom } from 'rxjs';
                       {{ m.location || '-' }}
                     </div>
                   </td>
+                  <!-- Mobile Column -->
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ m.mobile_number || '-' }}
+                      {{ m.so?.mobile_number || '-' }}
                     </div>
                   </td>
+                  <!-- Dispatch Date Column -->
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
                       {{
@@ -639,18 +642,25 @@ import { firstValueFrom } from 'rxjs';
                       }}
                     </div>
                   </td>
+                  <!-- Created By Column -->
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ m.created_by.username }}
+                      {{
+                        m.created_by && typeof m.created_by === 'object'
+                          ? m.created_by.username || '-'
+                          : '-'
+                      }}
                     </div>
                   </td>
+                  <!-- Docs Column -->
                   <td class="px-4 py-3 whitespace-nowrap text-center">
                     <span
                       class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                     >
-                      {{ m.documents.length || 0 }}
+                      {{ (m.documents && m.documents.length) || 0 }}
                     </span>
                   </td>
+                  <!-- Approved Column -->
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span
                       class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
@@ -662,6 +672,7 @@ import { firstValueFrom } from 'rxjs';
                       {{ m.is_approved ? 'Yes' : 'No' }}
                     </span>
                   </td>
+                  <!-- Actions Column -->
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="flex items-center gap-2">
                       <button
@@ -758,114 +769,135 @@ import { firstValueFrom } from 'rxjs';
                   </div>
 
                   <div class="space-y-1">
-                    <label class="text-sm">Name</label>
-                    <input
-                      type="text"
-                      class="w-full border rounded px-3 py-2"
-                      [class.border-red-500]="
-                        form.controls['name'].touched &&
-                        form.controls['name'].invalid
-                      "
-                      formControlName="name"
-                      placeholder="Enter machine name"
-                      (blur)="form.controls['name'].markAsTouched()"
-                      (input)="form.controls['name'].markAsTouched()"
-                    />
+                    <label class="text-sm">SO (Sales Order) *</label>
+                    <div class="relative">
+                      <input
+                        type="text"
+                        class="w-full border rounded px-3 py-2"
+                        [class.border-red-500]="
+                          form.controls['so_id'].touched &&
+                          form.controls['so_id'].invalid
+                        "
+                        [(ngModel)]="soSearchInput"
+                        (input)="onSOInputChange()"
+                        (focus)="onSOInputFocus()"
+                        (blur)="hideSOSuggestions()"
+                        placeholder="Search SO by name, party name, mobile, or category..."
+                        [ngModelOptions]="{ standalone: true }"
+                      />
+                      <button
+                        *ngIf="selectedSO"
+                        type="button"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:bg-red-50 rounded"
+                        (click)="clearSOSelection(); $event.stopPropagation()"
+                        title="Clear selection"
+                      >
+                        <i class="pi pi-times text-xs"></i>
+                      </button>
+                      <!-- SO Suggestions Dropdown -->
+                      <div
+                        *ngIf="showSOSuggestions"
+                        class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                      >
+                        <ng-container *ngIf="soSuggestions.length > 0">
+                          <div
+                            *ngFor="let so of soSuggestions"
+                            class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                            (mousedown)="selectSO(so)"
+                          >
+                            <div class="font-medium">{{ so.name }}</div>
+                            <div class="text-xs text-neutral-600">
+                              Party: {{ so.party_name }} | Category:
+                              {{
+                                typeof so.category_id === 'object' &&
+                                so.category_id !== null
+                                  ? so.category_id.name
+                                  : 'N/A'
+                              }}
+                              <span
+                                *ngIf="
+                                  so.subcategory_id &&
+                                  typeof so.subcategory_id === 'object' &&
+                                  so.subcategory_id !== null
+                                "
+                              >
+                                | Subcategory: {{ so.subcategory_id.name }}
+                              </span>
+                            </div>
+                          </div>
+                        </ng-container>
+                        <div
+                          *ngIf="
+                            soSuggestions.length === 0 && soSearchInput.trim()
+                          "
+                          class="px-3 py-4 text-sm text-neutral-500 text-center"
+                        >
+                          No SOs found matching "{{ soSearchInput }}"
+                        </div>
+                      </div>
+                    </div>
                     <div
                       class="text-xs text-error"
                       *ngIf="
-                        form.controls['name'].touched &&
-                        form.controls['name'].invalid
+                        form.controls['so_id'].touched &&
+                        form.controls['so_id'].invalid
                       "
                     >
-                      <span *ngIf="form.controls['name'].errors?.['required']">
-                        Machine name is required
+                      <span *ngIf="form.controls['so_id'].errors?.['required']">
+                        SO is required
                       </span>
-                      <span *ngIf="form.controls['name'].errors?.['minlength']">
-                        Machine name must be at least 2 characters long
-                      </span>
-                      <span *ngIf="form.controls['name'].errors?.['maxlength']">
-                        Machine name cannot exceed 100 characters
-                      </span>
-                      <span *ngIf="form.controls['name'].errors?.['pattern']">
-                        Machine name can only contain letters, numbers, spaces,
-                        and common punctuation
+                      <span *ngIf="form.controls['so_id'].errors?.['pattern']">
+                        Invalid SO ID format
                       </span>
                     </div>
-                  </div>
-
-                  <div class="space-y-1">
-                    <label class="text-sm">Category</label>
-                    <select
-                      class="w-full border rounded px-3 py-2"
-                      [class.border-red-500]="
-                        form.controls['category_id'].touched &&
-                        form.controls['category_id'].invalid
-                      "
-                      formControlName="category_id"
-                      (change)="onCategoryChange()"
-                      (blur)="form.controls['category_id'].markAsTouched()"
-                    >
-                      <option value="" disabled>Select category</option>
-                      <option *ngFor="let c of categories" [value]="c._id">
-                        {{ c.name }}
-                      </option>
-                    </select>
+                    <!-- Selected SO Details Display -->
                     <div
-                      class="text-xs text-error"
-                      *ngIf="
-                        form.controls['category_id'].touched &&
-                        form.controls['category_id'].invalid
-                      "
+                      *ngIf="selectedSO"
+                      class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md"
                     >
-                      <span
-                        *ngIf="
-                          form.controls['category_id'].errors?.['required']
-                        "
-                      >
-                        Category ID is required
-                      </span>
-                      <span
-                        *ngIf="form.controls['category_id'].errors?.['pattern']"
-                      >
-                        Invalid category ID format
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="space-y-1" *ngIf="subcategories.length > 0">
-                    <label class="text-sm">Subcategory (Optional)</label>
-                    <select
-                      class="w-full border rounded px-3 py-2"
-                      [class.border-red-500]="
-                        form.controls['subcategory_id'].touched &&
-                        form.controls['subcategory_id'].invalid &&
-                        form.controls['subcategory_id'].value
-                      "
-                      formControlName="subcategory_id"
-                      (change)="onSubcategoryChange()"
-                      (blur)="form.controls['subcategory_id'].markAsTouched()"
-                    >
-                      <option value="">No subcategory</option>
-                      <option *ngFor="let sc of subcategories" [value]="sc._id">
-                        {{ sc.name }}
-                      </option>
-                    </select>
-                    <div
-                      class="text-xs text-error"
-                      *ngIf="
-                        form.controls['subcategory_id'].touched &&
-                        form.controls['subcategory_id'].invalid &&
-                        form.controls['subcategory_id'].value
-                      "
-                    >
-                      <span
-                        *ngIf="
-                          form.controls['subcategory_id'].errors?.['pattern']
-                        "
-                      >
-                        Invalid subcategory ID format
-                      </span>
+                      <div class="text-sm font-medium text-blue-900 mb-2">
+                        Selected SO Details:
+                      </div>
+                      <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span class="font-medium">Name:</span>
+                          {{ selectedSO.name }}
+                        </div>
+                        <div>
+                          <span class="font-medium">Party:</span>
+                          {{ selectedSO.party_name }}
+                        </div>
+                        <div>
+                          <span class="font-medium">Category:</span>
+                          {{
+                            selectedSO.category_id &&
+                            typeof selectedSO.category_id === 'object'
+                              ? selectedSO.category_id.name
+                              : 'N/A'
+                          }}
+                        </div>
+                        <div>
+                          <span class="font-medium">Subcategory:</span>
+                          {{ selectedSO.subcategory_id?.name || 'N/A' }}
+                        </div>
+                        <div>
+                          <span class="font-medium">Mobile:</span>
+                          {{ selectedSO.mobile_number }}
+                        </div>
+                        <div>
+                          <span class="font-medium">Status:</span>
+                          <span
+                            class="px-2 py-0.5 rounded text-xs"
+                            [ngClass]="{
+                              'bg-green-100 text-green-800':
+                                selectedSO.is_active,
+                              'bg-red-100 text-red-800': !selectedSO.is_active,
+                            }"
+                          >
+                            {{ selectedSO.is_active ? 'Active' : 'Inactive' }}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -873,13 +905,11 @@ import { firstValueFrom } from 'rxjs';
                     <div class="flex items-center justify-between">
                       <label class="text-sm">Machine Sequence</label>
                       <button
+                        *ngIf="selectedSO"
                         type="button"
                         class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         (click)="openSequenceGenerator()"
-                        [disabled]="
-                          !form.get('category_id')?.value ||
-                          isGeneratingSequence
-                        "
+                        [disabled]="isGeneratingSequence"
                       >
                         <i
                           *ngIf="isGeneratingSequence"
@@ -896,76 +926,18 @@ import { firstValueFrom } from 'rxjs';
                     </div>
                     <input
                       type="text"
-                      class="w-full border rounded px-3 py-2"
+                      class="w-full border rounded px-3 py-2 bg-gray-50"
                       formControlName="machine_sequence"
                       placeholder="Machine sequence will be generated automatically"
                       readonly
                     />
                     <div class="text-xs text-gray-500">
-                      <span
-                        *ngIf="
-                          form.get('category_id')?.value &&
-                          hasSequenceConfig(form.get('category_id')?.value)
-                        "
-                      >
-                        ✓ Sequence configuration available for this category
+                      <span *ngIf="selectedSO">
+                        Sequence will be generated based on selected SO's
+                        category
                       </span>
-                      <span
-                        *ngIf="
-                          form.get('category_id')?.value &&
-                          !hasSequenceConfig(form.get('category_id')?.value)
-                        "
-                      >
-                        ⚠ No sequence configuration found for this category
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="space-y-1">
-                    <label class="text-sm">Party Name</label>
-                    <input
-                      type="text"
-                      class="w-full border rounded px-3 py-2"
-                      [class.border-red-500]="
-                        form.controls['party_name'].touched &&
-                        form.controls['party_name'].invalid
-                      "
-                      formControlName="party_name"
-                      placeholder="Enter party/company name"
-                      (blur)="form.controls['party_name'].markAsTouched()"
-                      (input)="form.controls['party_name'].markAsTouched()"
-                    />
-                    <div
-                      class="text-xs text-error"
-                      *ngIf="
-                        form.controls['party_name'].touched &&
-                        form.controls['party_name'].invalid
-                      "
-                    >
-                      <span
-                        *ngIf="form.controls['party_name'].errors?.['required']"
-                      >
-                        Party name is required
-                      </span>
-                      <span
-                        *ngIf="
-                          form.controls['party_name'].errors?.['minlength']
-                        "
-                      >
-                        Party name must be at least 2 characters long
-                      </span>
-                      <span
-                        *ngIf="
-                          form.controls['party_name'].errors?.['maxlength']
-                        "
-                      >
-                        Party name cannot exceed 100 characters
-                      </span>
-                      <span
-                        *ngIf="form.controls['party_name'].errors?.['pattern']"
-                      >
-                        Party name can only contain letters, numbers, spaces,
-                        and common punctuation
+                      <span *ngIf="!selectedSO">
+                        Select an SO to generate sequence
                       </span>
                     </div>
                   </div>
@@ -1005,59 +977,6 @@ import { firstValueFrom } from 'rxjs';
                         *ngIf="form.controls['location'].errors?.['maxlength']"
                       >
                         Location cannot exceed 100 characters
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="space-y-1">
-                    <label class="text-sm">Mobile Number</label>
-                    <input
-                      type="tel"
-                      class="w-full border rounded px-3 py-2"
-                      [class.border-red-500]="
-                        form.controls['mobile_number'].touched &&
-                        form.controls['mobile_number'].invalid
-                      "
-                      formControlName="mobile_number"
-                      placeholder="Enter mobile number"
-                      (blur)="form.controls['mobile_number'].markAsTouched()"
-                      (input)="form.controls['mobile_number'].markAsTouched()"
-                    />
-                    <div
-                      class="text-xs text-error"
-                      *ngIf="
-                        form.controls['mobile_number'].touched &&
-                        form.controls['mobile_number'].invalid
-                      "
-                    >
-                      <span
-                        *ngIf="
-                          form.controls['mobile_number'].errors?.['required']
-                        "
-                      >
-                        Mobile number is required
-                      </span>
-                      <span
-                        *ngIf="
-                          form.controls['mobile_number'].errors?.['minlength']
-                        "
-                      >
-                        Mobile number must be at least 10 characters long
-                      </span>
-                      <span
-                        *ngIf="
-                          form.controls['mobile_number'].errors?.['maxlength']
-                        "
-                      >
-                        Mobile number cannot exceed 20 characters
-                      </span>
-                      <span
-                        *ngIf="
-                          form.controls['mobile_number'].errors?.['pattern']
-                        "
-                      >
-                        Mobile number can only contain numbers, spaces, hyphens,
-                        parentheses, and optional + prefix
                       </span>
                     </div>
                   </div>
@@ -1433,27 +1352,65 @@ import { firstValueFrom } from 'rxjs';
               </div>
               <div class="flex-1 overflow-y-auto p-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- SO Information Section -->
                   <div class="md:col-span-2">
-                    <span class="block text-xs text-text-muted mb-1">Name</span>
-                    {{ selected?.name }}
+                    <h4
+                      class="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b"
+                    >
+                      SO Information
+                    </h4>
+                  </div>
+                  <div class="md:col-span-2">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >SO Name</span
+                    >
+                    {{ selected?.so?.name || selected?.so_id || '-' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Category</span
+                    >
+                    {{ selected?.so?.category_id?.name || '-' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Subcategory</span
+                    >
+                    <span *ngIf="selected?.so?.subcategory_id" class="text-sm">
+                      {{ selected?.so?.subcategory_id?.name }}
+                    </span>
+                    <span
+                      *ngIf="!selected?.so?.subcategory_id"
+                      class="text-gray-400 text-sm"
+                      >-</span
+                    >
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Party Name</span
                     >
-                    {{ selected?.party_name || '-' }}
+                    {{ selected?.so?.party_name || '-' }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Mobile Number</span
+                    >
+                    {{ selected?.so?.mobile_number || '-' }}
+                  </div>
+
+                  <!-- Machine Information Section -->
+                  <div class="md:col-span-2 mt-4">
+                    <h4
+                      class="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b"
+                    >
+                      Machine Information
+                    </h4>
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Location</span
                     >
                     {{ selected?.location || '-' }}
-                  </div>
-                  <div class="md:col-span-1">
-                    <span class="block text-xs text-text-muted mb-1"
-                      >Mobile Number</span
-                    >
-                    {{ selected?.mobile_number || '-' }}
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
@@ -1464,29 +1421,6 @@ import { firstValueFrom } from 'rxjs';
                         ? (selected?.dispatch_date | date: 'dd-MM-yyyy')
                         : '-'
                     }}
-                  </div>
-                  <div class="md:col-span-1">
-                    <span class="block text-xs text-text-muted mb-1"
-                      >Category</span
-                    >
-                    {{ selected?.category_id?.name || selected?.category_id }}
-                  </div>
-                  <div class="md:col-span-1">
-                    <span class="block text-xs text-text-muted mb-1"
-                      >Subcategory</span
-                    >
-                    <span *ngIf="selected?.subcategory_id" class="text-sm">
-                      {{
-                        selected && selected.subcategory_id
-                          ? getSubcategoryDisplayName(selected.subcategory_id)
-                          : '-'
-                      }}
-                    </span>
-                    <span
-                      *ngIf="!selected?.subcategory_id"
-                      class="text-gray-400 text-sm"
-                      >-</span
-                    >
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
@@ -1723,7 +1657,9 @@ import { firstValueFrom } from 'rxjs';
                 </button>
               </div>
               <div class="text-text">
-                Are you sure you want to delete "{{ selected?.name }}"?
+                Are you sure you want to delete machine "{{
+                  selected?.so?.name || selected?.so_id || 'this machine'
+                }}"?
               </div>
               <div class="flex items-center justify-end gap-2 mt-4">
                 <button
@@ -1851,7 +1787,7 @@ import { firstValueFrom } from 'rxjs';
                     *ngFor="let m of getSelectedMachines()"
                     class="text-sm text-gray-700 py-1"
                   >
-                    • {{ m.name }}
+                    • {{ getSOName(m) || 'Unknown' }}
                   </div>
                 </div>
               </div>
@@ -1907,7 +1843,8 @@ import { firstValueFrom } from 'rxjs';
                     selectedMachineForRemoveSequence?.machine_sequence
                   }}</span
                 >" from machine "<span class="font-medium">{{
-                  selectedMachineForRemoveSequence?.name
+                  selectedMachineForRemoveSequence?.so?.name ||
+                    selectedMachineForRemoveSequence?._id
                 }}</span
                 >"?
               </div>
@@ -1948,7 +1885,8 @@ import { firstValueFrom } from 'rxjs';
                 class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
               >
                 <h3 class="text-lg font-semibold text-text">
-                  Machine Documents - {{ selected?.name }}
+                  Machine Documents -
+                  {{ selected?.so?.name || selected?.so_id || 'Machine' }}
                 </h3>
                 <button
                   class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
@@ -2056,7 +1994,12 @@ import { firstValueFrom } from 'rxjs';
           >
             <div class="mb-4">
               <label class="block text-sm font-medium mb-2"
-                >Machine: {{ selectedMachineForSequence?.name }}</label
+                >Machine:
+                {{
+                  selectedMachineForSequence
+                    ? getSOName(selectedMachineForSequence)
+                    : '-'
+                }}</label
               >
               <input
                 type="text"
@@ -2111,7 +2054,11 @@ import { firstValueFrom } from 'rxjs';
                 >First Machine</label
               >
               <div class="p-3 bg-gray-50 rounded-md">
-                <div class="font-medium">{{ firstMachineForSwap?.name }}</div>
+                <div class="font-medium">
+                  {{
+                    firstMachineForSwap?.so?.name || firstMachineForSwap?._id
+                  }}
+                </div>
                 <div class="text-sm text-gray-600">
                   Current Sequence:
                   <span class="font-mono">{{
@@ -2139,7 +2086,7 @@ import { firstValueFrom } from 'rxjs';
                   [value]="m._id"
                   [disabled]="m._id === firstMachineForSwap?._id"
                 >
-                  {{ m.name }}
+                  {{ getSOName(m) || 'Unknown' }}
                   {{
                     m.machine_sequence ? ' (' + m.machine_sequence + ')' : ''
                   }}
@@ -2159,7 +2106,13 @@ import { firstValueFrom } from 'rxjs';
               *ngIf="secondMachineForSwap"
               class="mb-4 p-3 bg-gray-50 rounded-md"
             >
-              <div class="font-medium">{{ secondMachineForSwap.name }}</div>
+              <div class="font-medium">
+                {{
+                  secondMachineForSwap.so?.name ||
+                    secondMachineForSwap.so_id ||
+                    'Unknown'
+                }}
+              </div>
               <div class="text-sm text-gray-600">
                 Current Sequence:
                 <span class="font-mono">{{
@@ -2248,7 +2201,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       | 'party_name'
       | 'machine_sequence'
       | 'location'
-      | 'mobile_number'
       | 'created_by';
     sortOrder?: 'asc' | 'desc';
   } = {
@@ -2361,8 +2313,16 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   // ViewChild for document input
   @ViewChild('documentInput') documentInput!: ElementRef<HTMLInputElement>;
 
+  // SO Management
+  activeSOs: SO[] = [];
+  selectedSO: SO | null = null;
+  soSearchInput = '';
+  showSOSuggestions = false;
+  soSuggestions: SO[] = [];
+
   constructor(
     private machineService: MachineService,
+    private soService: SOService,
     private fb: FormBuilder,
     private categoryService: CategoryService,
     private exportService: ExportService,
@@ -2372,27 +2332,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     private loaderService: LoaderService
   ) {
     this.form = this.fb.group({
-      name: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
-        ],
-      ],
-      category_id: [
+      so_id: [
         '',
         [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
-      ],
-      party_name: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-          Validators.pattern(/^[a-zA-Z0-9\s\-_&().,/]+$/),
-        ],
       ],
       location: [
         '',
@@ -2402,19 +2344,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           Validators.maxLength(100),
         ],
       ],
-      mobile_number: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(10),
-          Validators.maxLength(20),
-          Validators.pattern(/^[+]?[0-9\s\-()]+$/),
-        ],
-      ],
       dispatch_date: [''],
       images: [null],
-      machine_sequence: ['', [Validators.maxLength(50)]],
-      subcategory_id: ['', [this.subcategoryIdValidator]],
+      machine_sequence: ['', [Validators.maxLength(50)]], // Display only, auto-generated
       is_approved: [false],
     });
 
@@ -2458,6 +2390,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.loadCategories();
     this.loadFilterCategories();
     this.loadSequenceConfigs();
+    this.loadActiveSOs();
     // Debounce search input
     const s = this.searchInput$
       .pipe(debounceTime(300), distinctUntilChanged())
@@ -2777,13 +2710,49 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         party_name: this.filters.party_name,
         machine_sequence: this.filters.machine_sequence,
         location: this.filters.location,
-        mobile_number: this.filters.mobile_number,
         sortBy: this.filters.sortBy,
         sortOrder: this.filters.sortOrder,
       })
       .subscribe({
         next: res => {
-          this.machines = res.data.machines;
+          const machines = res.data.machines || [];
+          // Map machines and properly extract SO data
+          // Note: Backend populates so_id with the SO object, not a separate 'so' field
+          this.machines = machines.map((m: any) => {
+            // Extract SO data - so_id is populated as an object by the backend
+            const soIdValue = m.so_id;
+            let soData = null;
+            let soIdString = null;
+
+            // Check if so_id is a populated object or just an ID string
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              // so_id is populated - extract the SO data
+              soIdString = soIdValue._id?.toString() || null;
+              soData = {
+                _id: soIdString,
+                name: soIdValue.name || null,
+                category_id: soIdValue.category_id || null,
+                subcategory_id: soIdValue.subcategory_id || null,
+                party_name: soIdValue.party_name || null,
+                mobile_number: soIdValue.mobile_number || null,
+              };
+            } else if (soIdValue && typeof soIdValue === 'string') {
+              // so_id is just a string ID (not populated)
+              soIdString = soIdValue;
+              soData = null;
+            }
+
+            return {
+              ...m,
+              _id: m._id,
+              so_id: soIdString || null,
+              so: soData,
+            };
+          });
           // Extract metadata keys for autocomplete
           this.extractMetadataKeys(this.machines);
           this.total = res.data.total;
@@ -2830,13 +2799,16 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.existingDocuments = [];
     this.removedDocuments = [];
     this.removedImages = [];
-    this.subcategories = [];
+    this.selectedSO = null;
+    this.soSearchInput = '';
+    this.showSOSuggestions = false;
     this.isDragging = false;
     this.isDocumentDragging = false;
     this.metadataText = '';
     this.metadataError = null;
     this.metadataEntries = [{ key: '', value: '' }];
     this.form.patchValue({ is_approved: false });
+    this.loadActiveSOs();
   }
 
   openView(machine: Machine): void {
@@ -2852,28 +2824,66 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     const id = (machine?._id as string) || '';
     const applyData = (m: any) => {
       this.selected = m;
+
+      // Extract SO data - handle both populated object and string ID
+      const soIdValue = m.so_id;
+      let soId = '';
+      let soData: SO | null = null;
+
+      if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+        // so_id is populated - extract the SO data
+        soId = soIdValue._id?.toString() || '';
+        soData = {
+          _id: soId,
+          name: soIdValue.name || '',
+          category_id: soIdValue.category_id || null,
+          subcategory_id: soIdValue.subcategory_id || null,
+          party_name: soIdValue.party_name || '',
+          mobile_number: soIdValue.mobile_number || '',
+          documents: soIdValue.documents || [],
+          description: soIdValue.description || '',
+          is_active: soIdValue.is_active !== false,
+          created_by: soIdValue.created_by || null,
+          updatedBy: soIdValue.updatedBy || null,
+          createdAt: soIdValue.createdAt || '',
+          updatedAt: soIdValue.updatedAt || '',
+        };
+        this.selectedSO = soData;
+        this.soSearchInput = soData.name || '';
+      } else if (soIdValue && typeof soIdValue === 'string') {
+        // so_id is just a string ID (not populated)
+        soId = soIdValue;
+        // Load SO details if not populated
+        this.soService.getSOById(soId).subscribe({
+          next: res => {
+            if (res.success || res.data) {
+              const so = res.data || (res as any);
+              this.selectedSO = so;
+              this.soSearchInput = so.name || '';
+            }
+          },
+          error: () => {
+            this.selectedSO = null;
+            this.soSearchInput = '';
+          },
+        });
+      } else {
+        this.selectedSO = null;
+        this.soSearchInput = '';
+      }
+
       this.form.patchValue({
-        name: m.name,
-        category_id:
-          typeof m.category_id === 'string'
-            ? (m.category_id as unknown as string)
-            : (m.category_id as any)?._id,
-        party_name: m.party_name || '',
+        so_id: soId,
         location: m.location || '',
-        mobile_number: m.mobile_number || '',
         dispatch_date: m.dispatch_date
           ? typeof m.dispatch_date === 'string'
             ? m.dispatch_date.split('T')[0]
             : new Date(m.dispatch_date).toISOString().split('T')[0]
           : '',
         machine_sequence: m.machine_sequence || '',
-        subcategory_id: m.subcategory_id
-          ? typeof m.subcategory_id === 'string'
-            ? m.subcategory_id
-            : (m.subcategory_id as any)?._id || ''
-          : '',
         is_approved: !!m.is_approved,
       });
+
       // Reset client-side selections
       this.previewImages = [];
       this.selectedFiles = [];
@@ -2884,17 +2894,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       // Load existing files
       this.existingImages = m.images || [];
       this.existingDocuments = m.documents || [];
-
-      // Load subcategories for the selected category
-      if (m.category_id) {
-        const categoryId =
-          typeof m.category_id === 'string'
-            ? m.category_id
-            : (m.category_id as any)?._id;
-        if (categoryId) {
-          this.loadSubcategories(categoryId);
-        }
-      }
       // Pre-fill metadata entries
       try {
         const meta =
@@ -3071,42 +3070,10 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.submitting = true;
 
     // Extract and sanitize form values
-    const name = (this.form.value.name || '').trim();
-    const category_id = (this.form.value.category_id || '').trim();
-    const party_name = (this.form.value.party_name || '').trim();
+    const so_id = (this.form.value.so_id || '').trim();
     const location = (this.form.value.location || '').trim();
-    const mobile_number = (this.form.value.mobile_number || '').trim();
     const dispatch_date = this.form.value.dispatch_date || '';
     const machine_sequence = (this.form.value.machine_sequence || '').trim();
-    // Handle subcategory_id: extract ID if it's an object, or use empty string if invalid
-    let subcategory_id = '';
-    const subcategoryValue = this.form.value.subcategory_id;
-    if (subcategoryValue) {
-      if (typeof subcategoryValue === 'string') {
-        subcategory_id = subcategoryValue.trim();
-      } else if (
-        typeof subcategoryValue === 'object' &&
-        subcategoryValue?._id
-      ) {
-        subcategory_id = String(subcategoryValue._id).trim();
-      }
-    }
-    // Validate subcategory_id format if it has a value (empty string is allowed)
-    if (
-      subcategory_id &&
-      subcategory_id.trim() !== '' &&
-      !/^[0-9a-fA-F]{24}$/.test(subcategory_id)
-    ) {
-      this.submitting = false;
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Validation Error',
-        detail: 'Invalid subcategory ID format',
-      });
-      this.form.get('subcategory_id')?.setErrors({ pattern: true });
-      this.form.get('subcategory_id')?.markAsTouched();
-      return;
-    }
     // Build metadata object from dynamic rows
     const metadataEntries = this.metadataEntries.filter(
       e => (e.key || '').trim().length > 0
@@ -3123,16 +3090,10 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
       // Check if only is_approved changed and no other fields have changes
       // Compare form values with original machine values
-      const originalCategoryId =
-        typeof this.selected.category_id === 'string'
-          ? this.selected.category_id
-          : this.selected.category_id?._id || '';
-
-      const originalSubcategoryId = this.selected.subcategory_id
-        ? typeof this.selected.subcategory_id === 'string'
-          ? this.selected.subcategory_id
-          : (this.selected.subcategory_id as any)?._id || ''
-        : '';
+      const originalSOId =
+        typeof this.selected.so_id === 'string'
+          ? this.selected.so_id
+          : (this.selected.so_id as any)?._id || '';
 
       const originalDispatchDate = this.selected.dispatch_date
         ? typeof this.selected.dispatch_date === 'string'
@@ -3147,14 +3108,10 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         this.removedImages.length > 0 ||
         JSON.stringify(metadata) !==
           JSON.stringify(this.selected.metadata || {}) ||
-        name !== (this.selected.name || '') ||
-        category_id !== originalCategoryId ||
-        party_name !== (this.selected.party_name || '') ||
+        so_id !== originalSOId ||
         location !== (this.selected.location || '') ||
-        mobile_number !== (this.selected.mobile_number || '') ||
         dispatch_date !== originalDispatchDate ||
-        machine_sequence !== (this.selected.machine_sequence || '') ||
-        subcategory_id !== originalSubcategoryId;
+        machine_sequence !== (this.selected.machine_sequence || '');
 
       const finalize = () => {
         this.submitting = false;
@@ -3199,11 +3156,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
       // Prepare the update payload
       const updatePayload: any = {
-        name,
-        category_id,
-        party_name,
         location,
-        mobile_number,
         dispatch_date: dispatch_date || undefined, // Only include if not empty
         machine_sequence: machine_sequence || undefined, // Only include if not empty
         images: this.selectedFiles, // Only new files for upload
@@ -3213,12 +3166,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         removedImages: this.removedImages, // Images to be removed
       };
 
-      // Only include subcategory_id if it has a valid value (empty string is allowed by backend)
-      if (subcategory_id) {
-        updatePayload.subcategory_id = subcategory_id;
-      } else {
-        // Send empty string to clear subcategory (backend allows this)
-        updatePayload.subcategory_id = '';
+      // Only include so_id if it changed
+      if (so_id && so_id !== originalSOId) {
+        updatePayload.so_id = so_id;
       }
 
       this.machineService
@@ -3272,23 +3222,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     } else {
       // Prepare the create payload
       const createPayload: any = {
-        name,
-        category_id,
-        party_name,
+        so_id,
         location,
-        mobile_number,
         dispatch_date: dispatch_date || undefined, // Only include if not empty
-        machine_sequence,
-        subcategory_id,
         images: this.selectedFiles,
         documents: this.selectedDocuments,
         metadata: metadata, // Always include metadata (empty object is valid for new machines)
       };
-
-      // Only include subcategory_id if it has a valid value
-      if (subcategory_id) {
-        createPayload.subcategory_id = subcategory_id;
-      }
 
       this.machineService.createMachineForm(createPayload).subscribe({
         next: () => {
@@ -3351,6 +3291,130 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         // Filter to show only main categories (level 0) in the main dropdown
         this.categories = this.categories.filter(cat => cat.level === 0);
       });
+  }
+
+  loadActiveSOs(): void {
+    // Only load if not already loaded or if empty
+    if (this.activeSOs && this.activeSOs.length > 0) {
+      return;
+    }
+
+    this.soService.getActiveSOs().subscribe({
+      next: res => {
+        const data = res?.data || res || [];
+        this.activeSOs = Array.isArray(data) ? data : [];
+        // Initialize suggestions with first 50 SOs for performance
+        this.soSuggestions = this.activeSOs.slice(0, 50);
+        console.log(`Loaded ${this.activeSOs.length} active SOs`);
+      },
+      error: error => {
+        console.error('Error loading active SOs:', error);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load SOs. Please refresh the page.',
+        });
+        this.activeSOs = [];
+        this.soSuggestions = [];
+      },
+    });
+  }
+
+  onSOInputChange(): void {
+    const query = this.soSearchInput.trim();
+
+    // If no active SOs loaded, load them first
+    if (!this.activeSOs || this.activeSOs.length === 0) {
+      this.loadActiveSOs();
+      // Wait a bit for SOs to load, then show suggestions
+      setTimeout(() => {
+        this.updateSOSuggestions(query);
+      }, 300);
+      return;
+    }
+
+    this.updateSOSuggestions(query);
+  }
+
+  updateSOSuggestions(query: string): void {
+    const queryLower = query.toLowerCase();
+
+    if (!query) {
+      // Show first 50 SOs when input is empty
+      this.soSuggestions = this.activeSOs.slice(0, 50);
+      this.showSOSuggestions = true;
+      return;
+    }
+
+    // Enhanced search: search in name, party_name, category name, subcategory name, and mobile number
+    this.soSuggestions = this.activeSOs
+      .filter(so => {
+        // Search in SO name
+        if (so.name?.toLowerCase().includes(queryLower)) return true;
+        // Search in party name
+        if (so.party_name?.toLowerCase().includes(queryLower)) return true;
+        // Search in mobile number
+        if (so.mobile_number?.includes(query)) return true;
+
+        // Check category name (handle both object and string)
+        if (
+          typeof so.category_id === 'object' &&
+          so.category_id !== null &&
+          so.category_id.name?.toLowerCase().includes(queryLower)
+        ) {
+          return true;
+        }
+
+        // Check subcategory name (handle both object and string)
+        if (
+          so.subcategory_id &&
+          typeof so.subcategory_id === 'object' &&
+          so.subcategory_id !== null &&
+          so.subcategory_id.name?.toLowerCase().includes(queryLower)
+        ) {
+          return true;
+        }
+
+        return false;
+      })
+      .slice(0, 50); // Limit results to 50 for performance
+
+    // Show suggestions if there are results OR if user has typed something (to show "no results" message)
+    this.showSOSuggestions = true;
+  }
+
+  selectSO(so: SO): void {
+    this.selectedSO = so;
+    this.form.patchValue({ so_id: so._id });
+    this.soSearchInput = `${so.name} - ${so.party_name}`;
+    this.showSOSuggestions = false;
+    this.form.get('so_id')?.markAsTouched();
+  }
+
+  clearSOSelection(): void {
+    this.selectedSO = null;
+    this.form.patchValue({ so_id: '' });
+    this.soSearchInput = '';
+    this.showSOSuggestions = false;
+  }
+
+  onSOInputFocus(): void {
+    // When input is focused, show suggestions if available
+    if (!this.activeSOs || this.activeSOs.length === 0) {
+      this.loadActiveSOs();
+      // Wait a bit for SOs to load, then show suggestions
+      setTimeout(() => {
+        this.updateSOSuggestions(this.soSearchInput.trim());
+      }, 300);
+    } else {
+      this.updateSOSuggestions(this.soSearchInput.trim());
+    }
+  }
+
+  hideSOSuggestions(): void {
+    setTimeout(() => {
+      this.showSOSuggestions = false;
+    }, 200);
   }
 
   loadFilterCategories(): void {
@@ -3759,24 +3823,43 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   generateSequence(): void {
-    const categoryId = this.form.get('category_id')?.value;
-    const subcategoryId = this.form.get('subcategory_id')?.value;
+    const soId = this.form.get('so_id')?.value;
+    if (!soId || !this.selectedSO) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'SO Required',
+        detail: 'Please select an SO first',
+      });
+      return;
+    }
+
+    const categoryId = this.selectedSO.category_id
+      ? typeof this.selectedSO.category_id === 'string'
+        ? this.selectedSO.category_id
+        : (this.selectedSO.category_id as any)?._id
+      : null;
 
     if (!categoryId) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Category Required',
-        detail: 'Please select a category first',
+        detail: 'Selected SO must have a category',
       });
       return;
     }
+
+    const subcategoryId = this.selectedSO.subcategory_id
+      ? typeof this.selectedSO.subcategory_id === 'string'
+        ? this.selectedSO.subcategory_id
+        : (this.selectedSO.subcategory_id as any)?._id
+      : undefined;
 
     this.isGeneratingSequence = true;
     this.sequenceGenerationProgress = 0;
 
     const request: SequenceGenerationRequest = {
-      categoryId: categoryId,
-      subcategoryId: subcategoryId || undefined,
+      categoryId,
+      subcategoryId,
     };
 
     this.categoryService.generateSequence(request).subscribe({
@@ -3828,16 +3911,30 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       });
   }
 
-  onSubcategoryChange(): void {
-    // Reset sequence when subcategory changes
-    this.selectedSequence = '';
-    this.form.patchValue({ machine_sequence: '' });
-  }
+  // onSubcategoryChange removed - subcategory comes from SO
 
   // ==================== ENHANCED MACHINE MANAGEMENT ====================
 
   getMachinesWithoutSequence(): Machine[] {
     return this.machines.filter(m => !m.machine_sequence);
+  }
+
+  getSOName(m: Machine): string {
+    if (m.so?.name) return m.so.name;
+    if (m.so_id && typeof m.so_id === 'string') return m.so_id;
+    if (m.so_id && typeof m.so_id === 'object' && (m.so_id as any)?._id) {
+      return (m.so_id as any)._id.toString();
+    }
+    return '-';
+  }
+
+  getCategoryName(m: Machine): string {
+    if (!m.so?.category_id) return '-';
+    if (typeof m.so.category_id === 'string') return m.so.category_id;
+    if (typeof m.so.category_id === 'object' && m.so.category_id !== null) {
+      return (m.so.category_id as { name?: string }).name || '-';
+    }
+    return '-';
   }
 
   getSubcategoryName(subcategoryId: string): string {
@@ -3900,11 +3997,14 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   generateSequenceForMachine(machine: Machine): void {
-    if (!machine.category_id) {
+    // Get category from SO
+    const so = machine.so;
+
+    if (!so || !so.category_id) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Warning',
-        detail: 'Machine must have a category to generate sequence',
+        detail: 'Machine must have an SO with a category to generate sequence',
       });
       return;
     }
@@ -3912,16 +4012,18 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     this.isGeneratingSequence = true;
     this.sequenceGenerationProgress = 0;
 
+    const categoryId =
+      typeof so.category_id === 'string' ? so.category_id : so.category_id._id;
+
+    const subcategoryId = so.subcategory_id
+      ? typeof so.subcategory_id === 'string'
+        ? so.subcategory_id
+        : so.subcategory_id._id
+      : undefined;
+
     const request: SequenceGenerationRequest = {
-      categoryId:
-        typeof machine.category_id === 'string'
-          ? machine.category_id
-          : machine.category_id._id,
-      subcategoryId: machine.subcategory_id
-        ? typeof machine.subcategory_id === 'string'
-          ? machine.subcategory_id
-          : (machine.subcategory_id as any)?._id
-        : undefined,
+      categoryId,
+      subcategoryId,
     };
 
     this.categoryService.generateSequence(request).subscribe({
@@ -4045,15 +4147,27 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       }
 
       const machine = machines[index];
+      // Get category from SO
+      if (!machine.so?.category_id) {
+        console.error(
+          `Machine ${machine._id} does not have SO with category`,
+          machine
+        );
+        completed++;
+        this.sequenceGenerationProgress = Math.round((completed / total) * 100);
+        processNextMachine(index + 1);
+        return;
+      }
+
       const request: SequenceGenerationRequest = {
         categoryId:
-          typeof machine.category_id === 'string'
-            ? machine.category_id
-            : machine.category_id._id,
-        subcategoryId: machine.subcategory_id
-          ? typeof machine.subcategory_id === 'string'
-            ? machine.subcategory_id
-            : (machine.subcategory_id as any)?._id
+          typeof machine.so.category_id === 'string'
+            ? machine.so.category_id
+            : machine.so.category_id._id,
+        subcategoryId: machine.so.subcategory_id
+          ? typeof machine.so.subcategory_id === 'string'
+            ? machine.so.subcategory_id
+            : machine.so.subcategory_id._id
           : undefined,
       };
 
@@ -4090,7 +4204,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
               },
               error: (updateError: any) => {
                 console.error(
-                  `Error saving sequence for machine ${machine.name}:`,
+                  `Error saving sequence for machine ${machine._id}:`,
                   updateError
                 );
                 completed++;
@@ -4105,7 +4219,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         },
         error: (error: any) => {
           console.error(
-            `Error generating sequence for machine ${machine.name}:`,
+            `Error generating sequence for machine ${machine._id}:`,
             error
           );
           completed++;
@@ -4360,7 +4474,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           this.messageService.add({
             severity: 'success',
             summary: 'Success',
-            detail: `Sequence removed successfully from "${machine.name}"`,
+            detail: `Sequence removed successfully from "${
+              machine.so?.name || machine._id
+            }"`,
           });
           this.selectedMachineForRemoveSequence = null;
         },
@@ -4483,8 +4599,9 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       }
 
       const machine = machinesToProcess[index];
-      if (!machine.category_id) {
-        errors.push(machine.name);
+      // Get category from SO
+      if (!machine.so?.category_id) {
+        errors.push(this.getSOName(machine));
         this.sequenceGenerationProgress = Math.round(
           ((index + 1) / total) * 100
         );
@@ -4494,13 +4611,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
       const request: SequenceGenerationRequest = {
         categoryId:
-          typeof machine.category_id === 'string'
-            ? machine.category_id
-            : machine.category_id._id,
-        subcategoryId: machine.subcategory_id
-          ? typeof machine.subcategory_id === 'string'
-            ? machine.subcategory_id
-            : (machine.subcategory_id as any)?._id
+          typeof machine.so.category_id === 'string'
+            ? machine.so.category_id
+            : machine.so.category_id._id,
+        subcategoryId: machine.so.subcategory_id
+          ? typeof machine.so.subcategory_id === 'string'
+            ? machine.so.subcategory_id
+            : machine.so.subcategory_id._id
           : undefined,
       };
 
@@ -4520,7 +4637,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
                 processNext(index + 1);
               },
               error: (_error: any) => {
-                errors.push(machine.name);
+                errors.push(this.getSOName(machine));
                 this.sequenceGenerationProgress = Math.round(
                   ((index + 1) / total) * 100
                 );
@@ -4529,7 +4646,7 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             });
         },
         error: () => {
-          errors.push(machine.name);
+          errors.push(this.getSOName(machine));
           this.sequenceGenerationProgress = Math.round(
             ((index + 1) / total) * 100
           );

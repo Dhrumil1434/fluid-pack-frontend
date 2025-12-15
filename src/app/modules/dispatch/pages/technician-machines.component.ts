@@ -22,6 +22,7 @@ import {
   SequenceConfig,
 } from '../../../core/models/category.model';
 import { CreateMachineModalComponent } from '../components/create-machine-modal/create-machine-modal.component';
+import { EditMachineModalComponent } from '../components/edit-machine-modal/edit-machine-modal.component';
 import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
 import { ListFiltersComponent } from '../../admin/components/shared/list/list-filters.component';
 import { Subject, Subscription } from 'rxjs';
@@ -82,6 +83,7 @@ interface MachineRow {
     TechnicianSidebarComponent,
     TablePaginationComponent,
     CreateMachineModalComponent,
+    EditMachineModalComponent,
     PageHeaderComponent,
     ListFiltersComponent,
   ],
@@ -124,6 +126,13 @@ interface MachineRow {
           (cancel)="createVisible = false"
           (created)="onMachineCreated()"
         ></app-create-machine-modal>
+
+        <app-edit-machine-modal
+          [visible]="editMachineVisible"
+          [machine]="editingMachineForEdit"
+          (close)="closeEditMachineModal()"
+          (saved)="onMachineUpdated($event)"
+        ></app-edit-machine-modal>
 
         <!-- Filters & Search -->
         <app-list-filters
@@ -687,6 +696,15 @@ interface MachineRow {
                         >
                           <i class="pi pi-eye mr-1"></i>
                           View
+                        </button>
+                        <button
+                          *ngIf="canEditMachine(m)"
+                          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-md hover:bg-orange-100 transition-colors"
+                          (click)="openEditMachineModal(m)"
+                          title="Edit machine"
+                        >
+                          <i class="pi pi-pencil mr-1"></i>
+                          Edit
                         </button>
                         <button
                           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
@@ -1619,6 +1637,10 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   sequenceError: string | null = null;
   isUpdatingSequence = false;
 
+  // Edit machine modal state
+  editMachineVisible = false;
+  editingMachineForEdit: MachineRow | null = null;
+
   constructor(
     private baseApi: BaseApiService,
     private auth: AuthService,
@@ -1832,6 +1854,59 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
   onMachineCreated(): void {
     this.createVisible = false;
     this.refresh();
+  }
+
+  // Check if machine can be edited (must not be approved and must be created by current user)
+  canEditMachine(machine: MachineRow): boolean {
+    // Cannot edit if approved
+    if (machine.is_approved) {
+      return false;
+    }
+
+    // Check if current user is the creator
+    const user = this.auth.getCurrentUser();
+    if (!user?._id || !machine.created_by) return false;
+
+    const creatorId =
+      typeof machine.created_by === 'object'
+        ? (machine.created_by as any)?._id || machine.created_by
+        : machine.created_by;
+
+    return String(creatorId) === String(user._id);
+  }
+
+  // Open edit machine modal
+  openEditMachineModal(machine: MachineRow): void {
+    if (!this.canEditMachine(machine)) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Cannot Edit',
+        detail:
+          'This machine cannot be edited. Only non-approved machines created by you can be edited.',
+      });
+      return;
+    }
+
+    this.editingMachineForEdit = machine;
+    this.editMachineVisible = true;
+  }
+
+  // Close edit machine modal
+  closeEditMachineModal(): void {
+    this.editMachineVisible = false;
+    this.editingMachineForEdit = null;
+  }
+
+  // Handle machine updated event
+  onMachineUpdated(_updatedMachine: MachineRow): void {
+    this.closeEditMachineModal();
+    this.refresh();
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Machine updated successfully',
+      life: 3000,
+    });
   }
 
   // Sequence config methods

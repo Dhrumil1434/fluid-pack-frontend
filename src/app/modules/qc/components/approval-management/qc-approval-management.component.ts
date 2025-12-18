@@ -268,6 +268,8 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       qualityScore: [null],
       inspectionDate: [''],
       nextInspectionDate: [''],
+      qc_date: [''],
+      report_link: [''],
       requestNotes: [''],
     });
 
@@ -1257,7 +1259,7 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
   }
 
   // Helper methods matching admin dashboard - updated for SO-based structure
-  getMachineName(approval: QCApproval | null): string {
+  public getMachineName(approval: QCApproval | null): string {
     if (!approval?.machineId) return 'Unknown Machine';
     if (typeof approval.machineId === 'string') return 'Unknown Machine';
 
@@ -1271,7 +1273,7 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     return approval.machineId.name || 'Unknown Machine';
   }
 
-  getMachineCategoryName(approval: QCApproval | null): string {
+  public getMachineCategoryName(approval: QCApproval | null): string {
     if (!approval?.machineId) return '-';
     if (typeof approval.machineId === 'string') return '-';
 
@@ -1313,30 +1315,31 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
     return '-';
   }
 
-  getMachinePartyName(approval: QCApproval | null): string {
-    if (!approval?.machineId) return '-';
-    if (typeof approval.machineId === 'string') return '-';
-
-    // First try to get from SO
-    const soIdValue = approval.machineId.so_id;
+  public getMachinePartyName(machine: any): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
       return soIdValue.party_name || '-';
     }
-
-    return '-';
+    return machine.party_name || '-';
   }
 
-  getMachineMobileNumber(approval: QCApproval | null): string {
-    if (!approval?.machineId) return '-';
-    if (typeof approval.machineId === 'string') return '-';
+  public getMachineLocation(machine: any): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.location || '-';
+    }
+    return machine.location || '-';
+  }
 
-    // First try to get from SO
-    const soIdValue = approval.machineId.so_id;
+  public getMachineMobileNumber(machine: any): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
       return soIdValue.mobile_number || '-';
     }
-
-    return '-';
+    return machine.mobile_number || '-';
   }
 
   getMachineImages(approval: QCApproval | null): string[] {
@@ -1653,6 +1656,8 @@ export class QcApprovalManagementComponent implements OnInit, OnDestroy {
       qualityScore: formValue.qualityScore || undefined,
       inspectionDate: formValue.inspectionDate || undefined,
       nextInspectionDate: formValue.nextInspectionDate || undefined,
+      qc_date: formValue.qc_date || undefined,
+      report_link: formValue.report_link || undefined,
       requestNotes: formValue.requestNotes || undefined,
     };
 

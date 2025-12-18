@@ -5,9 +5,26 @@ export interface SODocument {
   uploaded_at: string | Date;
 }
 
+export interface SOItem {
+  no: number;
+  item_code: string;
+  item_details: string;
+  uom: string;
+  quantity: number;
+  delivery_schedule?: string | Date;
+  total?: number;
+}
+
 export interface SO {
   _id: string;
-  name: string;
+  name?: string;
+  customer: string;
+  location: string;
+  po_number: string;
+  po_date: string | Date;
+  so_number: string;
+  so_date: string | Date;
+  items: SOItem[];
   category_id: {
     _id: string;
     name: string;
@@ -38,7 +55,14 @@ export interface SO {
 }
 
 export interface CreateSORequest {
-  name: string;
+  name?: string;
+  customer: string;
+  location: string;
+  po_number: string;
+  po_date: string | Date;
+  so_number: string;
+  so_date: string | Date;
+  items: SOItem[];
   category_id: string;
   subcategory_id?: string | null;
   party_name: string;
@@ -49,6 +73,13 @@ export interface CreateSORequest {
 
 export interface UpdateSORequest {
   name?: string;
+  customer?: string;
+  location?: string;
+  po_number?: string;
+  po_date?: string | Date;
+  so_number?: string;
+  so_date?: string | Date;
+  items?: SOItem[];
   category_id?: string;
   subcategory_id?: string | null;
   party_name?: string;

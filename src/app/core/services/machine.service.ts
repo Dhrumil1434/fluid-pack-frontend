@@ -59,7 +59,7 @@ export class MachineService {
    */
   createMachineForm(data: {
     so_id: string; // Required: Reference to SO
-    location: string; // Required
+    location?: string; // Optional
     dispatch_date?: string | Date;
     images?: File[];
     documents?: File[];
@@ -67,7 +67,9 @@ export class MachineService {
   }): Observable<ApiResponse<Machine>> {
     const form = new FormData();
     form.append('so_id', data.so_id);
-    form.append('location', data.location);
+    if (data.location) {
+      form.append('location', data.location);
+    }
     // Always append dispatch_date (empty string will be converted to null on backend)
     const dispatchDate = data.dispatch_date
       ? typeof data.dispatch_date === 'string'

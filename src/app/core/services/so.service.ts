@@ -60,17 +60,46 @@ export class SOService {
   /**
    * Create a new SO with documents (multipart/form-data)
    */
-  createSOForm(data: {
-    name: string;
-    category_id: string;
-    subcategory_id?: string | null;
-    party_name: string;
-    mobile_number: string;
-    description?: string | null;
-    documents?: File[];
-  }): Observable<ApiResponse<SO>> {
+  createSOForm(
+    data: CreateSORequest & { documents?: File[] }
+  ): Observable<ApiResponse<SO>> {
     const form = new FormData();
-    form.append('name', data.name);
+    if (data.name) form.append('name', data.name);
+    form.append('customer', data.customer);
+    form.append('location', data.location);
+    form.append('po_number', data.po_number);
+    // Format date as YYYY-MM-DD for backend
+    const poDate =
+      data.po_date instanceof Date
+        ? data.po_date.toISOString().split('T')[0]
+        : typeof data.po_date === 'string'
+          ? data.po_date.split('T')[0]
+          : data.po_date;
+    form.append('po_date', poDate);
+    form.append('so_number', data.so_number);
+    const soDate =
+      data.so_date instanceof Date
+        ? data.so_date.toISOString().split('T')[0]
+        : typeof data.so_date === 'string'
+          ? data.so_date.split('T')[0]
+          : data.so_date;
+    form.append('so_date', soDate);
+    // Always send items as array (even if empty) to satisfy backend validation
+    // Ensure items is always an array before stringifying
+    const itemsArray = Array.isArray(data.items)
+      ? data.items
+      : data.items
+        ? [data.items]
+        : [];
+    const itemsJson = JSON.stringify(itemsArray);
+    console.log('📤 Frontend sending items:', {
+      original: data.items,
+      isArray: Array.isArray(data.items),
+      itemsArray,
+      itemsJson,
+      itemsJsonLength: itemsJson.length,
+    });
+    form.append('items', itemsJson);
     form.append('category_id', data.category_id);
     if (data.subcategory_id) {
       form.append('subcategory_id', data.subcategory_id);
@@ -98,19 +127,40 @@ export class SOService {
    */
   updateSOForm(
     id: string,
-    data: {
-      name?: string;
-      category_id?: string;
-      subcategory_id?: string | null;
-      party_name?: string;
-      mobile_number?: string;
-      description?: string | null;
-      documents?: File[];
-      removedDocuments?: any[];
-    }
+    data: UpdateSORequest & { documents?: File[]; removedDocuments?: any[] }
   ): Observable<ApiResponse<SO>> {
     const form = new FormData();
     if (data.name) form.append('name', data.name);
+    if (data.customer) form.append('customer', data.customer);
+    if (data.location) form.append('location', data.location);
+    if (data.po_number) form.append('po_number', data.po_number);
+    if (data.po_date) {
+      const poDate =
+        data.po_date instanceof Date
+          ? data.po_date.toISOString().split('T')[0]
+          : typeof data.po_date === 'string'
+            ? data.po_date.split('T')[0]
+            : data.po_date;
+      form.append('po_date', poDate);
+    }
+    if (data.so_number) form.append('so_number', data.so_number);
+    if (data.so_date) {
+      const soDate =
+        data.so_date instanceof Date
+          ? data.so_date.toISOString().split('T')[0]
+          : typeof data.so_date === 'string'
+            ? data.so_date.split('T')[0]
+            : data.so_date;
+      form.append('so_date', soDate);
+    }
+    // Always send items as array (even if empty) to satisfy backend validation
+    // Ensure items is always an array before stringifying
+    const itemsArray = Array.isArray(data.items)
+      ? data.items
+      : data.items
+        ? [data.items]
+        : [];
+    form.append('items', JSON.stringify(itemsArray));
     if (data.category_id) form.append('category_id', data.category_id);
     if (data.subcategory_id !== undefined) {
       form.append('subcategory_id', data.subcategory_id || '');

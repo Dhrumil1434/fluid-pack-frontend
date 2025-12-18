@@ -103,19 +103,67 @@ export class MachineStatisticsService {
             );
           }
           // Transform backend machine data to frontend MachinePreview format
-          return response.data.machines.map((machine: any) => ({
-            id: machine._id,
-            name: machine.name,
-            category: machine.category_id?.name || 'Unknown',
-            categoryId: machine.category_id?._id || machine.category_id,
-            status: machine.is_approved ? 'active' : 'pending',
-            createdBy: machine.created_by?.username || 'Unknown',
-            createdById: machine.created_by?._id || machine.created_by,
-            createdAt: new Date(machine.createdAt),
-            lastUpdated: new Date(machine.updatedAt),
-            image: machine.images?.[0],
-            isApproved: machine.is_approved,
-          }));
+          return response.data.machines.map((machine: any) => {
+            // Extract machine name from SO (machines now reference SOs)
+            let machineName = machine.name || 'Unknown Machine';
+            const soIdValue = machine.so_id;
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              machineName =
+                soIdValue.customer ||
+                soIdValue.name ||
+                soIdValue.so_number ||
+                machineName;
+            }
+
+            // Extract category from SO or machine
+            let categoryName = 'Unknown';
+            let categoryId = null;
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              const categoryIdValue = soIdValue.category_id;
+              if (
+                categoryIdValue &&
+                typeof categoryIdValue === 'object' &&
+                categoryIdValue !== null
+              ) {
+                categoryName = categoryIdValue.name || 'Unknown';
+                categoryId = categoryIdValue._id || categoryIdValue;
+              } else if (typeof categoryIdValue === 'string') {
+                categoryId = categoryIdValue;
+              }
+            } else if (machine.category_id) {
+              if (
+                typeof machine.category_id === 'object' &&
+                machine.category_id !== null
+              ) {
+                categoryName = machine.category_id.name || 'Unknown';
+                categoryId = machine.category_id._id || machine.category_id;
+              } else {
+                categoryId = machine.category_id;
+              }
+            }
+
+            return {
+              id: machine._id,
+              name: machineName,
+              category: categoryName,
+              categoryId: categoryId,
+              status: machine.is_approved ? 'active' : 'pending',
+              createdBy: machine.created_by?.username || 'Unknown',
+              createdById: machine.created_by?._id || machine.created_by,
+              createdAt: new Date(machine.createdAt),
+              lastUpdated: new Date(machine.updatedAt),
+              image: machine.images?.[0],
+              isApproved: machine.is_approved,
+            };
+          });
         }),
         catchError(error => {
           console.error('Error fetching recent machines:', error);

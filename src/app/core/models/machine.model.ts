@@ -35,7 +35,7 @@ export interface Machine {
 
 export interface CreateMachineRequest {
   so_id: string; // Required: Reference to SO
-  location: string; // Required
+  location?: string; // Optional
   dispatch_date?: string | Date;
   images?: string[];
   documents?: MachineDocument[];

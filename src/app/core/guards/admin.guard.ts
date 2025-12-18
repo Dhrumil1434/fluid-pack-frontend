@@ -57,9 +57,12 @@ export class AdminGuard implements CanActivate {
           return false;
         }
 
-        // Check if user is admin or manager
+        // Check if user is admin, manager, or sub-admin
         const userRole = user.role?.name?.toLowerCase();
-        const isAdmin = userRole === 'admin' || userRole === 'manager';
+        const isAdmin =
+          userRole === 'admin' ||
+          userRole === 'manager' ||
+          userRole === 'sub-admin';
 
         if (!isAdmin) {
           // User is not admin, redirect to login with error message

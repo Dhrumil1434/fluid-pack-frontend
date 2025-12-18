@@ -52,7 +52,7 @@ import { environment } from '../../../../../environments/environment';
                     >Machine</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{ machine?.name || '-' }}
+                    {{ getMachineName() }}
                   </p>
                 </div>
                 <div>
@@ -129,7 +129,7 @@ import { environment } from '../../../../../environments/environment';
                     >Machine Name</label
                   >
                   <p class="text-sm text-gray-900 mt-1 font-medium">
-                    {{ machine?.name || '-' }}
+                    {{ getMachineName() }}
                   </p>
                 </div>
                 <div>
@@ -148,10 +148,37 @@ import { environment } from '../../../../../environments/environment';
                 <div>
                   <label
                     class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >S.O. Number</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ getSONumber() }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >P.O. Number</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ getPONumber() }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >Customer</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ getCustomer() }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
                     >Party Name</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{ machine?.party_name || '-' }}
+                    {{ getPartyName() }}
                   </p>
                 </div>
                 <div>
@@ -160,7 +187,7 @@ import { environment } from '../../../../../environments/environment';
                     >Location</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{ machine?.location || '-' }}
+                    {{ getLocation() }}
                   </p>
                 </div>
                 <div>
@@ -169,7 +196,25 @@ import { environment } from '../../../../../environments/environment';
                     >Mobile Number</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{ machine?.mobile_number || '-' }}
+                    {{ getMobileNumber() }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >S.O. Date</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ getSODate() }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-medium text-gray-500 uppercase tracking-wide"
+                    >P.O. Date</label
+                  >
+                  <p class="text-sm text-gray-900 mt-1">
+                    {{ getPODate() }}
                   </p>
                 </div>
                 <div>
@@ -191,9 +236,7 @@ import { environment } from '../../../../../environments/environment';
                     >Category</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{
-                      machine?.category_id?.name || machine?.category_id || '-'
-                    }}
+                    {{ getCategoryName() }}
                   </p>
                 </div>
                 <div>
@@ -202,11 +245,7 @@ import { environment } from '../../../../../environments/environment';
                     >Subcategory</label
                   >
                   <p class="text-sm text-gray-900 mt-1">
-                    {{
-                      machine?.subcategory_id?.name ||
-                        machine?.subcategory_id ||
-                        '-'
-                    }}
+                    {{ getSubcategoryName() }}
                   </p>
                 </div>
                 <div>
@@ -296,6 +335,7 @@ import { environment } from '../../../../../environments/environment';
                     [src]="imageUrl(img)"
                     class="w-full h-20 object-cover rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
                     [alt]="'Image ' + (i + 1)"
+                    (error)="handleImageError($event)"
                   />
                   <div
                     class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all flex items-center justify-center"
@@ -500,7 +540,7 @@ import { environment } from '../../../../../environments/environment';
           class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
         >
           <h3 class="text-lg font-semibold text-text">
-            Machine Documents - {{ machine?.name }}
+            Machine Documents - {{ getMachineName() }}
           </h3>
           <button
             class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
@@ -617,6 +657,7 @@ import { environment } from '../../../../../environments/environment';
               [src]="imageUrl(previewImages[currentImageIndex])"
               class="max-h-[70vh] w-auto object-contain"
               [alt]="'Image ' + (currentImageIndex + 1)"
+              (error)="handleImageError($event)"
             />
 
             <!-- Next Button -->
@@ -645,6 +686,7 @@ import { environment } from '../../../../../environments/environment';
               [class.border-blue-500]="i === currentImageIndex"
               [class.border-gray-600]="i !== currentImageIndex"
               (click)="goToImage(i)"
+              (error)="handleImageError($event)"
               [alt]="'Thumbnail ' + (i + 1)"
             />
           </div>
@@ -682,6 +724,7 @@ export class ApprovalViewModalComponent {
   imageUrl(path: string): string {
     if (!path) return '';
     if (path.startsWith('http')) return path;
+    // Ensure we build from server origin, not /api base (same as admin machines)
     const base = environment.apiUrl.replace(/\/?api\/?$/, '');
     if (path.startsWith('/')) return `${base}${path}`;
     return `${base}/${path}`;
@@ -804,8 +847,9 @@ export class ApprovalViewModalComponent {
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
       return filePath;
     }
-    // Otherwise, prepend the base URL for local paths
+    // Construct the full URL for the document using environment baseUrl (same as admin machines)
     const baseUrl = environment.baseUrl;
+    // Ensure filePath starts with / if it doesn't already
     const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
     return `${baseUrl}${normalizedPath}`;
   }
@@ -813,6 +857,147 @@ export class ApprovalViewModalComponent {
   // trackBy helpers
   trackByIndex = (i: number) => i;
   trackByKey = (_: number, item: any) => item.key;
+
+  // Helper methods to extract machine data from SO structure
+  getMachineName(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      // Prioritize customer name, then name, then SO number
+      if (soId.customer && soId.customer.trim()) {
+        return soId.customer.trim();
+      }
+      if (soId.name && soId.name.trim()) {
+        return soId.name.trim();
+      }
+      if (soId.so_number && soId.so_number.trim()) {
+        return soId.so_number.trim();
+      }
+    }
+    // Fallback to machine name if SO is not populated
+    if (this.machine.name && this.machine.name.trim()) {
+      return this.machine.name.trim();
+    }
+    return '-';
+  }
+
+  getSONumber(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      return soId.so_number || '-';
+    }
+    return '-';
+  }
+
+  getPONumber(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      return soId.po_number || '-';
+    }
+    return '-';
+  }
+
+  getCustomer(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      return soId.customer || '-';
+    }
+    return '-';
+  }
+
+  getPartyName(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      return soId.party_name || '-';
+    }
+    return this.machine.party_name || '-';
+  }
+
+  getLocation(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      return soId.location || this.machine.location || '-';
+    }
+    return this.machine.location || '-';
+  }
+
+  getMobileNumber(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      return soId.mobile_number || '-';
+    }
+    return this.machine.mobile_number || '-';
+  }
+
+  getCategoryName(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      const categoryId = soId.category_id;
+      if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+        return categoryId.name || '-';
+      }
+      if (typeof categoryId === 'string') return categoryId;
+    }
+    // Fallback to machine's category_id if SO is not populated
+    const categoryId = this.machine.category_id;
+    if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+      return categoryId.name || '-';
+    }
+    if (typeof categoryId === 'string') return categoryId;
+    return '-';
+  }
+
+  getSubcategoryName(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null) {
+      const subcategoryId = soId.subcategory_id;
+      if (
+        subcategoryId &&
+        typeof subcategoryId === 'object' &&
+        subcategoryId !== null
+      ) {
+        return subcategoryId.name || '-';
+      }
+      if (typeof subcategoryId === 'string') return subcategoryId;
+    }
+    // Fallback to machine's subcategory_id if SO is not populated
+    const subcategoryId = this.machine.subcategory_id;
+    if (
+      subcategoryId &&
+      typeof subcategoryId === 'object' &&
+      subcategoryId !== null
+    ) {
+      return subcategoryId.name || '-';
+    }
+    if (typeof subcategoryId === 'string') return subcategoryId;
+    return '-';
+  }
+
+  getSODate(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null && soId.so_date) {
+      return new Date(soId.so_date).toLocaleDateString('en-GB');
+    }
+    return '-';
+  }
+
+  getPODate(): string {
+    if (!this.machine) return '-';
+    const soId = this.machine.so_id;
+    if (soId && typeof soId === 'object' && soId !== null && soId.po_date) {
+      return new Date(soId.po_date).toLocaleDateString('en-GB');
+    }
+    return '-';
+  }
 
   // Helper method for document properties
   getDocumentName(doc: any): string {
@@ -857,6 +1042,12 @@ export class ApprovalViewModalComponent {
     if (index >= 0 && index < this.previewImages.length) {
       this.currentImageIndex = index;
     }
+  }
+
+  handleImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    img.src =
+      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="sans-serif" font-size="12"%3EImage not found%3C/text%3E%3C/svg%3E';
   }
 
   // Keyboard navigation

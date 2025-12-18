@@ -101,7 +101,7 @@ import { ToastModule } from 'primeng/toast';
                   "
                 >
                   <i
-                    class="text-sm"
+                    class="pi text-base"
                     [class.pi-inbox]="
                       notification.type === 'MACHINE_CREATED' ||
                       notification.type === 'APPROVAL_REQUESTED'
@@ -309,20 +309,17 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
   markAllAsRead(): void {
     this.notificationService.markAllAsRead().subscribe({
-      next: () => {
-        // Update local state
-        this.notifications.forEach(n => {
-          n.read = true;
-          n.readAt = new Date().toISOString();
-        });
-        this.updateUnreadCount();
+      next: (response: any) => {
+        // Refresh notifications from server to get updated state
+        this.loadNotifications();
         this.messageService.add({
           severity: 'success',
           summary: 'Success',
-          detail: 'All notifications marked as read',
+          detail: `Marked ${response?.markedCount || this.notifications.length} notifications as read`,
         });
       },
-      error: () => {
+      error: error => {
+        console.error('Error marking all as read:', error);
         this.messageService.add({
           severity: 'error',
           summary: 'Error',

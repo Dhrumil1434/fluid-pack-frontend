@@ -366,9 +366,12 @@ export class LoginComponent implements OnInit {
             });
           }
 
-          // Check if user is admin
+          // Check if user is admin, manager, or sub-admin
           const roleName = roleResponse.data.name.toLowerCase().trim();
-          const isAdmin = roleName === 'admin' || roleName === 'manager';
+          const isAdmin =
+            roleName === 'admin' ||
+            roleName === 'manager' ||
+            roleName === 'sub-admin';
 
           console.log(
             'Role check result - isAdmin:',

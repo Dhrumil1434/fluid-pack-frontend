@@ -108,7 +108,7 @@ import { firstValueFrom } from 'rxjs';
         <main class="p-6 space-y-4">
           <app-list-filters
             searchLabel="Search machines"
-            searchPlaceholder="Name, metadata, created by..."
+            searchPlaceholder="Search by SO number, PO number, Party name, Customer, Location, Sequence, SO date, PO date, Dispatch date..."
             (searchChange)="onSearchChange($event)"
             (apply)="reload()"
             (clear)="clearFilters()"
@@ -178,22 +178,122 @@ import { firstValueFrom } from 'rxjs';
                 [(ngModel)]="filters.metadata_value"
                 (input)="onMetadataValueChange()"
               />
-              <!-- Dispatch Date From -->
-              <input
-                type="date"
-                class="px-3 py-2 border border-neutral-300 rounded-md"
-                placeholder="Dispatch Date From"
-                [(ngModel)]="filters.dispatch_date_from"
-                (change)="reload()"
-              />
-              <!-- Dispatch Date To -->
-              <input
-                type="date"
-                class="px-3 py-2 border border-neutral-300 rounded-md"
-                placeholder="Dispatch Date To"
-                [(ngModel)]="filters.dispatch_date_to"
-                (change)="reload()"
-              />
+              <!-- Date Range Filters Section -->
+              <div
+                class="flex flex-wrap items-end gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg"
+              >
+                <div class="flex items-center justify-between mb-2 w-full">
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-calendar text-primary"></i>
+                    <span class="text-sm font-semibold text-gray-700"
+                      >Date Range Filters</span
+                    >
+                  </div>
+                  <div
+                    class="flex items-center gap-1 text-xs text-gray-500 cursor-help"
+                    title="Tip: Select 'From' date only to filter from that date onwards, 'To' date only to filter up to that date, or both for a specific range"
+                  >
+                    <i class="pi pi-info-circle text-xs"></i>
+                    <span>Select From, To, or both</span>
+                  </div>
+                </div>
+
+                <!-- Dispatch Date Range -->
+                <div class="flex flex-col gap-1">
+                  <label
+                    class="text-xs font-medium text-gray-600 flex items-center gap-1"
+                  >
+                    <i class="pi pi-truck text-xs"></i>
+                    Dispatch Date Range
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-gray-500">From</label>
+                      <input
+                        type="date"
+                        class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                        [(ngModel)]="filters.dispatch_date_from"
+                        (change)="reload()"
+                        title="Filter machines by dispatch date - start date"
+                      />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-gray-500">To</label>
+                      <input
+                        type="date"
+                        class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                        [(ngModel)]="filters.dispatch_date_to"
+                        (change)="reload()"
+                        title="Filter machines by dispatch date - end date"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SO Date Range -->
+                <div class="flex flex-col gap-1">
+                  <label
+                    class="text-xs font-medium text-gray-600 flex items-center gap-1"
+                  >
+                    <i class="pi pi-file text-xs"></i>
+                    SO Date Range
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-gray-500">From</label>
+                      <input
+                        type="date"
+                        class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                        [(ngModel)]="filters.so_date_from"
+                        (change)="reload()"
+                        title="Filter machines by Sales Order date - start date"
+                      />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-gray-500">To</label>
+                      <input
+                        type="date"
+                        class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                        [(ngModel)]="filters.so_date_to"
+                        (change)="reload()"
+                        title="Filter machines by Sales Order date - end date"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PO Date Range -->
+                <div class="flex flex-col gap-1">
+                  <label
+                    class="text-xs font-medium text-gray-600 flex items-center gap-1"
+                  >
+                    <i class="pi pi-shopping-cart text-xs"></i>
+                    PO Date Range
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-gray-500">From</label>
+                      <input
+                        type="date"
+                        class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                        [(ngModel)]="filters.po_date_from"
+                        (change)="reload()"
+                        title="Filter machines by Purchase Order date - start date"
+                      />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-gray-500">To</label>
+                      <input
+                        type="date"
+                        class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                        [(ngModel)]="filters.po_date_to"
+                        (change)="reload()"
+                        title="Filter machines by Purchase Order date - end date"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
               <!-- Party Name Autocomplete -->
               <div class="relative">
                 <input
@@ -487,6 +587,16 @@ import { firstValueFrom } from 'rxjs';
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
+                    S.O. Number
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    P.O. Number
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
                     Category
                   </th>
                   <th
@@ -513,6 +623,16 @@ import { firstValueFrom } from 'rxjs';
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
                     Dispatch Date
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    S.O. Date
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    P.O. Date
                   </th>
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
@@ -594,8 +714,29 @@ import { firstValueFrom } from 'rxjs';
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">
-                      {{ getSOName(m) }}
+                    <div class="flex items-center gap-2">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ getSOName(m) }}
+                      </div>
+                      <!-- Warning badge if SO is deleted -->
+                      <span
+                        *ngIf="!m.so"
+                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 border border-orange-200"
+                        title="SO has been deleted. This machine references a deleted SO. Please update the SO reference."
+                      >
+                        <i class="pi pi-exclamation-triangle text-xs mr-1"></i>
+                        SO Deleted
+                      </span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.so?.so_number || '-' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ m.so?.po_number || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -623,7 +764,7 @@ import { firstValueFrom } from 'rxjs';
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ m.location || '-' }}
+                      {{ m.so?.location || '-' }}
                     </div>
                   </td>
                   <!-- Mobile Column -->
@@ -638,6 +779,26 @@ import { firstValueFrom } from 'rxjs';
                       {{
                         m.dispatch_date
                           ? (m.dispatch_date | date: 'dd-MM-yyyy')
+                          : '-'
+                      }}
+                    </div>
+                  </td>
+                  <!-- S.O. Date Column -->
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{
+                        m.so && m.so.so_date
+                          ? (m.so.so_date | date: 'dd/MM/yyyy')
+                          : '-'
+                      }}
+                    </div>
+                  </td>
+                  <!-- P.O. Date Column -->
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{
+                        m.so && m.so.po_date
+                          ? (m.so.po_date | date: 'dd/MM/yyyy')
                           : '-'
                       }}
                     </div>
@@ -703,7 +864,7 @@ import { firstValueFrom } from 'rxjs';
                   </td>
                 </tr>
                 <tr *ngIf="machines.length === 0">
-                  <td colspan="13" class="px-4 py-12 text-center text-gray-500">
+                  <td colspan="15" class="px-4 py-12 text-center text-gray-500">
                     <div class="flex flex-col items-center justify-center">
                       <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
                       <p class="text-sm font-medium">No machines found</p>
@@ -768,6 +929,29 @@ import { firstValueFrom } from 'rxjs';
                     </div>
                   </div>
 
+                  <!-- Warning Alert for Deleted SO -->
+                  <div
+                    *ngIf="editing && selected && !selected.so"
+                    class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg"
+                  >
+                    <div class="flex items-start gap-2">
+                      <i
+                        class="pi pi-exclamation-triangle text-orange-600 mt-0.5"
+                      ></i>
+                      <div class="flex-1">
+                        <h4 class="text-sm font-semibold text-orange-900 mb-1">
+                          SO Deleted Warning
+                        </h4>
+                        <p class="text-xs text-orange-800">
+                          This machine currently references a deleted SO (ID:
+                          {{ selected.so_id }}). Please select a new active SO
+                          below. The deleted SO can be restored from the SO
+                          management page if needed.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div class="space-y-1">
                     <label class="text-sm">SO (Sales Order) *</label>
                     <div class="relative">
@@ -782,7 +966,7 @@ import { firstValueFrom } from 'rxjs';
                         (input)="onSOInputChange()"
                         (focus)="onSOInputFocus()"
                         (blur)="hideSOSuggestions()"
-                        placeholder="Search SO by name, party name, mobile, or category..."
+                        placeholder="Search by SO number, Customer, PO number, or Party name..."
                         [ngModelOptions]="{ standalone: true }"
                       />
                       <button
@@ -805,24 +989,37 @@ import { firstValueFrom } from 'rxjs';
                             class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
                             (mousedown)="selectSO(so)"
                           >
-                            <div class="font-medium">{{ so.name }}</div>
-                            <div class="text-xs text-neutral-600">
-                              Party: {{ so.party_name }} | Category:
-                              {{
-                                typeof so.category_id === 'object' &&
-                                so.category_id !== null
-                                  ? so.category_id.name
-                                  : 'N/A'
-                              }}
-                              <span
-                                *ngIf="
-                                  so.subcategory_id &&
-                                  typeof so.subcategory_id === 'object' &&
-                                  so.subcategory_id !== null
-                                "
+                            <div class="font-medium text-gray-900">
+                              <span *ngIf="so.so_number" class="text-primary"
+                                >SO: {{ so.so_number }}</span
                               >
-                                | Subcategory: {{ so.subcategory_id.name }}
+                              <span
+                                *ngIf="!so.so_number && so.customer"
+                                class="text-primary"
+                                >Customer: {{ so.customer }}</span
+                              >
+                              <span
+                                *ngIf="!so.so_number && !so.customer && so.name"
+                                class="text-primary"
+                                >{{ so.name }}</span
+                              >
+                            </div>
+                            <div class="text-xs text-neutral-600 mt-1">
+                              <span *ngIf="so.customer"
+                                >Customer: {{ so.customer }}</span
+                              >
+                              <span *ngIf="so.customer && so.po_number">
+                                |
                               </span>
+                              <span *ngIf="so.po_number"
+                                >PO: {{ so.po_number }}</span
+                              >
+                              <span *ngIf="so.party_name">
+                                | Party: {{ so.party_name }}</span
+                              >
+                              <span *ngIf="so.mobile_number">
+                                | Mobile: {{ so.mobile_number }}</span
+                              >
                             </div>
                           </div>
                         </ng-container>
@@ -859,13 +1056,25 @@ import { firstValueFrom } from 'rxjs';
                         Selected SO Details:
                       </div>
                       <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span class="font-medium">Name:</span>
-                          {{ selectedSO.name }}
+                        <div *ngIf="selectedSO.customer">
+                          <span class="font-medium">Customer:</span>
+                          {{ selectedSO.customer }}
                         </div>
-                        <div>
+                        <div *ngIf="selectedSO.so_number">
+                          <span class="font-medium">SO Number:</span>
+                          {{ selectedSO.so_number }}
+                        </div>
+                        <div *ngIf="selectedSO.po_number">
+                          <span class="font-medium">PO Number:</span>
+                          {{ selectedSO.po_number }}
+                        </div>
+                        <div *ngIf="selectedSO.party_name">
                           <span class="font-medium">Party:</span>
                           {{ selectedSO.party_name }}
+                        </div>
+                        <div *ngIf="selectedSO.location">
+                          <span class="font-medium">Location:</span>
+                          {{ selectedSO.location }}
                         </div>
                         <div>
                           <span class="font-medium">Category:</span>
@@ -880,22 +1089,9 @@ import { firstValueFrom } from 'rxjs';
                           <span class="font-medium">Subcategory:</span>
                           {{ selectedSO.subcategory_id?.name || 'N/A' }}
                         </div>
-                        <div>
+                        <div *ngIf="selectedSO.mobile_number">
                           <span class="font-medium">Mobile:</span>
                           {{ selectedSO.mobile_number }}
-                        </div>
-                        <div>
-                          <span class="font-medium">Status:</span>
-                          <span
-                            class="px-2 py-0.5 rounded text-xs"
-                            [ngClass]="{
-                              'bg-green-100 text-green-800':
-                                selectedSO.is_active,
-                              'bg-red-100 text-red-800': !selectedSO.is_active,
-                            }"
-                          >
-                            {{ selectedSO.is_active ? 'Active' : 'Inactive' }}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -938,45 +1134,6 @@ import { firstValueFrom } from 'rxjs';
                       </span>
                       <span *ngIf="!selectedSO">
                         Select an SO to generate sequence
-                      </span>
-                    </div>
-                  </div>
-
-                  <div class="space-y-1">
-                    <label class="text-sm">Location</label>
-                    <input
-                      type="text"
-                      class="w-full border rounded px-3 py-2"
-                      [class.border-red-500]="
-                        form.controls['location'].touched &&
-                        form.controls['location'].invalid
-                      "
-                      formControlName="location"
-                      placeholder="Enter city-country or location"
-                      (blur)="form.controls['location'].markAsTouched()"
-                      (input)="form.controls['location'].markAsTouched()"
-                    />
-                    <div
-                      class="text-xs text-error"
-                      *ngIf="
-                        form.controls['location'].touched &&
-                        form.controls['location'].invalid
-                      "
-                    >
-                      <span
-                        *ngIf="form.controls['location'].errors?.['required']"
-                      >
-                        Location is required
-                      </span>
-                      <span
-                        *ngIf="form.controls['location'].errors?.['minlength']"
-                      >
-                        Location must be at least 2 characters long
-                      </span>
-                      <span
-                        *ngIf="form.controls['location'].errors?.['maxlength']"
-                      >
-                        Location cannot exceed 100 characters
                       </span>
                     </div>
                   </div>
@@ -1034,6 +1191,7 @@ import { firstValueFrom } from 'rxjs';
                           [(ngModel)]="metadataEntries[i].key"
                           [ngModelOptions]="{ standalone: true }"
                           name="meta_key_{{ i }}"
+                          (input)="onMetadataChange()"
                         />
                         <input
                           class="col-span-3 border rounded px-2 py-1 text-sm"
@@ -1041,6 +1199,7 @@ import { firstValueFrom } from 'rxjs';
                           [(ngModel)]="metadataEntries[i].value"
                           [ngModelOptions]="{ standalone: true }"
                           name="meta_val_{{ i }}"
+                          (input)="onMetadataChange()"
                         />
                         <div class="col-span-5 flex justify-end">
                           <button
@@ -1351,6 +1510,28 @@ import { firstValueFrom } from 'rxjs';
                 </button>
               </div>
               <div class="flex-1 overflow-y-auto p-4">
+                <!-- Warning Alert for Deleted SO -->
+                <div
+                  *ngIf="selected && !selected.so"
+                  class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg"
+                >
+                  <div class="flex items-start gap-2">
+                    <i
+                      class="pi pi-exclamation-triangle text-orange-600 mt-0.5"
+                    ></i>
+                    <div class="flex-1">
+                      <h4 class="text-sm font-semibold text-orange-900 mb-1">
+                        SO Deleted Warning
+                      </h4>
+                      <p class="text-xs text-orange-800">
+                        This machine references a deleted SO (ID:
+                        {{ selected.so_id }}). The SO can be restored from the
+                        SO management page, or you can update this machine to
+                        reference a different active SO.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <!-- SO Information Section -->
                   <div class="md:col-span-2">
@@ -1364,7 +1545,21 @@ import { firstValueFrom } from 'rxjs';
                     <span class="block text-xs text-text-muted mb-1"
                       >SO Name</span
                     >
-                    {{ selected?.so?.name || selected?.so_id || '-' }}
+                    <ng-container *ngIf="selected?.so; else deletedSO">
+                      {{
+                        selected?.so?.name ||
+                          selected?.so?.customer ||
+                          selected?.so?.so_number ||
+                          '-'
+                      }}
+                    </ng-container>
+                    <ng-template #deletedSO>
+                      <ng-container *ngIf="selected?.so_id; else noSO">
+                        [SO Deleted - ID:
+                        {{ selected?.so_id?.substring(0, 8) || '' }}...]
+                      </ng-container>
+                      <ng-template #noSO>-</ng-template>
+                    </ng-template>
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
@@ -1410,7 +1605,7 @@ import { firstValueFrom } from 'rxjs';
                     <span class="block text-xs text-text-muted mb-1"
                       >Location</span
                     >
-                    {{ selected?.location || '-' }}
+                    {{ selected?.so?.location || '-' }}
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
@@ -1421,6 +1616,26 @@ import { firstValueFrom } from 'rxjs';
                         ? (selected?.dispatch_date | date: 'dd-MM-yyyy')
                         : '-'
                     }}
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >S.O. Date</span
+                    >
+                    <span class="text-sm text-gray-900">{{
+                      selected?.so?.so_date
+                        ? (selected?.so?.so_date | date: 'dd/MM/yyyy')
+                        : '-'
+                    }}</span>
+                  </div>
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >P.O. Date</span
+                    >
+                    <span class="text-sm text-gray-900">{{
+                      selected?.so?.po_date
+                        ? (selected?.so?.po_date | date: 'dd/MM/yyyy')
+                        : '-'
+                    }}</span>
                   </div>
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
@@ -2188,6 +2403,10 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     metadata_value?: string;
     dispatch_date_from?: string;
     dispatch_date_to?: string;
+    so_date_from?: string;
+    so_date_to?: string;
+    po_date_from?: string;
+    po_date_to?: string;
     // Specific field filters for suggestion-based search
     party_name?: string;
     machine_sequence?: string;
@@ -2335,14 +2554,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       so_id: [
         '',
         [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
-      ],
-      location: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-        ],
       ],
       dispatch_date: [''],
       images: [null],
@@ -2695,83 +2906,132 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
   reload(): void {
     this.loaderService.showGlobalLoader();
-    this.machineService
-      .getAllMachines({
-        page: this.page,
-        limit: this.limit,
-        search: this.filters.search,
-        is_approved: this.filters.is_approved,
-        category_id: this.filters.category_id,
-        has_sequence: this.filters.has_sequence,
-        metadata_key: this.filters.metadata_key,
-        metadata_value: this.filters.metadata_value,
-        dispatch_date_from: this.filters.dispatch_date_from,
-        dispatch_date_to: this.filters.dispatch_date_to,
-        party_name: this.filters.party_name,
-        machine_sequence: this.filters.machine_sequence,
-        location: this.filters.location,
-        sortBy: this.filters.sortBy,
-        sortOrder: this.filters.sortOrder,
-      })
-      .subscribe({
-        next: res => {
-          const machines = res.data.machines || [];
-          // Map machines and properly extract SO data
-          // Note: Backend populates so_id with the SO object, not a separate 'so' field
-          this.machines = machines.map((m: any) => {
-            // Extract SO data - so_id is populated as an object by the backend
-            const soIdValue = m.so_id;
-            let soData = null;
-            let soIdString = null;
+    // Build params object, only including non-empty values
+    const requestParams: any = {
+      page: this.page,
+      limit: this.limit,
+    };
 
-            // Check if so_id is a populated object or just an ID string
-            if (
-              soIdValue &&
-              typeof soIdValue === 'object' &&
-              soIdValue !== null
-            ) {
-              // so_id is populated - extract the SO data
-              soIdString = soIdValue._id?.toString() || null;
-              soData = {
-                _id: soIdString,
-                name: soIdValue.name || null,
-                category_id: soIdValue.category_id || null,
-                subcategory_id: soIdValue.subcategory_id || null,
-                party_name: soIdValue.party_name || null,
-                mobile_number: soIdValue.mobile_number || null,
-              };
-            } else if (soIdValue && typeof soIdValue === 'string') {
-              // so_id is just a string ID (not populated)
-              soIdString = soIdValue;
-              soData = null;
-            }
+    // Only add search if it's not empty (backend requires min 1 char)
+    const searchValue = this.filters.search?.trim();
+    if (searchValue && searchValue.length > 0) {
+      requestParams.search = searchValue;
+    }
 
-            return {
-              ...m,
-              _id: m._id,
-              so_id: soIdString || null,
-              so: soData,
+    if (this.filters.is_approved !== undefined) {
+      requestParams.is_approved = this.filters.is_approved;
+    }
+    if (this.filters.category_id) {
+      requestParams.category_id = this.filters.category_id;
+    }
+    if (this.filters.has_sequence !== undefined) {
+      requestParams.has_sequence = this.filters.has_sequence;
+    }
+    if (this.filters.metadata_key?.trim()) {
+      requestParams.metadata_key = this.filters.metadata_key.trim();
+    }
+    if (this.filters.metadata_value?.trim()) {
+      requestParams.metadata_value = this.filters.metadata_value.trim();
+    }
+    if (this.filters.dispatch_date_from) {
+      requestParams.dispatch_date_from = this.filters.dispatch_date_from;
+    }
+    if (this.filters.dispatch_date_to) {
+      requestParams.dispatch_date_to = this.filters.dispatch_date_to;
+    }
+    if (this.filters.so_date_from) {
+      requestParams.so_date_from = this.filters.so_date_from;
+    }
+    if (this.filters.so_date_to) {
+      requestParams.so_date_to = this.filters.so_date_to;
+    }
+    if (this.filters.po_date_from) {
+      requestParams.po_date_from = this.filters.po_date_from;
+    }
+    if (this.filters.po_date_to) {
+      requestParams.po_date_to = this.filters.po_date_to;
+    }
+    if (this.filters.party_name?.trim()) {
+      requestParams.party_name = this.filters.party_name.trim();
+    }
+    if (this.filters.machine_sequence?.trim()) {
+      requestParams.machine_sequence = this.filters.machine_sequence.trim();
+    }
+    if (this.filters.location?.trim()) {
+      requestParams.location = this.filters.location.trim();
+    }
+    if (this.filters.sortBy) {
+      requestParams.sortBy = this.filters.sortBy;
+    }
+    if (this.filters.sortOrder) {
+      requestParams.sortOrder = this.filters.sortOrder;
+    }
+
+    this.machineService.getAllMachines(requestParams).subscribe({
+      next: res => {
+        const machines = res.data.machines || [];
+        // Map machines and properly extract SO data
+        // Note: Backend populates so_id with the SO object, not a separate 'so' field
+        this.machines = machines.map((m: any) => {
+          // Extract SO data - so_id is populated as an object by the backend
+          const soIdValue = m.so_id;
+          let soData = null;
+          let soIdString = null;
+
+          // Check if so_id is a populated object or just an ID string
+          if (
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
+          ) {
+            // so_id is populated - extract the SO data
+            soIdString = soIdValue._id?.toString() || null;
+            soData = {
+              _id: soIdString,
+              name: soIdValue.name || null,
+              customer: soIdValue.customer || null,
+              so_number: soIdValue.so_number || null,
+              po_number: soIdValue.po_number || null,
+              so_date: soIdValue.so_date || null,
+              po_date: soIdValue.po_date || null,
+              location: soIdValue.location || null,
+              category_id: soIdValue.category_id || null,
+              subcategory_id: soIdValue.subcategory_id || null,
+              party_name: soIdValue.party_name || null,
+              mobile_number: soIdValue.mobile_number || null,
             };
-          });
-          // Extract metadata keys for autocomplete
-          this.extractMetadataKeys(this.machines);
-          this.total = res.data.total;
-          this.pages = res.data.pages;
-          // Update selection state after reload
-          this.updateSelectionState();
-          this.loaderService.hideGlobalLoader();
-        },
-        error: error => {
-          console.error('Error loading machines:', error);
-          this.loaderService.hideGlobalLoader();
-          // Optionally show error message
-          this.messageService.add({
-            severity: 'error',
-            summary: 'Error',
-            detail: 'Failed to load machines. Please try again.',
-          });
-        },
-      });
+          } else if (soIdValue && typeof soIdValue === 'string') {
+            // so_id is just a string ID (not populated)
+            soIdString = soIdValue;
+            soData = null;
+          }
+
+          return {
+            ...m,
+            _id: m._id,
+            so_id: soIdString || null,
+            so: soData,
+          };
+        });
+        // Extract metadata keys for autocomplete
+        this.extractMetadataKeys(this.machines);
+        this.total = res.data.total;
+        this.pages = res.data.pages;
+        // Update selection state after reload
+        this.updateSelectionState();
+        this.loaderService.hideGlobalLoader();
+      },
+      error: error => {
+        console.error('Error loading machines:', error);
+        this.loaderService.hideGlobalLoader();
+        // Optionally show error message
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load machines. Please try again.',
+        });
+      },
+    });
   }
 
   onPageChange(p: number): void {
@@ -2836,6 +3096,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         soData = {
           _id: soId,
           name: soIdValue.name || '',
+          customer: soIdValue.customer || '',
+          location: soIdValue.location || '',
+          po_number: soIdValue.po_number || '',
+          po_date: soIdValue.po_date || '',
+          so_number: soIdValue.so_number || '',
+          so_date: soIdValue.so_date || '',
+          items: soIdValue.items || [],
           category_id: soIdValue.category_id || null,
           subcategory_id: soIdValue.subcategory_id || null,
           party_name: soIdValue.party_name || '',
@@ -2849,7 +3116,10 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           updatedAt: soIdValue.updatedAt || '',
         };
         this.selectedSO = soData;
-        this.soSearchInput = soData.name || '';
+        // Display format: SO Number or Customer - Party Name (prioritize customer/so_number over name)
+        const displayName =
+          soData.so_number || soData.customer || soData.name || '';
+        this.soSearchInput = `${displayName}${soData.party_name ? ' - ' + soData.party_name : ''}`;
       } else if (soIdValue && typeof soIdValue === 'string') {
         // so_id is just a string ID (not populated)
         soId = soIdValue;
@@ -2859,7 +3129,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
             if (res.success || res.data) {
               const so = res.data || (res as any);
               this.selectedSO = so;
-              this.soSearchInput = so.name || '';
+              const displayName = so.so_number || so.customer || so.name || '';
+              this.soSearchInput = `${displayName}${so.party_name ? ' - ' + so.party_name : ''}`;
             }
           },
           error: () => {
@@ -2888,6 +3159,8 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       this.previewImages = [];
       this.selectedFiles = [];
       this.selectedDocuments = [];
+      this.removedImages = [];
+      this.removedDocuments = [];
       this.isDragging = false;
       this.isDocumentDragging = false;
 
@@ -2953,14 +3226,63 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   onFiles(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     const files = input?.files ? Array.from(input.files) : [];
-    const limited = files.slice(0, 5);
-    this.selectedFiles = limited;
-    this.form.patchValue({ images: limited });
+
+    if (files.length === 0) {
+      return;
+    }
+
+    // Calculate total images: existing + already selected + new
+    const totalExisting = this.existingImages.length;
+    const totalSelected = this.selectedFiles.length;
+
+    // Limit total images (existing + selected + new) to 5
+    const maxTotalImages = 5;
+    const availableSlots = Math.max(
+      0,
+      maxTotalImages - totalExisting - totalSelected
+    );
+
+    if (availableSlots === 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Image Limit Reached',
+        detail: `Maximum ${maxTotalImages} images allowed. Please remove some existing images first.`,
+      });
+      // Clear the input
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    const limited = files.slice(0, availableSlots);
+
+    // Append new files to existing selectedFiles instead of replacing
+    this.selectedFiles.push(...limited);
+
+    // Limit total to 5 if somehow exceeded
+    const totalNow = this.existingImages.length + this.selectedFiles.length;
+    if (totalNow > maxTotalImages) {
+      const excess = totalNow - maxTotalImages;
+      this.selectedFiles.splice(-excess);
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Image Limit',
+        detail: `Only ${limited.length} image(s) added. Maximum ${maxTotalImages} images allowed.`,
+      });
+    }
+
+    this.form.patchValue({ images: this.selectedFiles });
     // Mark form as dirty to enable save button
     this.form.markAsDirty();
-    // revoke previous previews
-    this.previewImages.forEach(u => URL.revokeObjectURL(u));
-    this.previewImages = limited.map(f => URL.createObjectURL(f));
+    // Create preview URLs for new files only (append to existing previews)
+    const newPreviews = limited.map(f => URL.createObjectURL(f));
+    this.previewImages.push(...newPreviews);
+
+    // Clear the input so same file can be selected again
+    if (input) {
+      input.value = '';
+    }
   }
 
   removeFile(i: number): void {
@@ -2975,11 +3297,17 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
   addMetadataRow(): void {
     this.metadataEntries.push({ key: '', value: '' });
+    this.form.markAsDirty();
   }
 
   removeMetadataRow(i: number): void {
     if (this.metadataEntries.length <= 1) return;
     this.metadataEntries.splice(i, 1);
+    this.form.markAsDirty();
+  }
+
+  onMetadataChange(): void {
+    this.form.markAsDirty();
   }
 
   submitForm(): void {
@@ -3011,7 +3339,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
           !formControls['name']?.dirty &&
           !formControls['category_id']?.dirty &&
           !formControls['party_name']?.dirty &&
-          !formControls['location']?.dirty &&
           !formControls['mobile_number']?.dirty &&
           !formControls['dispatch_date']?.dirty &&
           !formControls['machine_sequence']?.dirty &&
@@ -3071,7 +3398,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
     // Extract and sanitize form values
     const so_id = (this.form.value.so_id || '').trim();
-    const location = (this.form.value.location || '').trim();
     const dispatch_date = this.form.value.dispatch_date || '';
     const machine_sequence = (this.form.value.machine_sequence || '').trim();
     // Build metadata object from dynamic rows
@@ -3109,7 +3435,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
         JSON.stringify(metadata) !==
           JSON.stringify(this.selected.metadata || {}) ||
         so_id !== originalSOId ||
-        location !== (this.selected.location || '') ||
         dispatch_date !== originalDispatchDate ||
         machine_sequence !== (this.selected.machine_sequence || '');
 
@@ -3156,7 +3481,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
 
       // Prepare the update payload
       const updatePayload: any = {
-        location,
         dispatch_date: dispatch_date || undefined, // Only include if not empty
         machine_sequence: machine_sequence || undefined, // Only include if not empty
         images: this.selectedFiles, // Only new files for upload
@@ -3223,7 +3547,6 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       // Prepare the create payload
       const createPayload: any = {
         so_id,
-        location,
         dispatch_date: dispatch_date || undefined, // Only include if not empty
         images: this.selectedFiles,
         documents: this.selectedDocuments,
@@ -3349,8 +3672,12 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     // Enhanced search: search in name, party_name, category name, subcategory name, and mobile number
     this.soSuggestions = this.activeSOs
       .filter(so => {
-        // Search in SO name
-        if (so.name?.toLowerCase().includes(queryLower)) return true;
+        // Search in SO name or customer
+        if (
+          so.name?.toLowerCase().includes(queryLower) ||
+          so.customer?.toLowerCase().includes(queryLower)
+        )
+          return true;
         // Search in party name
         if (so.party_name?.toLowerCase().includes(queryLower)) return true;
         // Search in mobile number
@@ -3386,9 +3713,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   selectSO(so: SO): void {
     this.selectedSO = so;
     this.form.patchValue({ so_id: so._id });
-    this.soSearchInput = `${so.name} - ${so.party_name}`;
+    // Display format: SO Number or Customer - Party Name
+    const displayName = so.so_number || so.customer || so.name || '';
+    this.soSearchInput = `${displayName}${so.party_name ? ' - ' + so.party_name : ''}`;
     this.showSOSuggestions = false;
     this.form.get('so_id')?.markAsTouched();
+    this.form.get('so_id')?.updateValueAndValidity();
+    this.form.markAsDirty(); // Mark form as dirty when SO changes
   }
 
   clearSOSelection(): void {
@@ -3485,7 +3816,11 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       return validTypes.includes(extension);
     });
 
-    if (validFiles.length > 0) {
+    // Limit total documents (existing + new) to 10
+    const maxNewDocuments = Math.max(0, 10 - this.existingDocuments.length);
+    const limited = validFiles.slice(0, maxNewDocuments);
+
+    if (limited.length > 0) {
       // Mark form as dirty to enable save button
       this.form.markAsDirty();
     }
@@ -3495,7 +3830,16 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
       console.warn('Some files were rejected due to invalid file type');
     }
 
-    this.selectedDocuments.push(...validFiles);
+    if (limited.length < validFiles.length) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Limit Reached',
+        detail: `Maximum 10 documents allowed. Only ${limited.length} document(s) added.`,
+      });
+    }
+
+    // Append new documents to existing selectedDocuments instead of replacing
+    this.selectedDocuments.push(...limited);
   }
 
   // Category search helpers
@@ -3763,7 +4107,55 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
     event.preventDefault();
     this.isDragging = false;
     if (event.dataTransfer?.files) {
-      this.onFiles(event);
+      const files = Array.from(event.dataTransfer.files);
+
+      if (files.length === 0) {
+        return;
+      }
+
+      // Calculate total images: existing + already selected + new
+      const totalExisting = this.existingImages.length;
+      const totalSelected = this.selectedFiles.length;
+
+      // Limit total images (existing + selected + new) to 5
+      const maxTotalImages = 5;
+      const availableSlots = Math.max(
+        0,
+        maxTotalImages - totalExisting - totalSelected
+      );
+
+      if (availableSlots === 0) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Image Limit Reached',
+          detail: `Maximum ${maxTotalImages} images allowed. Please remove some existing images first.`,
+        });
+        return;
+      }
+
+      const limited = files.slice(0, availableSlots);
+
+      // Append new files to existing selectedFiles instead of replacing
+      this.selectedFiles.push(...limited);
+
+      // Limit total to 5 if somehow exceeded
+      const totalNow = this.existingImages.length + this.selectedFiles.length;
+      if (totalNow > maxTotalImages) {
+        const excess = totalNow - maxTotalImages;
+        this.selectedFiles.splice(-excess);
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Image Limit',
+          detail: `Only ${limited.length} image(s) added. Maximum ${maxTotalImages} images allowed.`,
+        });
+      }
+
+      this.form.patchValue({ images: this.selectedFiles });
+      // Mark form as dirty to enable save button
+      this.form.markAsDirty();
+      // Create preview URLs for new files only (append to existing previews)
+      const newPreviews = limited.map(f => URL.createObjectURL(f));
+      this.previewImages.push(...newPreviews);
     }
   }
 
@@ -3920,11 +4312,13 @@ export class MachineManagementComponent implements OnInit, OnDestroy {
   }
 
   getSOName(m: Machine): string {
-    if (m.so?.name) return m.so.name;
-    if (m.so_id && typeof m.so_id === 'string') return m.so_id;
-    if (m.so_id && typeof m.so_id === 'object' && (m.so_id as any)?._id) {
-      return (m.so_id as any)._id.toString();
+    // Handle deleted SO case
+    if (!m.so) {
+      return `[SO Deleted - ID: ${m.so_id?.substring(0, 8)}...]`;
     }
+    if (m.so?.customer) return m.so.customer;
+    if (m.so?.name) return m.so.name;
+    if (m.so?.so_number) return m.so.so_number;
     return '-';
   }
 

@@ -108,7 +108,7 @@ interface ApprovalRow {
 
         <app-list-filters
           searchLabel="Search approvals"
-          searchPlaceholder="Machine name, requester, notes, created by..."
+          searchPlaceholder="Search by customer name, SO number, PO number, party name, location, sequence, requester, created by, mobile number..."
           (searchChange)="onSearchChange($event)"
           (apply)="fetchPending()"
           (clear)="clearFilters()"
@@ -155,6 +155,24 @@ interface ApprovalRow {
               (input)="onCreatedByChange()"
             />
 
+            <!-- SO Number Filter -->
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="SO Number"
+              [(ngModel)]="filters.soNumber"
+              (input)="onFilterChange()"
+            />
+
+            <!-- PO Number Filter -->
+            <input
+              type="text"
+              class="px-3 py-2 border border-neutral-300 rounded-md min-w-40"
+              placeholder="PO Number"
+              [(ngModel)]="filters.poNumber"
+              (input)="onFilterChange()"
+            />
+
             <!-- Sequence Search -->
             <input
               type="text"
@@ -176,23 +194,122 @@ interface ApprovalRow {
               </option>
             </select>
 
-            <!-- Date From -->
-            <input
-              type="date"
-              class="px-3 py-2 border border-neutral-300 rounded-md"
-              placeholder="Date From"
-              [(ngModel)]="filters.dateFrom"
-              (change)="onFilterChange()"
-            />
+            <!-- Date Range Filters Section -->
+            <div
+              class="flex flex-wrap items-end gap-3 p-3 bg-neutral-50 border border-neutral-200 rounded-lg"
+            >
+              <div class="flex items-center justify-between mb-2 w-full">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-calendar text-primary"></i>
+                  <span class="text-sm font-semibold text-gray-700"
+                    >Date Range Filters</span
+                  >
+                </div>
+                <div
+                  class="flex items-center gap-1 text-xs text-gray-500 cursor-help"
+                  title="Select date ranges to filter approvals"
+                >
+                  <i class="pi pi-info-circle text-xs"></i>
+                  <span>Select From, To, or both</span>
+                </div>
+              </div>
 
-            <!-- Date To -->
-            <input
-              type="date"
-              class="px-3 py-2 border border-neutral-300 rounded-md"
-              placeholder="Date To"
-              [(ngModel)]="filters.dateTo"
-              (change)="onFilterChange()"
-            />
+              <!-- Created Date Range -->
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-xs font-medium text-gray-600 flex items-center gap-1"
+                >
+                  <i class="pi pi-calendar text-xs"></i>
+                  Created Date Range
+                </label>
+                <div class="flex items-center gap-2">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-gray-500">From</label>
+                    <input
+                      type="date"
+                      class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                      [(ngModel)]="filters.dateFrom"
+                      (change)="onFilterChange()"
+                      title="Filter approvals by creation date - start date"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-gray-500">To</label>
+                    <input
+                      type="date"
+                      class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                      [(ngModel)]="filters.dateTo"
+                      (change)="onFilterChange()"
+                      title="Filter approvals by creation date - end date"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- SO Date Range -->
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-xs font-medium text-gray-600 flex items-center gap-1"
+                >
+                  <i class="pi pi-file text-xs"></i>
+                  SO Date Range
+                </label>
+                <div class="flex items-center gap-2">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-gray-500">From</label>
+                    <input
+                      type="date"
+                      class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                      [(ngModel)]="filters.soDateFrom"
+                      (change)="onFilterChange()"
+                      title="Filter approvals by Sales Order date - start date"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-gray-500">To</label>
+                    <input
+                      type="date"
+                      class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                      [(ngModel)]="filters.soDateTo"
+                      (change)="onFilterChange()"
+                      title="Filter approvals by Sales Order date - end date"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- PO Date Range -->
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-xs font-medium text-gray-600 flex items-center gap-1"
+                >
+                  <i class="pi pi-shopping-cart text-xs"></i>
+                  PO Date Range
+                </label>
+                <div class="flex items-center gap-2">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-gray-500">From</label>
+                    <input
+                      type="date"
+                      class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                      [(ngModel)]="filters.poDateFrom"
+                      (change)="onFilterChange()"
+                      title="Filter approvals by Purchase Order date - start date"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-gray-500">To</label>
+                    <input
+                      type="date"
+                      class="px-3 py-2 border border-neutral-300 rounded-md text-sm min-w-40"
+                      [(ngModel)]="filters.poDateTo"
+                      (change)="onFilterChange()"
+                      title="Filter approvals by Purchase Order date - end date"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <!-- Metadata Key -->
             <input
@@ -339,7 +456,16 @@ interface ApprovalRow {
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap">
                   <div class="text-sm font-medium text-gray-900">
-                    {{ a.machineId?.name || '-' }}
+                    {{ getMachineName(a) }}
+                  </div>
+                  <div
+                    *ngIf="getSONumber(a)"
+                    class="text-xs text-gray-500 mt-1"
+                  >
+                    SO: {{ getSONumber(a) }}
+                  </div>
+                  <div *ngIf="getPONumber(a)" class="text-xs text-gray-500">
+                    PO: {{ getPONumber(a) }}
                   </div>
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap">
@@ -483,6 +609,12 @@ export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
     categoryId?: string;
     dateFrom?: string;
     dateTo?: string;
+    soDateFrom?: string;
+    soDateTo?: string;
+    poDateFrom?: string;
+    poDateTo?: string;
+    soNumber?: string;
+    poNumber?: string;
     requestedBy?: string;
     createdBy?: string;
     metadataKey?: string;
@@ -591,13 +723,24 @@ export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
     const sortOrder = this.filters.sortOrder || 'desc';
     const sort = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
 
-    // Build enhanced filters
+    // Build enhanced filters - include all filter fields (exclude sortBy and sortOrder as they're handled separately)
     const enhancedFilters: any = {
-      ...this.filters,
+      approvalType: this.filters.approvalType,
+      sequence: this.filters.sequence,
+      categoryId: this.filters.categoryId,
+      dateFrom: this.filters.dateFrom,
+      dateTo: this.filters.dateTo,
+      soDateFrom: this.filters.soDateFrom,
+      soDateTo: this.filters.soDateTo,
+      poDateFrom: this.filters.poDateFrom,
+      poDateTo: this.filters.poDateTo,
+      soNumber: this.filters.soNumber,
+      poNumber: this.filters.poNumber,
+      requestedBy: this.filters.requestedBy,
+      createdBy: this.filters.createdBy,
+      metadataKey: this.filters.metadataKey,
+      metadataValue: this.filters.metadataValue,
     };
-    if (this.filters.createdBy) {
-      enhancedFilters.createdBy = this.filters.createdBy;
-    }
 
     this.approvalsService
       .getPending(
@@ -611,7 +754,52 @@ export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: data => {
           const d: any = data as any;
-          this.approvals = Array.isArray(d?.approvals) ? d.approvals : [];
+          const approvals = Array.isArray(d?.approvals) ? d.approvals : [];
+
+          // Map approvals to ensure proper SO data structure
+          this.approvals = approvals.map((approval: any) => {
+            const machineIdValue = approval.machineId;
+            if (
+              machineIdValue &&
+              typeof machineIdValue === 'object' &&
+              machineIdValue !== null
+            ) {
+              // Ensure so_id is properly structured
+              const soIdValue = machineIdValue.so_id;
+              if (
+                soIdValue &&
+                typeof soIdValue === 'object' &&
+                soIdValue !== null
+              ) {
+                // SO is already populated, ensure all fields are mapped
+                return {
+                  ...approval,
+                  machineId: {
+                    ...machineIdValue,
+                    so_id: {
+                      _id: soIdValue._id?.toString() || null,
+                      name: soIdValue.name || null,
+                      customer: soIdValue.customer || null,
+                      so_number: soIdValue.so_number || null,
+                      po_number: soIdValue.po_number || null,
+                      so_date: soIdValue.so_date || null,
+                      po_date: soIdValue.po_date || null,
+                      location: soIdValue.location || null,
+                      category_id: soIdValue.category_id || null,
+                      subcategory_id: soIdValue.subcategory_id || null,
+                      party_name: soIdValue.party_name || null,
+                      mobile_number: soIdValue.mobile_number || null,
+                    },
+                  },
+                };
+              } else if (soIdValue && typeof soIdValue === 'string') {
+                // SO is just an ID, we'll need to handle this on display
+                return approval;
+              }
+            }
+            return approval;
+          });
+
           this.total = Number(d?.total) || this.approvals.length || 0;
           this.pages =
             Number(d?.pages) || Math.ceil(this.total / this.limit) || 1;
@@ -719,26 +907,115 @@ export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
     this.approvalsService.getById(id).subscribe({
       next: (a: any) => {
         this.selectedApproval = a;
-        const mid =
-          typeof a?.machineId === 'string' ? a?.machineId : a?.machineId?._id;
-        if (mid) {
-          // Fetch machine for images and details using BaseApiService to ensure auth headers/base url
-          this.baseApi.get<any>(`${API_ENDPOINTS.MACHINES}/${mid}`).subscribe({
-            next: mres => {
-              const data = (mres as any)?.data || mres;
-              const machine = data?.machine || data;
-              const imgs: any = machine?.images;
-              machine.images = Array.isArray(imgs) ? imgs : imgs ? [imgs] : [];
-              this.selectedMachine = machine;
-              this.viewVisible = true;
-            },
-            error: () => {
-              this.viewVisible = true;
-            },
-          });
-        } else {
-          this.viewVisible = true;
+        // Check if machineId is already populated with full data
+        const machineIdValue = a?.machineId;
+        if (
+          machineIdValue &&
+          typeof machineIdValue === 'object' &&
+          machineIdValue !== null &&
+          machineIdValue._id
+        ) {
+          // Machine is already populated, use it directly
+          // Ensure SO data is properly structured
+          const soIdValue = machineIdValue.so_id;
+          if (
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
+          ) {
+            // SO is populated, use the machine data as-is
+            const imgs: any = machineIdValue?.images;
+            const docs: any = machineIdValue?.documents;
+            this.selectedMachine = {
+              ...machineIdValue,
+              images: Array.isArray(imgs) ? imgs : imgs ? [imgs] : [],
+              documents: Array.isArray(docs) ? docs : docs ? [docs] : [],
+              so_id: {
+                _id: soIdValue._id?.toString() || null,
+                name: soIdValue.name || null,
+                customer: soIdValue.customer || null,
+                so_number: soIdValue.so_number || null,
+                po_number: soIdValue.po_number || null,
+                so_date: soIdValue.so_date || null,
+                po_date: soIdValue.po_date || null,
+                location: soIdValue.location || null,
+                category_id: soIdValue.category_id || null,
+                subcategory_id: soIdValue.subcategory_id || null,
+                party_name: soIdValue.party_name || null,
+                mobile_number: soIdValue.mobile_number || null,
+              },
+            };
+            this.viewVisible = true;
+            return;
+          }
         }
+
+        // If machine is not populated or SO is missing, fetch it
+        const mid =
+          typeof machineIdValue === 'string'
+            ? machineIdValue
+            : machineIdValue?._id;
+        if (!mid) {
+          this.viewVisible = true;
+          return;
+        }
+        // Fetch machine with SO populated
+        this.baseApi.get<any>(`${API_ENDPOINTS.MACHINES}/${mid}`).subscribe({
+          next: mres => {
+            const data = (mres as any)?.data || mres;
+            const machine = data?.machine || data;
+            const imgs: any = machine?.images;
+            const docs: any = machine?.documents;
+            machine.images = Array.isArray(imgs) ? imgs : imgs ? [imgs] : [];
+            machine.documents = Array.isArray(docs) ? docs : docs ? [docs] : [];
+
+            // Ensure SO data is properly structured
+            const soIdValue = machine?.so_id;
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              this.selectedMachine = {
+                ...machine,
+                so_id: {
+                  _id: soIdValue._id?.toString() || null,
+                  name: soIdValue.name || null,
+                  customer: soIdValue.customer || null,
+                  so_number: soIdValue.so_number || null,
+                  po_number: soIdValue.po_number || null,
+                  so_date: soIdValue.so_date || null,
+                  po_date: soIdValue.po_date || null,
+                  location: soIdValue.location || null,
+                  category_id: soIdValue.category_id || null,
+                  subcategory_id: soIdValue.subcategory_id || null,
+                  party_name: soIdValue.party_name || null,
+                  mobile_number: soIdValue.mobile_number || null,
+                },
+              };
+            } else {
+              this.selectedMachine = machine;
+            }
+            this.viewVisible = true;
+          },
+          error: () => {
+            // If fetch fails, try to use machine data from approval if available
+            if (
+              machineIdValue &&
+              typeof machineIdValue === 'object' &&
+              machineIdValue !== null
+            ) {
+              const imgs: any = machineIdValue?.images;
+              const docs: any = machineIdValue?.documents;
+              this.selectedMachine = {
+                ...machineIdValue,
+                images: Array.isArray(imgs) ? imgs : imgs ? [imgs] : [],
+                documents: Array.isArray(docs) ? docs : docs ? [docs] : [],
+              };
+            }
+            this.viewVisible = true;
+          },
+        });
       },
       error: () => {
         this.viewVisible = true;
@@ -825,8 +1102,24 @@ export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
   }
 
   getCategoryNameForApproval(approval: ApprovalRow): string {
-    if (!approval.machineId?.category_id) return '-';
-    const catId = approval.machineId.category_id;
+    const m = approval.machineId as any;
+    if (!m) return '-';
+
+    // Check SO's category_id first (machines now reference SOs)
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      const categoryId = soIdValue.category_id;
+      if (categoryId && typeof categoryId === 'object' && categoryId !== null) {
+        return categoryId.name || '-';
+      }
+      if (typeof categoryId === 'string') {
+        return this.getCategoryName(categoryId);
+      }
+    }
+
+    // Fallback to machine's category_id if SO is not populated
+    if (!m.category_id) return '-';
+    const catId = m.category_id;
     if (typeof catId === 'string') {
       return this.getCategoryName(catId);
     }
@@ -834,6 +1127,55 @@ export class ApprovalsDashboardComponent implements OnInit, OnDestroy {
       return catId.name || '-';
     }
     return '-';
+  }
+
+  getMachineName(approval: ApprovalRow): string {
+    const m = approval.machineId as any;
+    if (!m) return '-';
+
+    // Extract customer/name from SO (machines now reference SOs)
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      // Prioritize customer name, then name, then SO number
+      if (soIdValue.customer && soIdValue.customer.trim()) {
+        return soIdValue.customer.trim();
+      }
+      if (soIdValue.name && soIdValue.name.trim()) {
+        return soIdValue.name.trim();
+      }
+      if (soIdValue.so_number && soIdValue.so_number.trim()) {
+        return soIdValue.so_number.trim();
+      }
+    }
+
+    // Fallback to machine name if SO is not populated
+    if (m.name && m.name.trim()) {
+      return m.name.trim();
+    }
+    if (m._id) {
+      return m._id.toString();
+    }
+    return '-';
+  }
+
+  getSONumber(approval: ApprovalRow): string | null {
+    const m = approval.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.so_number || null;
+    }
+    return null;
+  }
+
+  getPONumber(approval: ApprovalRow): string | null {
+    const m = approval.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.po_number || null;
+    }
+    return null;
   }
 
   formatApprovalType(type: string): string {

@@ -11,10 +11,10 @@ import {
   ReactiveFormsModule,
   FormBuilder,
   FormGroup,
+  FormArray,
   Validators,
   AbstractControl,
 } from '@angular/forms';
-import { ListFiltersComponent } from '../shared/list/list-filters.component';
 import { ListTableShellComponent } from '../shared/list/list-table-shell.component';
 import { SOService } from '../../../../core/services/so.service';
 import { SO, SOFilters } from '../../../../core/models/so.model';
@@ -28,6 +28,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { PageHeaderComponent } from '../../../../core/components/page-header/page-header.component';
+import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-so-management',
@@ -36,7 +37,6 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
-    ListFiltersComponent,
     ListTableShellComponent,
     AdminSidebarComponent,
     TablePaginationComponent,
@@ -81,35 +81,106 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
         </app-page-header>
 
         <main class="p-6 space-y-4">
-          <app-list-filters
-            searchLabel="Search SOs"
-            searchPlaceholder="Name, party name..."
-            (searchChange)="onSearchChange($event)"
-            (apply)="reload()"
-            (clear)="clearFilters()"
+          <!-- Custom Search with Autocomplete -->
+          <div
+            class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-4"
           >
-            <div filters-extra class="flex flex-wrap items-end gap-3">
-              <select
-                class="px-3 py-2 border border-neutral-300 rounded-md"
-                [(ngModel)]="filters.is_active"
-                (change)="reload()"
-              >
-                <option [ngValue]="undefined">All statuses</option>
-                <option [ngValue]="true">Active</option>
-                <option [ngValue]="false">Inactive</option>
-              </select>
-              <select
-                class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
-                [(ngModel)]="filters.category_id"
-                (change)="onCategoryFilterChange()"
-              >
-                <option [ngValue]="undefined">All categories</option>
-                <option *ngFor="let cat of categories" [value]="cat._id">
-                  {{ cat.name }}
-                </option>
-              </select>
+            <div class="flex flex-wrap gap-3 items-end">
+              <div class="grow min-w-[220px] relative">
+                <label class="block text-sm text-text-muted mb-1"
+                  >Search SOs</label
+                >
+                <input
+                  type="text"
+                  class="w-full px-3 py-2 border border-neutral-300 rounded-md"
+                  [(ngModel)]="searchInput"
+                  (input)="onSearchInputChange()"
+                  (focus)="showSearchSuggestions = true"
+                  (blur)="hideSearchSuggestions()"
+                  (keydown.enter)="onSearchEnter()"
+                  placeholder="Search by SO number, Customer, or PO number..."
+                  [ngModelOptions]="{ standalone: true }"
+                />
+                <!-- Search Suggestions Dropdown -->
+                <div
+                  *ngIf="showSearchSuggestions && searchSuggestions.length > 0"
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                >
+                  <div
+                    *ngFor="let so of searchSuggestions"
+                    class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                    (mousedown)="selectSearchSuggestion(so)"
+                  >
+                    <div class="font-medium text-gray-900">
+                      <span *ngIf="so.so_number" class="text-primary"
+                        >SO: {{ so.so_number }}</span
+                      >
+                      <span
+                        *ngIf="!so.so_number && so.customer"
+                        class="text-primary"
+                        >Customer: {{ so.customer }}</span
+                      >
+                    </div>
+                    <div class="text-xs text-neutral-600 mt-1">
+                      <span *ngIf="so.customer"
+                        >Customer: {{ so.customer }}</span
+                      >
+                      <span *ngIf="so.customer && so.po_number"> | </span>
+                      <span *ngIf="so.po_number">PO: {{ so.po_number }}</span>
+                      <span *ngIf="so.party_name">
+                        | Party: {{ so.party_name }}</span
+                      >
+                    </div>
+                  </div>
+                </div>
+                <div
+                  *ngIf="
+                    showSearchSuggestions &&
+                    searchSuggestions.length === 0 &&
+                    searchInput.trim()
+                  "
+                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg px-3 py-4 text-sm text-neutral-500 text-center"
+                >
+                  No SOs found matching "{{ searchInput }}"
+                </div>
+              </div>
+              <div class="flex flex-wrap items-end gap-3">
+                <select
+                  class="px-3 py-2 border border-neutral-300 rounded-md"
+                  [(ngModel)]="filters.is_active"
+                  (change)="reload()"
+                >
+                  <option [ngValue]="undefined">All statuses</option>
+                  <option [ngValue]="true">Active</option>
+                  <option [ngValue]="false">Inactive</option>
+                </select>
+                <select
+                  class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+                  [(ngModel)]="filters.category_id"
+                  (change)="onCategoryFilterChange()"
+                >
+                  <option [ngValue]="undefined">All categories</option>
+                  <option *ngFor="let cat of categories" [value]="cat._id">
+                    {{ cat.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="flex items-center gap-2 ml-auto">
+                <button
+                  class="px-4 py-2 bg-bg border border-neutral-300 rounded-md"
+                  (click)="clearFilters()"
+                >
+                  Clear
+                </button>
+                <button
+                  class="px-4 py-2 bg-primary text-white rounded-md"
+                  (click)="reload()"
+                >
+                  Apply
+                </button>
+              </div>
             </div>
-          </app-list-filters>
+          </div>
 
           <app-list-table-shell title="Sales Orders">
             <table class="min-w-full text-sm">
@@ -118,17 +189,17 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
-                    Name
+                    Customer
                   </th>
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
-                    Category
+                    P.O. Number
                   </th>
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
-                    Subcategory
+                    S.O. Number
                   </th>
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
@@ -138,27 +209,7 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
-                    Mobile Number
-                  </th>
-                  <th
-                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                  <th
-                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center"
-                  >
-                    Documents
-                  </th>
-                  <th
-                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                  >
-                    Created By
-                  </th>
-                  <th
-                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                  >
-                    Created Date
+                    Location
                   </th>
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
@@ -174,63 +225,27 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                 >
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm font-medium text-gray-900">
-                      {{ so.name }}
+                      {{ so.customer || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ so.category_id.name || '-' }}
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <span
-                      *ngIf="so.subcategory_id"
-                      class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
-                    >
-                      {{ so.subcategory_id.name }}
-                    </span>
-                    <span
-                      *ngIf="!so.subcategory_id"
-                      class="text-gray-400 text-sm"
-                      >-</span
-                    >
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">
-                      {{ so.party_name }}
+                      {{ so.po_number || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ so.mobile_number }}
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <span
-                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                      [ngClass]="{
-                        'bg-success/20 text-success': so.is_active,
-                        'bg-warning/20 text-warning': !so.is_active,
-                      }"
-                    >
-                      {{ so.is_active ? 'Active' : 'Inactive' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap text-center">
-                    <span
-                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
-                    >
-                      {{ so.documents.length || 0 }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">
-                      {{ so.created_by.username || '-' }}
+                      {{ so.so_number || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="text-sm text-gray-900">
-                      {{ so.createdAt | date: 'dd-MM-yyyy' }}
+                      {{ so.party_name || '-' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ so.location || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -281,7 +296,7 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   </td>
                 </tr>
                 <tr *ngIf="sos.length === 0">
-                  <td colspan="10" class="px-4 py-12 text-center text-gray-500">
+                  <td colspan="6" class="px-4 py-12 text-center text-gray-500">
                     <div class="flex flex-col items-center justify-center">
                       <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
                       <p class="text-sm font-medium">No SOs found</p>
@@ -338,39 +353,488 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                   (ngSubmit)="submitForm()"
                 >
                   <div class="space-y-1">
-                    <label class="text-sm">Name *</label>
+                    <label class="text-sm">Customer *</label>
                     <input
                       type="text"
                       class="w-full border rounded px-3 py-2"
                       [class.border-red-500]="
-                        (form.controls['name'].touched &&
-                          form.controls['name'].invalid) ||
-                        backendErrors['name']
+                        (form.controls['customer'].touched &&
+                          form.controls['customer'].invalid) ||
+                        backendErrors['customer']
                       "
-                      formControlName="name"
-                      placeholder="Enter SO name"
-                      (blur)="form.controls['name'].markAsTouched()"
-                      (input)="clearBackendError('name')"
+                      formControlName="customer"
+                      placeholder="Enter customer (e.g., T0037 - fsnf skfsfn sfksn)"
+                      (blur)="form.controls['customer'].markAsTouched()"
+                      (input)="clearBackendError('customer')"
                     />
                     <div
                       class="text-xs text-error"
                       *ngIf="
-                        form.controls['name'].touched &&
-                        form.controls['name'].invalid
+                        form.controls['customer'].touched &&
+                        form.controls['customer'].invalid
                       "
                     >
-                      <span *ngIf="form.controls['name'].errors?.['required']">
-                        Name is required
+                      <span
+                        *ngIf="form.controls['customer'].errors?.['required']"
+                      >
+                        Customer is required
                       </span>
-                      <span *ngIf="form.controls['name'].errors?.['minlength']">
-                        Name must be at least 2 characters long
+                      <span
+                        *ngIf="form.controls['customer'].errors?.['minlength']"
+                      >
+                        Customer must be at least 2 characters long
                       </span>
-                      <span *ngIf="form.controls['name'].errors?.['maxlength']">
-                        Name cannot exceed 100 characters
+                      <span
+                        *ngIf="form.controls['customer'].errors?.['maxlength']"
+                      >
+                        Customer cannot exceed 200 characters
                       </span>
-                      <span *ngIf="backendErrors['name']" class="text-error">
-                        {{ backendErrors['name'] }}
+                      <span
+                        *ngIf="backendErrors['customer']"
+                        class="text-error"
+                      >
+                        {{ backendErrors['customer'] }}
                       </span>
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm">Location *</label>
+                    <input
+                      type="text"
+                      class="w-full border rounded px-3 py-2"
+                      [class.border-red-500]="
+                        (form.controls['location'].touched &&
+                          form.controls['location'].invalid) ||
+                        backendErrors['location']
+                      "
+                      formControlName="location"
+                      placeholder="Enter location"
+                      (blur)="form.controls['location'].markAsTouched()"
+                      (input)="clearBackendError('location')"
+                    />
+                    <div
+                      class="text-xs text-error"
+                      *ngIf="
+                        form.controls['location'].touched &&
+                        form.controls['location'].invalid
+                      "
+                    >
+                      <span
+                        *ngIf="form.controls['location'].errors?.['required']"
+                      >
+                        Location is required
+                      </span>
+                      <span
+                        *ngIf="form.controls['location'].errors?.['minlength']"
+                      >
+                        Location must be at least 2 characters long
+                      </span>
+                      <span
+                        *ngIf="form.controls['location'].errors?.['maxlength']"
+                      >
+                        Location cannot exceed 100 characters
+                      </span>
+                      <span
+                        *ngIf="backendErrors['location']"
+                        class="text-error"
+                      >
+                        {{ backendErrors['location'] }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- P.O. Number and P.O. Date -->
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                      <label class="text-sm">P.O. Number *</label>
+                      <input
+                        type="text"
+                        class="w-full border rounded px-3 py-2"
+                        [class.border-red-500]="
+                          (form.controls['po_number'].touched &&
+                            form.controls['po_number'].invalid) ||
+                          backendErrors['po_number']
+                        "
+                        formControlName="po_number"
+                        placeholder="Enter P.O. Number"
+                        (blur)="form.controls['po_number'].markAsTouched()"
+                        (input)="clearBackendError('po_number')"
+                      />
+                      <div
+                        class="text-xs text-error"
+                        *ngIf="
+                          form.controls['po_number'].touched &&
+                          form.controls['po_number'].invalid
+                        "
+                      >
+                        <span
+                          *ngIf="
+                            form.controls['po_number'].errors?.['required']
+                          "
+                        >
+                          P.O. Number is required
+                        </span>
+                        <span
+                          *ngIf="backendErrors['po_number']"
+                          class="text-error"
+                        >
+                          {{ backendErrors['po_number'] }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-sm">P.O. Date * (DD/MM/YYYY)</label>
+                      <input
+                        type="text"
+                        class="w-full border rounded px-3 py-2"
+                        [class.border-red-500]="
+                          (form.controls['po_date'].touched &&
+                            form.controls['po_date'].invalid) ||
+                          backendErrors['po_date']
+                        "
+                        formControlName="po_date"
+                        placeholder="DD/MM/YYYY"
+                        maxlength="10"
+                        (blur)="
+                          formatDateField('po_date');
+                          form.controls['po_date'].markAsTouched()
+                        "
+                        (input)="
+                          onDateInput('po_date', $event);
+                          clearBackendError('po_date')
+                        "
+                      />
+                      <div
+                        class="text-xs text-error"
+                        *ngIf="
+                          form.controls['po_date'].touched &&
+                          form.controls['po_date'].invalid
+                        "
+                      >
+                        <span
+                          *ngIf="form.controls['po_date'].errors?.['required']"
+                        >
+                          P.O. Date is required
+                        </span>
+                        <span
+                          *ngIf="
+                            form.controls['po_date'].errors?.['invalidDate']
+                          "
+                        >
+                          Invalid date format. Please use DD/MM/YYYY
+                        </span>
+                        <span
+                          *ngIf="
+                            form.controls['po_date'].errors?.['invalidFormat']
+                          "
+                        >
+                          Date must be in DD/MM/YYYY format
+                        </span>
+                        <span
+                          *ngIf="backendErrors['po_date']"
+                          class="text-error"
+                        >
+                          {{ backendErrors['po_date'] }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- S.O. Number and S.O. Date -->
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                      <label class="text-sm">S.O. Number *</label>
+                      <input
+                        type="text"
+                        class="w-full border rounded px-3 py-2"
+                        [class.border-red-500]="
+                          (form.controls['so_number'].touched &&
+                            form.controls['so_number'].invalid) ||
+                          backendErrors['so_number']
+                        "
+                        formControlName="so_number"
+                        placeholder="Enter S.O. Number"
+                        (blur)="form.controls['so_number'].markAsTouched()"
+                        (input)="clearBackendError('so_number')"
+                      />
+                      <div
+                        class="text-xs text-error"
+                        *ngIf="
+                          form.controls['so_number'].touched &&
+                          form.controls['so_number'].invalid
+                        "
+                      >
+                        <span
+                          *ngIf="
+                            form.controls['so_number'].errors?.['required']
+                          "
+                        >
+                          S.O. Number is required
+                        </span>
+                        <span
+                          *ngIf="backendErrors['so_number']"
+                          class="text-error"
+                        >
+                          {{ backendErrors['so_number'] }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-sm">S.O. Date * (DD/MM/YYYY)</label>
+                      <input
+                        type="text"
+                        class="w-full border rounded px-3 py-2"
+                        [class.border-red-500]="
+                          (form.controls['so_date'].touched &&
+                            form.controls['so_date'].invalid) ||
+                          backendErrors['so_date']
+                        "
+                        formControlName="so_date"
+                        placeholder="DD/MM/YYYY"
+                        maxlength="10"
+                        (blur)="
+                          formatDateField('so_date');
+                          form.controls['so_date'].markAsTouched()
+                        "
+                        (input)="
+                          onDateInput('so_date', $event);
+                          clearBackendError('so_date')
+                        "
+                      />
+                      <div
+                        class="text-xs text-error"
+                        *ngIf="
+                          form.controls['so_date'].touched &&
+                          form.controls['so_date'].invalid
+                        "
+                      >
+                        <span
+                          *ngIf="form.controls['so_date'].errors?.['required']"
+                        >
+                          S.O. Date is required
+                        </span>
+                        <span
+                          *ngIf="
+                            form.controls['so_date'].errors?.['invalidDate']
+                          "
+                        >
+                          Invalid date format. Please use DD/MM/YYYY
+                        </span>
+                        <span
+                          *ngIf="
+                            form.controls['so_date'].errors?.['invalidFormat']
+                          "
+                        >
+                          Date must be in DD/MM/YYYY format
+                        </span>
+                        <span
+                          *ngIf="backendErrors['so_date']"
+                          class="text-error"
+                        >
+                          {{ backendErrors['so_date'] }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Dynamic Items -->
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <label class="text-sm font-medium"
+                        >Items (Optional)</label
+                      >
+                      <button
+                        type="button"
+                        class="text-primary text-sm"
+                        (click)="addItem()"
+                      >
+                        + Add Item
+                      </button>
+                    </div>
+                    <div
+                      class="rounded border border-neutral-200 divide-y"
+                      formArrayName="items"
+                    >
+                      <div
+                        class="p-3 space-y-3"
+                        *ngFor="
+                          let item of items.controls;
+                          let i = index;
+                          trackBy: trackByIndex
+                        "
+                        [formGroupName]="i"
+                      >
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="text-sm font-medium"
+                            >Item {{ i + 1 }}</span
+                          >
+                          <button
+                            type="button"
+                            class="p-1 text-red-500 hover:bg-red-50 rounded"
+                            (click)="removeItem(i)"
+                            *ngIf="items.length > 0"
+                          >
+                            <i class="pi pi-trash text-sm"></i>
+                          </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div class="space-y-1">
+                            <label class="text-xs">No. (Optional)</label>
+                            <input
+                              type="number"
+                              class="w-full border rounded px-2 py-1 text-sm"
+                              [class.border-red-500]="
+                                backendErrors['items.' + i + '.no']
+                              "
+                              formControlName="no"
+                              min="1"
+                              placeholder="1"
+                            />
+                            <div
+                              class="text-xs text-error"
+                              *ngIf="backendErrors['items.' + i + '.no']"
+                            >
+                              {{ backendErrors['items.' + i + '.no'] }}
+                            </div>
+                          </div>
+                          <div class="space-y-1">
+                            <label class="text-xs">Item Code (Optional)</label>
+                            <input
+                              type="text"
+                              class="w-full border rounded px-2 py-1 text-sm"
+                              [class.border-red-500]="
+                                backendErrors['items.' + i + '.item_code']
+                              "
+                              formControlName="item_code"
+                              placeholder="Enter item code"
+                            />
+                            <div
+                              class="text-xs text-error"
+                              *ngIf="backendErrors['items.' + i + '.item_code']"
+                            >
+                              {{ backendErrors['items.' + i + '.item_code'] }}
+                            </div>
+                          </div>
+                        </div>
+                        <div class="space-y-1">
+                          <label class="text-xs">Item Details (Optional)</label>
+                          <input
+                            type="text"
+                            class="w-full border rounded px-2 py-1 text-sm"
+                            [class.border-red-500]="
+                              backendErrors['items.' + i + '.item_details']
+                            "
+                            formControlName="item_details"
+                            placeholder="Enter item details"
+                          />
+                          <div
+                            class="text-xs text-error"
+                            *ngIf="
+                              backendErrors['items.' + i + '.item_details']
+                            "
+                          >
+                            {{ backendErrors['items.' + i + '.item_details'] }}
+                          </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div class="space-y-1">
+                            <label class="text-xs">UOM (Optional)</label>
+                            <input
+                              type="text"
+                              class="w-full border rounded px-2 py-1 text-sm"
+                              [class.border-red-500]="
+                                backendErrors['items.' + i + '.uom']
+                              "
+                              formControlName="uom"
+                              placeholder="Enter UOM"
+                            />
+                            <div
+                              class="text-xs text-error"
+                              *ngIf="backendErrors['items.' + i + '.uom']"
+                            >
+                              {{ backendErrors['items.' + i + '.uom'] }}
+                            </div>
+                          </div>
+                          <div class="space-y-1">
+                            <label class="text-xs">Quantity (Optional)</label>
+                            <input
+                              type="number"
+                              class="w-full border rounded px-2 py-1 text-sm"
+                              [class.border-red-500]="
+                                backendErrors['items.' + i + '.quantity']
+                              "
+                              formControlName="quantity"
+                              min="0"
+                              placeholder="0"
+                            />
+                            <div
+                              class="text-xs text-error"
+                              *ngIf="backendErrors['items.' + i + '.quantity']"
+                            >
+                              {{ backendErrors['items.' + i + '.quantity'] }}
+                            </div>
+                          </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                          <div class="space-y-1">
+                            <label class="text-xs"
+                              >Delivery Schedule (Optional)</label
+                            >
+                            <input
+                              type="text"
+                              class="w-full border rounded px-2 py-1 text-sm"
+                              [class.border-red-500]="
+                                backendErrors[
+                                  'items.' + i + '.delivery_schedule'
+                                ]
+                              "
+                              formControlName="delivery_schedule"
+                              placeholder="DD/MM/YYYY"
+                              maxlength="10"
+                              (blur)="
+                                formatItemDateField(i, 'delivery_schedule')
+                              "
+                              (input)="
+                                onItemDateInput(i, 'delivery_schedule', $event)
+                              "
+                            />
+                            <div
+                              class="text-xs text-error"
+                              *ngIf="
+                                backendErrors[
+                                  'items.' + i + '.delivery_schedule'
+                                ]
+                              "
+                            >
+                              {{
+                                backendErrors[
+                                  'items.' + i + '.delivery_schedule'
+                                ]
+                              }}
+                            </div>
+                          </div>
+                          <div class="space-y-1">
+                            <label class="text-xs">Total (Optional)</label>
+                            <input
+                              type="number"
+                              class="w-full border rounded px-2 py-1 text-sm"
+                              [class.border-red-500]="
+                                backendErrors['items.' + i + '.total']
+                              "
+                              formControlName="total"
+                              min="0"
+                              placeholder="0"
+                            />
+                            <div
+                              class="text-xs text-error"
+                              *ngIf="backendErrors['items.' + i + '.total']"
+                            >
+                              {{ backendErrors['items.' + i + '.total'] }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -751,16 +1215,85 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
               </div>
               <div class="flex-1 overflow-y-auto p-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="md:col-span-2">
+                  <!-- Name (if exists) -->
+                  <div class="md:col-span-2" *ngIf="selected?.name">
                     <span class="block text-xs text-text-muted mb-1">Name</span>
-                    {{ selected?.name }}
+                    <span class="text-sm font-medium">{{
+                      selected?.name
+                    }}</span>
                   </div>
+
+                  <!-- Customer -->
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Customer</span
+                    >
+                    <span class="text-sm">{{ selected?.customer || '-' }}</span>
+                  </div>
+
+                  <!-- Location -->
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >Location</span
+                    >
+                    <span class="text-sm">{{ selected?.location || '-' }}</span>
+                  </div>
+
+                  <!-- P.O. Number -->
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >P.O. Number</span
+                    >
+                    <span class="text-sm">{{
+                      selected?.po_number || '-'
+                    }}</span>
+                  </div>
+
+                  <!-- P.O. Date -->
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >P.O. Date</span
+                    >
+                    <span class="text-sm">{{
+                      selected?.po_date
+                        ? (selected?.po_date | date: 'dd/MM/yyyy')
+                        : '-'
+                    }}</span>
+                  </div>
+
+                  <!-- S.O. Number -->
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >S.O. Number</span
+                    >
+                    <span class="text-sm">{{
+                      selected?.so_number || '-'
+                    }}</span>
+                  </div>
+
+                  <!-- S.O. Date -->
+                  <div class="md:col-span-1">
+                    <span class="block text-xs text-text-muted mb-1"
+                      >S.O. Date</span
+                    >
+                    <span class="text-sm">{{
+                      selected?.so_date
+                        ? (selected?.so_date | date: 'dd/MM/yyyy')
+                        : '-'
+                    }}</span>
+                  </div>
+
+                  <!-- Category -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Category</span
                     >
-                    {{ selected?.category_id?.name || '-' }}
+                    <span class="text-sm">{{
+                      selected?.category_id?.name || '-'
+                    }}</span>
                   </div>
+
+                  <!-- Subcategory -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Subcategory</span
@@ -774,24 +1307,115 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                       >-</span
                     >
                   </div>
+
+                  <!-- Party Name -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Party Name</span
                     >
-                    {{ selected?.party_name }}
+                    <span class="text-sm">{{
+                      selected?.party_name || '-'
+                    }}</span>
                   </div>
+
+                  <!-- Mobile Number -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Mobile Number</span
                     >
-                    {{ selected?.mobile_number }}
+                    <span class="text-sm">{{
+                      selected?.mobile_number || '-'
+                    }}</span>
                   </div>
+
+                  <!-- Description -->
                   <div class="md:col-span-2">
                     <span class="block text-xs text-text-muted mb-1"
                       >Description</span
                     >
-                    {{ selected?.description || '-' }}
+                    <span class="text-sm">{{
+                      selected?.description || '-'
+                    }}</span>
                   </div>
+
+                  <!-- Items -->
+                  <div
+                    class="md:col-span-2"
+                    *ngIf="
+                      selected?.items && (selected?.items?.length ?? 0) > 0
+                    "
+                  >
+                    <span class="block text-xs text-text-muted mb-2"
+                      >Items</span
+                    >
+                    <div class="border border-neutral-200 rounded-md divide-y">
+                      <ng-container *ngIf="selected && selected.items">
+                        <div
+                          *ngFor="let item of selected.items; let i = index"
+                          class="p-3 space-y-2"
+                        >
+                          <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium"
+                              >Item {{ i + 1 }}</span
+                            >
+                          </div>
+                          <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div *ngIf="item.no">
+                              <span class="text-text-muted text-xs">No.:</span>
+                              <span class="ml-2">{{ item.no }}</span>
+                            </div>
+                            <div *ngIf="item.item_code">
+                              <span class="text-text-muted text-xs"
+                                >Item Code:</span
+                              >
+                              <span class="ml-2">{{ item.item_code }}</span>
+                            </div>
+                            <div *ngIf="item.item_details" class="col-span-2">
+                              <span class="text-text-muted text-xs"
+                                >Item Details:</span
+                              >
+                              <span class="ml-2">{{ item.item_details }}</span>
+                            </div>
+                            <div *ngIf="item.uom">
+                              <span class="text-text-muted text-xs">UOM:</span>
+                              <span class="ml-2">{{ item.uom }}</span>
+                            </div>
+                            <div
+                              *ngIf="
+                                item.quantity !== undefined &&
+                                item.quantity !== null
+                              "
+                            >
+                              <span class="text-text-muted text-xs"
+                                >Quantity:</span
+                              >
+                              <span class="ml-2">{{ item.quantity }}</span>
+                            </div>
+                            <div *ngIf="item.delivery_schedule">
+                              <span class="text-text-muted text-xs"
+                                >Delivery Schedule:</span
+                              >
+                              <span class="ml-2">{{
+                                item.delivery_schedule | date: 'dd/MM/yyyy'
+                              }}</span>
+                            </div>
+                            <div
+                              *ngIf="
+                                item.total !== undefined && item.total !== null
+                              "
+                            >
+                              <span class="text-text-muted text-xs"
+                                >Total:</span
+                              >
+                              <span class="ml-2">{{ item.total }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </ng-container>
+                    </div>
+                  </div>
+
+                  <!-- Status -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Status</span
@@ -806,32 +1430,54 @@ import { PageHeaderComponent } from '../../../../core/components/page-header/pag
                       {{ selected?.is_active ? 'Active' : 'Inactive' }}
                     </span>
                   </div>
+
+                  <!-- Created By -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Created By</span
                     >
-                    {{ selected?.created_by?.username }} ({{
-                      selected?.created_by?.email
-                    }})
+                    <span class="text-sm">
+                      {{ selected?.created_by?.username || '-' }}
+                      <span
+                        *ngIf="selected?.created_by?.email"
+                        class="text-text-muted"
+                      >
+                        ({{ selected?.created_by?.email }})
+                      </span>
+                    </span>
                   </div>
+
+                  <!-- Updated By -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
                       >Updated By</span
                     >
-                    {{ selected?.updatedBy?.username || '—' }}
+                    <span class="text-sm">{{
+                      selected?.updatedBy?.username || '—'
+                    }}</span>
                   </div>
+
+                  <!-- Created Date -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
-                      >Created</span
+                      >Created Date</span
                     >
-                    {{ selected?.createdAt | date: 'medium' }}
+                    <span class="text-sm">{{
+                      selected?.createdAt | date: 'medium'
+                    }}</span>
                   </div>
+
+                  <!-- Updated Date -->
                   <div class="md:col-span-1">
                     <span class="block text-xs text-text-muted mb-1"
-                      >Updated</span
+                      >Updated Date</span
                     >
-                    {{ selected?.updatedAt | date: 'medium' }}
+                    <span class="text-sm">{{
+                      selected?.updatedAt | date: 'medium'
+                    }}</span>
                   </div>
+
+                  <!-- Documents -->
                   <div class="md:col-span-2">
                     <div class="flex items-center justify-between mb-1">
                       <span class="block text-xs text-text-muted"
@@ -994,6 +1640,12 @@ export class SOManagementComponent implements OnInit, OnDestroy {
   private searchInput$ = new Subject<string>();
   private subs = new Subscription();
 
+  // Search autocomplete
+  searchInput = '';
+  searchSuggestions: SO[] = [];
+  showSearchSuggestions = false;
+  allSOs: SO[] = [];
+
   // Backend validation errors
   backendErrors: { [key: string]: string } = {};
 
@@ -1005,10 +1657,20 @@ export class SOManagementComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private categoryService: CategoryService,
     private messageService: MessageService,
-    private loaderService: LoaderService
+    private loaderService: LoaderService,
+    private authService: AuthService
   ) {
     this.form = this.fb.group({
-      name: [
+      name: ['', [Validators.maxLength(100)]],
+      customer: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(200),
+        ],
+      ],
+      location: [
         '',
         [
           Validators.required,
@@ -1016,6 +1678,11 @@ export class SOManagementComponent implements OnInit, OnDestroy {
           Validators.maxLength(100),
         ],
       ],
+      po_number: ['', [Validators.required, Validators.maxLength(200)]],
+      po_date: ['', [Validators.required, this.dateFormatValidator]],
+      so_number: ['', [Validators.required, Validators.maxLength(200)]],
+      so_date: ['', [Validators.required, this.dateFormatValidator]],
+      items: this.fb.array([]),
       category_id: [
         '',
         [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
@@ -1043,10 +1710,12 @@ export class SOManagementComponent implements OnInit, OnDestroy {
       description: ['', [Validators.maxLength(1000)]],
       documents: [null],
     });
+    // Items are optional - no initial item needed
   }
 
   ngOnInit(): void {
     this.loadCategories();
+    this.loadAllSOsForSearch();
     this.reload();
 
     // Debounce search input
@@ -1058,6 +1727,91 @@ export class SOManagementComponent implements OnInit, OnDestroy {
         this.reload();
       });
     this.subs.add(s);
+  }
+
+  // Load all SOs for autocomplete suggestions
+  loadAllSOsForSearch(): void {
+    this.soService.getAllSOs({ is_active: true }).subscribe({
+      next: response => {
+        if (response.success && response.data) {
+          this.allSOs = response.data.sos || [];
+        }
+      },
+      error: err => {
+        console.error('Error loading SOs for search:', err);
+      },
+    });
+  }
+
+  // Handle search input changes for autocomplete
+  onSearchInputChange(): void {
+    const query = this.searchInput.trim().toLowerCase();
+
+    // Update search filter for backend search
+    this.filters.search = this.searchInput.trim();
+
+    if (query.length === 0) {
+      this.searchSuggestions = [];
+      this.showSearchSuggestions = false;
+      // Clear search filter
+      this.filters.search = '';
+      this.page = 1;
+      this.reload();
+      return;
+    }
+
+    // Filter SOs based on SO number, Customer, or PO number for suggestions
+    this.searchSuggestions = this.allSOs
+      .filter(so => {
+        const soNumberMatch =
+          so.so_number?.toLowerCase().includes(query) || false;
+        const customerMatch =
+          so.customer?.toLowerCase().includes(query) || false;
+        const poNumberMatch =
+          so.po_number?.toLowerCase().includes(query) || false;
+        return soNumberMatch || customerMatch || poNumberMatch;
+      })
+      .slice(0, 10); // Limit to 10 suggestions
+
+    this.showSearchSuggestions = true;
+
+    // Debounce the actual search
+    this.searchInput$.next(this.searchInput.trim());
+  }
+
+  // Select a search suggestion
+  selectSearchSuggestion(so: SO): void {
+    // Set search input to show selected SO
+    this.searchInput = so.so_number || so.customer || '';
+    this.searchSuggestions = [];
+    this.showSearchSuggestions = false;
+
+    // Set search filter and reload
+    this.filters.search = so.so_number || so.customer || '';
+    this.page = 1;
+    this.reload();
+  }
+
+  // Hide search suggestions
+  hideSearchSuggestions(): void {
+    // Delay to allow click event to fire
+    setTimeout(() => {
+      this.showSearchSuggestions = false;
+    }, 200);
+  }
+
+  // Handle Enter key press in search
+  onSearchEnter(): void {
+    if (this.searchSuggestions.length > 0) {
+      // Select first suggestion
+      this.selectSearchSuggestion(this.searchSuggestions[0]);
+    } else {
+      // Perform search with current input
+      this.showSearchSuggestions = false;
+      this.filters.search = this.searchInput.trim();
+      this.page = 1;
+      this.reload();
+    }
   }
 
   ngOnDestroy(): void {
@@ -1113,6 +1867,10 @@ export class SOManagementComponent implements OnInit, OnDestroy {
     this.editing = false;
     this.selected = null;
     this.form.reset();
+    // Clear items array - items are optional
+    while (this.items.length !== 0) {
+      this.items.removeAt(0);
+    }
     this.formVisible = true;
     this.selectedDocuments = [];
     this.existingDocuments = [];
@@ -1128,16 +1886,77 @@ export class SOManagementComponent implements OnInit, OnDestroy {
   }
 
   openEdit(so: SO): void {
+    // Check if user is subadmin and SO is activated - prevent editing
+    const currentUser = this.authService.getCurrentUser();
+    const userRole = currentUser?.role?.name?.toLowerCase();
+    const isSubAdmin = userRole === 'sub-admin';
+
+    if (isSubAdmin && so.is_active) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Edit Restricted',
+        detail:
+          'Sub-admins cannot edit activated SOs. Please contact an admin to deactivate the SO first.',
+      });
+      return;
+    }
+
     this.editing = true;
     this.formVisible = true;
     this.formLoading = true;
+    this.selected = null; // Clear previous selection
+    this.form.reset(); // Reset form first
+    // Clear items array
+    while (this.items.length !== 0) {
+      this.items.removeAt(0);
+    }
+    this.selectedDocuments = [];
+    this.existingDocuments = [];
+    this.removedDocuments = [];
+    this.subcategories = [];
+    this.backendErrors = {};
     const id = so._id;
     this.soService.getSOById(id).subscribe({
       next: res => {
         const s = res.data;
         this.selected = s;
+        // Clear items array
+        while (this.items.length !== 0) {
+          this.items.removeAt(0);
+        }
+        // Load items
+        if (s.items && s.items.length > 0) {
+          s.items.forEach((item: any) => {
+            const itemGroup = this.fb.group({
+              no: [item.no || 0, [Validators.min(1)]],
+              item_code: [item.item_code || '', [Validators.maxLength(100)]],
+              item_details: [
+                item.item_details || '',
+                [Validators.maxLength(500)],
+              ],
+              uom: [item.uom || '', [Validators.maxLength(50)]],
+              quantity: [item.quantity || 0, [Validators.min(0)]],
+              delivery_schedule: [
+                this.formatDateForDisplay(item.delivery_schedule) || '',
+              ],
+              total: [item.total || 0, [Validators.min(0)]],
+            });
+            this.items.push(itemGroup);
+          });
+        } else {
+          this.addItem();
+        }
+
+        // Format dates for input fields (DD/MM/YYYY)
+
         this.form.patchValue({
-          name: s.name,
+          name: s.name || '',
+          customer: s.customer || '',
+          location: s.location || '',
+          po_number: s.po_number || '',
+          po_date: this.formatDateForDisplay(s.po_date),
+          so_number: s.so_number || '',
+          so_date: this.formatDateForDisplay(s.so_date),
           category_id:
             typeof s.category_id === 'string'
               ? s.category_id
@@ -1188,7 +2007,27 @@ export class SOManagementComponent implements OnInit, OnDestroy {
     this.formVisible = false;
     this.formLoading = false;
     this.submitting = false;
+    this.editing = false;
+    this.selected = null;
+    this.form.reset();
+    // Clear items array
+    while (this.items.length !== 0) {
+      this.items.removeAt(0);
+    }
+    this.selectedDocuments = [];
+    this.existingDocuments = [];
+    this.removedDocuments = [];
+    this.subcategories = [];
+    this.isDocumentDragging = false;
     this.backendErrors = {};
+  }
+
+  /**
+   * Get display name for SO (for delete confirmation, etc.)
+   */
+  getSODisplayName(so: SO | null): string {
+    if (!so) return 'this SO';
+    return so.customer || so.so_number || so.po_number || so.name || 'this SO';
   }
 
   /**
@@ -1219,8 +2058,8 @@ export class SOManagementComponent implements OnInit, OnDestroy {
         // Try different field name variations
         const field =
           detail.field ||
-          detail.path?.[0] ||
-          detail.path ||
+          detail.path?.join('.') ||
+          (Array.isArray(detail.path) ? detail.path.join('.') : detail.path) ||
           detail.key ||
           detail.name;
 
@@ -1233,11 +2072,14 @@ export class SOManagementComponent implements OnInit, OnDestroy {
           const formFieldName = this.mapBackendFieldToFormControl(field);
           this.backendErrors[formFieldName] = message;
 
-          // Set error on form control
-          const control = this.form.get(formFieldName);
-          if (control) {
-            control.setErrors({ backendError: true });
-            control.markAsTouched();
+          // Handle items array errors separately (already handled in mapBackendFieldToFormControl)
+          if (!field.startsWith('items.')) {
+            // Set error on form control for non-items fields
+            const control = this.form.get(formFieldName);
+            if (control) {
+              control.setErrors({ backendError: true });
+              control.markAsTouched();
+            }
           }
         }
       });
@@ -1251,6 +2093,22 @@ export class SOManagementComponent implements OnInit, OnDestroy {
    * Map backend field names to form control names
    */
   private mapBackendFieldToFormControl(backendField: string): string {
+    // Handle items array field errors (e.g., "items.0.item_code" or "items.1.quantity")
+    const itemsMatch = backendField.match(/^items\.(\d+)\.(.+)$/);
+    if (itemsMatch) {
+      const itemIndex = parseInt(itemsMatch[1], 10);
+      const itemField = itemsMatch[2];
+      // Store error with item index for display
+      const errorKey = `items.${itemIndex}.${itemField}`;
+      // Set error on the specific item form control
+      const itemControl = this.items.at(itemIndex)?.get(itemField);
+      if (itemControl) {
+        itemControl.setErrors({ backendError: true });
+        itemControl.markAsTouched();
+      }
+      return errorKey;
+    }
+
     // Handle common field name mappings
     const mappings: { [key: string]: string } = {
       mobile_number: 'mobile_number',
@@ -1259,6 +2117,13 @@ export class SOManagementComponent implements OnInit, OnDestroy {
       subcategory_id: 'subcategory_id',
       name: 'name',
       description: 'description',
+      customer: 'customer',
+      location: 'location',
+      po_number: 'po_number',
+      po_date: 'po_date',
+      so_number: 'so_number',
+      so_date: 'so_date',
+      items: 'items',
     };
 
     return mappings[backendField] || backendField;
@@ -1303,6 +2168,68 @@ export class SOManagementComponent implements OnInit, OnDestroy {
 
     // Extract and sanitize form values
     const name = (this.form.value.name || '').trim();
+    const customer = (this.form.value.customer || '').trim();
+    const location = (this.form.value.location || '').trim();
+    const po_number = (this.form.value.po_number || '').trim();
+    // Parse dates from DD/MM/YYYY to YYYY-MM-DD for backend
+    const po_date = this.parseDate(this.form.value.po_date);
+    if (!po_date) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'P.O. Date is required and must be in DD/MM/YYYY format',
+      });
+      this.submitting = false;
+      return;
+    }
+    const so_number = (this.form.value.so_number || '').trim();
+    const so_date = this.parseDate(this.form.value.so_date);
+    if (!so_date) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Validation Error',
+        detail: 'S.O. Date is required and must be in DD/MM/YYYY format',
+      });
+      this.submitting = false;
+      return;
+    }
+    // Filter out empty items and only include items with at least one field filled
+    const items = this.items.value
+      .map((item: any, index: number) => {
+        const hasData =
+          (item.item_code && item.item_code.trim()) ||
+          (item.item_details && item.item_details.trim()) ||
+          (item.uom && item.uom.trim()) ||
+          item.quantity > 0;
+
+        if (!hasData) return null;
+
+        return {
+          no: item.no || index + 1,
+          item_code: (item.item_code || '').trim(),
+          item_details: (item.item_details || '').trim(),
+          uom: (item.uom || '').trim(),
+          quantity: item.quantity || 0,
+          delivery_schedule:
+            item.delivery_schedule && item.delivery_schedule.trim()
+              ? this.parseDate(item.delivery_schedule)
+              : undefined,
+          total: item.total || undefined,
+        };
+      })
+      .filter((item: any) => item !== null);
+
+    // Ensure items is always an array (even if empty)
+    const finalItems = Array.isArray(items) ? items : [];
+
+    console.log('📋 Component prepared items:', {
+      formItemsValue: this.items.value,
+      filteredItems: items,
+      finalItems,
+      finalItemsIsArray: Array.isArray(finalItems),
+      finalItemsLength: finalItems.length,
+    });
+
     const category_id = (this.form.value.category_id || '').trim();
     const party_name = (this.form.value.party_name || '').trim();
     const mobile_number = (this.form.value.mobile_number || '').trim();
@@ -1320,7 +2247,13 @@ export class SOManagementComponent implements OnInit, OnDestroy {
     if (this.editing && this.selected) {
       // Update SO
       const updateData: any = {
-        name,
+        name: name || undefined,
+        customer,
+        location,
+        po_number,
+        po_date,
+        so_number,
+        so_date,
         category_id,
         party_name,
         mobile_number,
@@ -1328,6 +2261,9 @@ export class SOManagementComponent implements OnInit, OnDestroy {
         documents: this.selectedDocuments,
         removedDocuments: this.removedDocuments,
       };
+
+      // Always include items as array (even if empty) to satisfy backend validation
+      updateData.items = finalItems;
 
       if (subcategory_id !== null) {
         updateData.subcategory_id = subcategory_id;
@@ -1380,13 +2316,22 @@ export class SOManagementComponent implements OnInit, OnDestroy {
     } else {
       // Create SO
       const createData: any = {
-        name,
+        name: name || undefined,
+        customer,
+        location,
+        po_number,
+        po_date,
+        so_number,
+        so_date,
         category_id,
         party_name,
         mobile_number,
         description: description || null,
         documents: this.selectedDocuments,
       };
+
+      // Always include items as array (even if empty) to satisfy backend validation
+      createData.items = finalItems;
 
       if (subcategory_id) {
         createData.subcategory_id = subcategory_id;
@@ -1395,7 +2340,7 @@ export class SOManagementComponent implements OnInit, OnDestroy {
       this.soService.createSOForm(createData).subscribe({
         next: () => {
           this.submitting = false;
-          this.formVisible = false;
+          this.closeForm();
           this.messageService.add({
             severity: 'success',
             summary: 'Success',
@@ -1445,27 +2390,35 @@ export class SOManagementComponent implements OnInit, OnDestroy {
   doDelete(): void {
     if (!this.selected) return;
     const id = this.selected._id;
+    const soDisplayName = this.getSODisplayName(this.selected);
     this.submitting = true;
     this.soService.deleteSO(id).subscribe({
       next: () => {
         this.submitting = false;
         this.confirmVisible = false;
+        this.selected = null;
         this.messageService.add({
           severity: 'success',
           summary: 'Success',
-          detail: 'SO deleted successfully',
+          detail: `SO "${soDisplayName}" deleted successfully`,
         });
         this.reload();
       },
       error: (err: any) => {
         this.submitting = false;
-        this.confirmVisible = false;
         console.error('Error deleting SO:', err);
+        let errorMessage = 'Failed to delete SO. Please try again.';
+        if (err?.error?.message) {
+          errorMessage = err.error.message;
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
         this.messageService.add({
           severity: 'error',
           summary: 'Error',
-          detail: 'Failed to delete SO. Please try again.',
+          detail: errorMessage,
         });
+        // Don't close modal on error so user can retry
       },
     });
   }
@@ -1521,6 +2474,9 @@ export class SOManagementComponent implements OnInit, OnDestroy {
       sortBy: 'createdAt',
       sortOrder: 'desc',
     };
+    this.searchInput = '';
+    this.searchSuggestions = [];
+    this.showSearchSuggestions = false;
     this.page = 1;
     this.reload();
   }
@@ -1717,5 +2673,257 @@ export class SOManagementComponent implements OnInit, OnDestroy {
     return null;
   };
 
+  // Custom validator for DD/MM/YYYY date format
+  dateFormatValidator = (
+    control: AbstractControl
+  ): { [key: string]: any } | null => {
+    if (!control.value) {
+      return null; // Required validator will handle empty values
+    }
+    const value = String(control.value).trim();
+    if (value === '') {
+      return null;
+    }
+    // Check DD/MM/YYYY format
+    const dateMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!dateMatch) {
+      return { invalidFormat: true };
+    }
+    const day = parseInt(dateMatch[1], 10);
+    const month = parseInt(dateMatch[2], 10) - 1;
+    const year = parseInt(dateMatch[3], 10);
+    const date = new Date(year, month, day);
+    // Validate date
+    if (
+      date.getDate() !== day ||
+      date.getMonth() !== month ||
+      date.getFullYear() !== year
+    ) {
+      return { invalidDate: true };
+    }
+    return null;
+  };
+
   trackByIndex = (i: number) => i;
+
+  trackByCategoryId = (index: number, category: any) => category?._id || index;
+  trackBySOId = (index: number, so: SO) => so?._id || index;
+  trackBySuggestionId = (index: number, suggestion: any) =>
+    suggestion?._id || suggestion?.so_number || index;
+  trackByDocumentIndex = (index: number, doc: any) => doc?.name || index;
+  trackByItemIndex = (index: number, item: any) => item?.no || index;
+
+  // Items form array getter
+  get items(): FormArray {
+    return this.form.get('items') as FormArray;
+  }
+
+  // Add item to form array
+  addItem(): void {
+    const itemGroup = this.fb.group({
+      no: [this.items.length + 1, [Validators.min(1)]],
+      item_code: ['', [Validators.maxLength(100)]],
+      item_details: ['', [Validators.maxLength(500)]],
+      uom: ['', [Validators.maxLength(50)]],
+      quantity: [0, [Validators.min(0)]],
+      delivery_schedule: [''],
+      total: [0, [Validators.min(0)]],
+    });
+    this.items.push(itemGroup);
+  }
+
+  // Remove item from form array
+  removeItem(index: number): void {
+    if (this.items.length > 0) {
+      this.items.removeAt(index);
+      // Update no. values
+      this.items.controls.forEach((control, i) => {
+        control.patchValue({ no: i + 1 });
+      });
+    }
+  }
+
+  // Date input handler for DD/MM/YYYY format
+  onDateInput(fieldName: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let value = input.value.replace(/\D/g, ''); // Remove non-digits
+
+    // Format as DD/MM/YYYY
+    if (value.length >= 2) {
+      value = value.substring(0, 2) + '/' + value.substring(2);
+    }
+    if (value.length >= 5) {
+      value = value.substring(0, 5) + '/' + value.substring(5, 9);
+    }
+
+    this.form.patchValue({ [fieldName]: value });
+  }
+
+  // Format date field on blur - validate DD/MM/YYYY format
+  formatDateField(fieldName: string): void {
+    const value = this.form.get(fieldName)?.value;
+    if (!value || typeof value !== 'string') return;
+
+    const trimmedValue = value.trim();
+    if (trimmedValue === '') {
+      // Clear errors if field is empty (required validator will handle it)
+      const control = this.form.get(fieldName);
+      if (control) {
+        const errors = { ...control.errors };
+        delete errors['invalidDate'];
+        delete errors['invalidFormat'];
+        control.setErrors(Object.keys(errors).length > 0 ? errors : null);
+      }
+      return;
+    }
+
+    // Parse DD/MM/YYYY format
+    const dateMatch = trimmedValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1], 10);
+      const month = parseInt(dateMatch[2], 10) - 1; // Month is 0-indexed
+      const year = parseInt(dateMatch[3], 10);
+      const date = new Date(year, month, day);
+
+      // Validate date
+      if (
+        date.getDate() === day &&
+        date.getMonth() === month &&
+        date.getFullYear() === year
+      ) {
+        // Keep DD/MM/YYYY format in form, parseDate will convert on submit
+        const control = this.form.get(fieldName);
+        if (control) {
+          const errors = { ...control.errors };
+          delete errors['invalidDate'];
+          delete errors['invalidFormat'];
+          control.setErrors(Object.keys(errors).length > 0 ? errors : null);
+        }
+      } else {
+        // Invalid date, show error
+        this.form.get(fieldName)?.setErrors({ invalidDate: true });
+      }
+    } else if (trimmedValue !== '') {
+      // Invalid format
+      this.form.get(fieldName)?.setErrors({ invalidFormat: true });
+    }
+  }
+
+  // Convert DD/MM/YYYY string to Date object for submission
+  private parseDate(dateString: string | Date | undefined): string | undefined {
+    if (!dateString) return undefined;
+    if (dateString instanceof Date) {
+      return dateString.toISOString().split('T')[0];
+    }
+    if (typeof dateString === 'string') {
+      // Check if it's already in YYYY-MM-DD format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      // Try to parse DD/MM/YYYY
+      const dateMatch = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (dateMatch) {
+        const day = parseInt(dateMatch[1], 10);
+        const month = parseInt(dateMatch[2], 10) - 1;
+        const year = parseInt(dateMatch[3], 10);
+        const date = new Date(year, month, day);
+        if (
+          date.getDate() === day &&
+          date.getMonth() === month &&
+          date.getFullYear() === year
+        ) {
+          return date.toISOString().split('T')[0];
+        }
+      }
+    }
+    return undefined;
+  }
+
+  // Format date from backend (YYYY-MM-DD) to DD/MM/YYYY for display
+  formatDateForDisplay(date: string | Date | undefined): string {
+    if (!date) return '';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  // Date input handler for items array fields
+  onItemDateInput(itemIndex: number, fieldName: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let value = input.value.replace(/\D/g, ''); // Remove non-digits
+
+    // Format as DD/MM/YYYY
+    if (value.length >= 2) {
+      value = value.substring(0, 2) + '/' + value.substring(2);
+    }
+    if (value.length >= 5) {
+      value = value.substring(0, 5) + '/' + value.substring(5, 9);
+    }
+
+    const itemControl = this.items.at(itemIndex);
+    if (itemControl) {
+      itemControl.patchValue({ [fieldName]: value });
+    }
+  }
+
+  // Format date field on blur for items array
+  formatItemDateField(itemIndex: number, fieldName: string): void {
+    const itemControl = this.items.at(itemIndex);
+    if (!itemControl) return;
+
+    const value = itemControl.get(fieldName)?.value;
+    if (!value || typeof value !== 'string') return;
+
+    const trimmedValue = value.trim();
+    if (trimmedValue === '') {
+      // Clear errors if field is empty
+      const control = itemControl.get(fieldName);
+      if (control) {
+        const errors = { ...control.errors };
+        delete errors['invalidDate'];
+        delete errors['invalidFormat'];
+        control.setErrors(Object.keys(errors).length > 0 ? errors : null);
+      }
+      return;
+    }
+
+    // Parse DD/MM/YYYY format
+    const dateMatch = trimmedValue.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dateMatch) {
+      const day = parseInt(dateMatch[1], 10);
+      const month = parseInt(dateMatch[2], 10) - 1; // Month is 0-indexed
+      const year = parseInt(dateMatch[3], 10);
+      const date = new Date(year, month, day);
+
+      // Validate date
+      if (
+        date.getDate() === day &&
+        date.getMonth() === month &&
+        date.getFullYear() === year
+      ) {
+        // Keep DD/MM/YYYY format in form, parseDate will convert on submit
+        const control = itemControl.get(fieldName);
+        if (control) {
+          const errors = { ...control.errors };
+          delete errors['invalidDate'];
+          delete errors['invalidFormat'];
+          control.setErrors(Object.keys(errors).length > 0 ? errors : null);
+        }
+        // Clear backend error if date is valid
+        const errorKey = `items.${itemIndex}.${fieldName}`;
+        if (this.backendErrors[errorKey]) {
+          delete this.backendErrors[errorKey];
+        }
+      } else {
+        // Invalid date, show error
+        itemControl.get(fieldName)?.setErrors({ invalidDate: true });
+      }
+    } else if (trimmedValue !== '') {
+      // Invalid format
+      itemControl.get(fieldName)?.setErrors({ invalidFormat: true });
+    }
+  }
 }

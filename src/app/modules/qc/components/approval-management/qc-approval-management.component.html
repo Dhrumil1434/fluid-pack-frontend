@@ -1108,19 +1108,25 @@
         <div class="md:col-span-1">
           <span class="block text-xs text-text-muted mb-1">Party Name</span>
           {{
-            selectedMachine?.party_name || selectedQCEntry?.party_name || '-'
+            selectedMachine
+              ? getMachinePartyName(selectedMachine)
+              : selectedQCEntry?.party_name || '-'
           }}
         </div>
         <div class="md:col-span-1">
           <span class="block text-xs text-text-muted mb-1">Location</span>
-          {{ selectedMachine?.location || selectedQCEntry?.location || '-' }}
+          {{
+            selectedMachine
+              ? getMachineLocation(selectedMachine)
+              : selectedQCEntry?.location || '-'
+          }}
         </div>
         <div class="md:col-span-1">
           <span class="block text-xs text-text-muted mb-1">Mobile Number</span>
           {{
-            selectedMachine?.mobile_number ||
-              selectedQCEntry?.mobile_number ||
-              '-'
+            selectedMachine
+              ? getMachineMobileNumber(selectedMachine)
+              : selectedQCEntry?.mobile_number || '-'
           }}
         </div>
         <div class="md:col-span-1">
@@ -1833,6 +1839,30 @@
           formControlName="nextInspectionDate"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >QC Date</label
+          >
+          <input
+            type="date"
+            formControlName="qc_date"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2"
+            >Report Link</label
+          >
+          <input
+            type="url"
+            formControlName="report_link"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="https://..."
+          />
+        </div>
       </div>
 
       <div>

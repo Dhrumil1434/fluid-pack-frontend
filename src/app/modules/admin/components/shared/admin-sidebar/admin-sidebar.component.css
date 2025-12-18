@@ -49,7 +49,8 @@
 
 /* Badge pulse animation */
 @keyframes pulse-badge {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -101,6 +102,75 @@ aside.w-16 .badge-pulse {
   display: none !important;
 }
 
+/* Enhanced tooltip for collapsed sidebar */
+aside.w-16 .nav-button[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-text, #1f2937);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 0.375rem;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 1000;
+  pointer-events: none;
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+aside.w-16 .nav-button[title]:hover::before {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.5rem;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 6px solid var(--color-text, #1f2937);
+  z-index: 1001;
+  pointer-events: none;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Better hover states for collapsed sidebar */
+aside.w-16 .nav-button:hover {
+  background-color: var(--color-bg-soft, #f3f4f6) !important;
+  transform: scale(1.05);
+}
+
+aside.w-16 .nav-button.active {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-primary-light)
+  ) !important;
+  box-shadow: 0 2px 8px rgba(0, 107, 60, 0.3);
+}
+
+aside.w-16 .nav-button.active .nav-icon {
+  color: white !important;
+}
+
 /* Collapsed footer styling */
 .collapsed-footer {
   padding: 0.5rem;
@@ -123,18 +193,32 @@ aside.w-16 .badge-pulse {
 }
 
 /* Active state styling */
-.nav-item.active {
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+.nav-item.active,
+.nav-button.active {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-primary-light)
+  );
   box-shadow: 0 2px 8px rgba(0, 107, 60, 0.3);
 }
 
-.nav-item.active .nav-icon {
+.nav-item.active .nav-icon,
+.nav-button.active .nav-icon {
   color: white;
 }
 
-.nav-item.active .nav-label {
+.nav-item.active .nav-label,
+.nav-button.active .nav-label {
   color: white;
   font-weight: 600;
+}
+
+/* Improved focus states */
+.nav-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
 }
 
 /* Submenu active state */
@@ -142,6 +226,28 @@ aside.w-16 .badge-pulse {
   background-color: var(--color-bg-soft);
   border-left: 3px solid var(--color-primary);
   padding-left: calc(0.75rem - 3px);
+}
+
+/* Parent item with active child */
+.has-active-child > a {
+  background-color: var(--color-bg-soft);
+}
+
+/* Improved collapsed sidebar submenu handling */
+aside.w-16 .submenu-enter-active {
+  display: none !important;
+}
+
+/* Better visual feedback for navigation */
+.nav-button:active {
+  transform: scale(0.98);
+}
+
+/* Smooth transitions for all states */
+.nav-button,
+.nav-icon,
+.nav-arrow {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Smooth icon transitions */

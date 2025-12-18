@@ -1309,10 +1309,15 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
 
   documentUrl(filePath: string): string {
     if (!filePath) return '';
-    if (filePath.startsWith('http')) return filePath;
-    const base = environment.apiUrl.replace(/\/?api\/?$/, '');
+    // If it's already a full URL (Cloudinary or other external URLs), return as-is
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+      return filePath;
+    }
+    // Construct the full URL for the document using environment baseUrl (same as dispatch approval view)
+    const baseUrl = environment.baseUrl;
+    // Ensure filePath starts with / if it doesn't already
     const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
-    return `${base}${normalizedPath}`;
+    return `${baseUrl}${normalizedPath}`;
   }
 
   getSubcategoryDisplayName(subcategory: any): string {
@@ -1445,7 +1450,21 @@ export class QcEntriesComponent implements OnInit, OnDestroy {
       // Extract name from SO (machines now reference SO)
       const soIdValue = approval.machineId.so_id;
       if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
-        return soIdValue.name || '';
+        // Use customer name, SO number, or name as fallback
+        const so = soIdValue as any;
+        const customer = so.customer;
+        const soNumber = so.so_number;
+        const name = so.name;
+
+        if (customer && soNumber) {
+          return `${customer} (SO: ${soNumber})`;
+        } else if (customer) {
+          return customer;
+        } else if (soNumber) {
+          return `SO: ${soNumber}`;
+        } else if (name) {
+          return name;
+        }
       }
       // Fallback to machine ID if SO is not populated
       return approval.machineId._id || '';

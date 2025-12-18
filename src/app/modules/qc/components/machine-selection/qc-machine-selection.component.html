@@ -25,10 +25,158 @@
     </app-page-header>
 
     <main class="p-6 space-y-4">
+      <!-- Enhanced Search Bar -->
+      <div
+        class="bg-bg border border-neutral-300 rounded-xl shadow-medium p-4 mb-4"
+      >
+        <div class="flex flex-col gap-3">
+          <label class="block text-sm font-medium text-text mb-1"
+            >Search Machines</label
+          >
+          <div class="relative">
+            <input
+              type="text"
+              class="w-full px-3 py-2 pl-10 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              [class.border-red-500]="selectedSO && !filters.so_id"
+              [(ngModel)]="soSearchInput"
+              (input)="onEnhancedSearchInputChange()"
+              (focus)="onEnhancedSearchInputChange()"
+              (blur)="hideEnhancedSearchSuggestions()"
+              (keydown.enter)="onEnhancedSearchEnter()"
+              placeholder="Search by SO number, PO number, Party name, Customer, Location, Sequence..."
+              [ngModelOptions]="{ standalone: true }"
+            />
+            <i
+              class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            ></i>
+            <button
+              *ngIf="selectedSO || soSearchInput.trim()"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:bg-red-50 rounded"
+              (click)="clearEnhancedSearch(); $event.stopPropagation()"
+              title="Clear search"
+            >
+              <i class="pi pi-times text-xs"></i>
+            </button>
+            <!-- Enhanced Search Suggestions Dropdown -->
+            <div
+              *ngIf="showEnhancedSearchSuggestions"
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+            >
+              <!-- Machine Suggestions -->
+              <ng-container *ngIf="enhancedSearchMachineSuggestions.length > 0">
+                <div
+                  class="px-2 py-1 text-xs font-semibold text-neutral-500 bg-neutral-50 border-b"
+                >
+                  Machines
+                </div>
+                <div
+                  *ngFor="
+                    let machine of enhancedSearchMachineSuggestions;
+                    trackBy: trackByMachineId
+                  "
+                  class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                  (mousedown)="selectEnhancedMachineSuggestion(machine)"
+                >
+                  <div class="font-medium text-gray-900">
+                    <span *ngIf="getSONumber(machine)" class="text-primary"
+                      >SO: {{ getSONumber(machine) }}</span
+                    >
+                    <span
+                      *ngIf="!getSONumber(machine) && getSOCustomer(machine)"
+                      class="text-primary"
+                      >Customer: {{ getSOCustomer(machine) }}</span
+                    >
+                    <span
+                      *ngIf="machine.machine_sequence"
+                      class="text-blue-600 ml-2"
+                      >[{{ machine.machine_sequence }}]</span
+                    >
+                  </div>
+                  <div class="text-xs text-neutral-600 mt-1">
+                    <span *ngIf="getSOCustomer(machine)"
+                      >Customer: {{ getSOCustomer(machine) }}</span
+                    >
+                    <span
+                      *ngIf="getSOCustomer(machine) && getPONumber(machine)"
+                    >
+                      |
+                    </span>
+                    <span *ngIf="getPONumber(machine)"
+                      >PO: {{ getPONumber(machine) }}</span
+                    >
+                    <span *ngIf="getSOPartyName(machine)">
+                      | Party: {{ getSOPartyName(machine) }}</span
+                    >
+                    <span *ngIf="getSOLocation(machine)">
+                      | Location: {{ getSOLocation(machine) }}</span
+                    >
+                  </div>
+                </div>
+              </ng-container>
+              <!-- SO Suggestions -->
+              <ng-container *ngIf="enhancedSearchSOSuggestions.length > 0">
+                <div
+                  class="px-2 py-1 text-xs font-semibold text-neutral-500 bg-neutral-50 border-b"
+                  *ngIf="enhancedSearchMachineSuggestions.length > 0"
+                >
+                  Sales Orders
+                </div>
+                <div
+                  *ngFor="
+                    let so of enhancedSearchSOSuggestions;
+                    trackBy: trackById
+                  "
+                  class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
+                  (mousedown)="selectEnhancedSO(so)"
+                >
+                  <div class="font-medium text-gray-900">
+                    <span *ngIf="so.so_number" class="text-primary"
+                      >SO: {{ so.so_number }}</span
+                    >
+                    <span
+                      *ngIf="!so.so_number && so.customer"
+                      class="text-primary"
+                      >Customer: {{ so.customer }}</span
+                    >
+                    <span
+                      *ngIf="!so.so_number && !so.customer && so.name"
+                      class="text-primary"
+                      >{{ so.name }}</span
+                    >
+                  </div>
+                  <div class="text-xs text-neutral-600 mt-1">
+                    <span *ngIf="so.customer">Customer: {{ so.customer }}</span>
+                    <span *ngIf="so.customer && so.po_number"> | </span>
+                    <span *ngIf="so.po_number">PO: {{ so.po_number }}</span>
+                    <span *ngIf="so.party_name">
+                      | Party: {{ so.party_name }}</span
+                    >
+                    <span *ngIf="so.mobile_number">
+                      | Mobile: {{ so.mobile_number }}</span
+                    >
+                  </div>
+                </div>
+              </ng-container>
+              <div
+                *ngIf="
+                  enhancedSearchMachineSuggestions.length === 0 &&
+                  enhancedSearchSOSuggestions.length === 0 &&
+                  soSearchInput.trim()
+                "
+                class="px-3 py-4 text-sm text-neutral-500 text-center"
+              >
+                No results found matching "{{ soSearchInput }}"
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Filters Section - Matching Admin -->
       <app-list-filters
-        searchLabel="Search machines"
-        searchPlaceholder="SO name, party name, mobile number, category, location, sequence..."
+        searchLabel=""
+        searchPlaceholder=""
         (searchChange)="onSearchChange($event)"
         (apply)="reload()"
         (clear)="clearFilters()"
@@ -368,7 +516,7 @@
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
                 <div class="text-sm text-gray-900">
-                  {{ m.location || '-' }}
+                  {{ getLocation(m) }}
                 </div>
               </td>
               <td class="px-4 py-3 whitespace-nowrap">
@@ -491,39 +639,67 @@
           </div>
           <div class="flex-1 overflow-y-auto p-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- SO Information Section -->
+              <div class="md:col-span-2">
+                <h4
+                  class="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b"
+                >
+                  SO Information
+                </h4>
+              </div>
               <div class="md:col-span-2">
                 <span class="block text-xs text-text-muted mb-1">Name</span>
-                {{ selected ? getSOName(selected) : '-' }}
+                <span class="text-sm font-medium">{{
+                  selected ? getSOName(selected) : '-'
+                }}</span>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Customer</span>
+                <span class="text-sm">{{
+                  selected ? getSOCustomer(selected) || '-' : '-'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
-                  >Party Name</span
+                  >S.O. Number</span
                 >
-                {{ selected ? getPartyName(selected) : '-' }}
-              </div>
-              <div class="md:col-span-1">
-                <span class="block text-xs text-text-muted mb-1">Location</span>
-                {{ selected?.location || '-' }}
-              </div>
-              <div class="md:col-span-1">
-                <span class="block text-xs text-text-muted mb-1"
-                  >Mobile Number</span
-                >
-                {{ selected ? getMobileNumber(selected) : '-' }}
+                <span class="text-sm">{{
+                  selected ? getSONumber(selected) || '-' : '-'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
-                  >Dispatch Date</span
+                  >P.O. Number</span
                 >
-                {{
-                  selected?.dispatch_date
-                    ? (selected?.dispatch_date | date: 'dd-MM-yyyy')
+                <span class="text-sm">{{
+                  selected ? getPONumber(selected) || '-' : '-'
+                }}</span>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >S.O. Date</span
+                >
+                <span class="text-sm">{{
+                  selected && getSODate(selected)
+                    ? (getSODate(selected) | date: 'dd/MM/yyyy')
                     : '-'
-                }}
+                }}</span>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >P.O. Date</span
+                >
+                <span class="text-sm">{{
+                  selected && getPODate(selected)
+                    ? (getPODate(selected) | date: 'dd/MM/yyyy')
+                    : '-'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1">Category</span>
-                {{ selected ? getCategoryName(selected) : '-' }}
+                <span class="text-sm">{{
+                  selected ? getCategoryName(selected) : '-'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
@@ -543,6 +719,47 @@
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
+                  >Party Name</span
+                >
+                <span class="text-sm">{{
+                  selected ? getPartyName(selected) : '-'
+                }}</span>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Mobile Number</span
+                >
+                <span class="text-sm">{{
+                  selected ? getMobileNumber(selected) : '-'
+                }}</span>
+              </div>
+
+              <!-- Machine Information Section -->
+              <div class="md:col-span-2 mt-4">
+                <h4
+                  class="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b"
+                >
+                  Machine Information
+                </h4>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Location</span>
+                <span class="text-sm">{{
+                  selected ? getLocation(selected) : '-'
+                }}</span>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Dispatch Date</span
+                >
+                <span class="text-sm">{{
+                  selected?.dispatch_date
+                    ? (selected?.dispatch_date | date: 'dd-MM-yyyy')
+                    : '-'
+                }}</span>
+              </div>
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
                   >Machine Sequence</span
                 >
                 <span
@@ -557,29 +774,43 @@
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1">Approved</span>
-                {{ selected?.is_approved ? 'Yes' : 'No' }}
+                <span class="text-sm">{{
+                  selected?.is_approved ? 'Yes' : 'No'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
                   >Created By</span
                 >
-                {{ selected?.created_by?.username }} ({{
-                  selected?.created_by?.email
-                }})
+                <span class="text-sm">{{
+                  selected?.created_by?.username || '-'
+                }}</span>
+                <span
+                  *ngIf="selected?.created_by?.email"
+                  class="text-xs text-gray-500"
+                >
+                  ({{ selected?.created_by?.email }})
+                </span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1"
                   >Updated By</span
                 >
-                {{ selected?.updatedBy?.username || '—' }}
+                <span class="text-sm">{{
+                  selected?.updatedBy?.username || '—'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1">Created</span>
-                {{ selected?.createdAt | date: 'medium' }}
+                <span class="text-sm">{{
+                  selected?.createdAt | date: 'medium'
+                }}</span>
               </div>
               <div class="md:col-span-1">
                 <span class="block text-xs text-text-muted mb-1">Updated</span>
-                {{ selected?.updatedAt | date: 'medium' }}
+                <span class="text-sm">{{
+                  selected?.updatedAt | date: 'medium'
+                }}</span>
               </div>
               <div class="md:col-span-2">
                 <span class="block text-xs text-text-muted mb-1">Images</span>
@@ -856,11 +1087,18 @@
           >
             <div>
               <h3 class="text-lg font-semibold text-gray-900">
-                Create QC Entry & Request Approval
+                {{
+                  isEditingQCEntry
+                    ? 'Edit QC Entry'
+                    : 'Create QC Entry & Request Approval'
+                }}
               </h3>
               <p class="text-sm text-gray-600">
-                Fill in all machine and QC details. Approval request will be
-                created automatically.
+                {{
+                  isEditingQCEntry
+                    ? 'Update QC details and documents. Changes will require approval.'
+                    : 'Fill in all machine and QC details. Approval request will be created automatically.'
+                }}
               </p>
             </div>
             <button
@@ -1032,51 +1270,6 @@
               </p>
             </div>
 
-            <!-- Images Upload -->
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Upload New Images</label
-              >
-              <label
-                class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
-              >
-                <i class="pi pi-image text-primary mr-2 text-xl"></i>
-                <span class="text-sm text-gray-700"
-                  >Click to select images</span
-                >
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  (change)="onUploadImageSelected($event)"
-                  class="hidden"
-                />
-              </label>
-              <p class="text-xs text-gray-500 mt-1">
-                Supported formats: JPG, PNG, GIF (Max 10MB per file, max 10
-                images)
-              </p>
-              <div *ngIf="selectedImages.length > 0" class="mt-2 space-y-2">
-                <div
-                  *ngFor="
-                    let file of selectedImages;
-                    let i = index;
-                    trackBy: trackByIndex
-                  "
-                  class="flex items-center justify-between p-2 bg-gray-50 rounded"
-                >
-                  <span class="text-sm text-gray-700">{{ file.name }}</span>
-                  <button
-                    type="button"
-                    (click)="selectedImages.splice(i, 1)"
-                    class="text-red-500 hover:text-red-700"
-                  >
-                    <i class="pi pi-times"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-
             <!-- Existing Documents Preview -->
             <div *ngIf="getExistingDocuments().length > 0" class="mb-4">
               <label class="block text-sm font-medium text-gray-700 mb-2"
@@ -1113,100 +1306,6 @@
               <p class="text-xs text-gray-500 mt-1">
                 These are existing documents from the machine.
               </p>
-            </div>
-
-            <!-- Documents Upload -->
-            <div class="mb-6">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Upload New Machine Documents</label
-              >
-              <label
-                class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
-              >
-                <i class="pi pi-file text-primary mr-2 text-xl"></i>
-                <span class="text-sm text-gray-700"
-                  >Click to select documents</span
-                >
-                <input
-                  type="file"
-                  multiple
-                  accept=".pdf,.doc,.docx,.xlsx,.xls"
-                  (change)="onUploadDocumentSelected($event)"
-                  class="hidden"
-                />
-              </label>
-              <p class="text-xs text-gray-500 mt-1">
-                Supported formats: PDF, DOC, DOCX, XLSX, XLS (Max 10MB per file)
-              </p>
-              <div *ngIf="selectedDocuments.length > 0" class="mt-2 space-y-2">
-                <div
-                  *ngFor="
-                    let file of selectedDocuments;
-                    let i = index;
-                    trackBy: trackByIndex
-                  "
-                  class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
-                >
-                  <div class="flex items-center gap-3 flex-1 min-w-0">
-                    <div class="flex-shrink-0">
-                      <div
-                        class="w-10 h-10 rounded-lg flex items-center justify-center"
-                        [ngClass]="{
-                          'bg-red-100': isPdfFile(file),
-                          'bg-blue-100': isWordFile(file),
-                          'bg-green-100': isExcelFile(file),
-                          'bg-gray-100':
-                            !isPdfFile(file) &&
-                            !isWordFile(file) &&
-                            !isExcelFile(file),
-                        }"
-                      >
-                        <i
-                          class="text-lg"
-                          [ngClass]="{
-                            'pi pi-file-pdf text-red-600': isPdfFile(file),
-                            'pi pi-file-word text-blue-600': isWordFile(file),
-                            'pi pi-file-excel text-green-600':
-                              isExcelFile(file),
-                            'pi pi-file text-gray-600':
-                              !isPdfFile(file) &&
-                              !isWordFile(file) &&
-                              !isExcelFile(file),
-                          }"
-                        ></i>
-                      </div>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div
-                        class="text-sm font-medium text-gray-900 truncate"
-                        [title]="file.name"
-                      >
-                        {{ file.name }}
-                      </div>
-                      <div class="text-xs text-gray-500">
-                        {{ formatFileSize(file.size) }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      type="button"
-                      class="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      (click)="previewUploadedDocument(file, i)"
-                      [title]="'Preview ' + file.name"
-                    >
-                      <i class="pi pi-eye text-sm"></i>
-                    </button>
-                    <button
-                      type="button"
-                      class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                      (click)="selectedDocuments.splice(i, 1)"
-                    >
-                      <i class="pi pi-times text-sm"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <!-- QC Inspection Details Section -->
@@ -1278,11 +1377,90 @@
               </div>
             </div>
 
+            <!-- Existing QC Documents (Edit Mode) -->
+            <div
+              *ngIf="isEditingQCEntry && existingQCDocuments.length > 0"
+              class="mb-4"
+            >
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Existing QC Documents</label
+              >
+              <div
+                class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50"
+              >
+                <div
+                  *ngFor="let doc of existingQCDocuments; trackBy: trackByIndex"
+                  class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-primary hover:shadow-sm transition-all duration-200 group"
+                >
+                  <div class="flex items-center gap-3 flex-1 min-w-0">
+                    <div
+                      class="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center"
+                    >
+                      <i class="pi pi-file text-primary text-lg"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div
+                        class="text-sm font-medium text-gray-900 truncate"
+                        [title]="doc.originalName || doc.filename"
+                      >
+                        {{ doc.originalName || doc.filename }}
+                      </div>
+                      <div
+                        class="text-xs text-gray-500 flex items-center gap-2 mt-0.5"
+                        *ngIf="doc.size || doc.uploadedAt"
+                      >
+                        <span *ngIf="doc.size" class="flex items-center gap-1">
+                          <i class="pi pi-file text-xs"></i>
+                          {{ (doc.size / 1024 / 1024).toFixed(2) }} MB
+                        </span>
+                        <span
+                          *ngIf="doc.size && doc.uploadedAt"
+                          class="text-gray-300"
+                          >•</span
+                        >
+                        <span
+                          *ngIf="doc.uploadedAt"
+                          class="flex items-center gap-1"
+                        >
+                          <i class="pi pi-calendar text-xs"></i>
+                          {{ doc.uploadedAt | date: 'short' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <a
+                      [href]="doc.path"
+                      target="_blank"
+                      class="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                      [title]="'View ' + (doc.originalName || doc.filename)"
+                    >
+                      <i class="pi pi-external-link text-sm"></i>
+                    </a>
+                    <button
+                      type="button"
+                      class="p-2 text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                      (click)="removeExistingQCDocument(doc)"
+                      [title]="'Remove ' + (doc.originalName || doc.filename)"
+                    >
+                      <i class="pi pi-trash text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">
+                Click the trash icon to remove documents. Removed documents will
+                be deleted when you save changes.
+              </p>
+            </div>
+
             <!-- QC File Upload -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >Upload QC Documents</label
-              >
+              <label class="block text-sm font-medium text-gray-700 mb-2">{{
+                isEditingQCEntry
+                  ? 'Add Additional QC Documents'
+                  : 'Upload QC Documents'
+              }}</label>
               <label
                 class="w-full px-3 py-6 border border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
               >
@@ -1441,14 +1619,22 @@
                   !uploadPartyName.trim() ||
                   !uploadLocation.trim() ||
                   !uploadMobileNumber.trim() ||
-                  !!reportLinkErrorMsg
+                  !!reportLinkErrorMsg ||
+                  (!isEditingQCEntry && selectedFiles.length === 0) ||
+                  (isEditingQCEntry &&
+                    selectedFiles.length === 0 &&
+                    removedQCDocumentIds.length === 0)
                 "
                 class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors duration-200 flex items-center gap-2"
               >
                 <i *ngIf="uploading" class="pi pi-spin pi-spinner"></i>
                 <i *ngIf="!uploading" class="pi pi-check"></i>
-                <span *ngIf="!uploading">Create QC Entry</span>
-                <span *ngIf="uploading">Creating...</span>
+                <span *ngIf="!uploading">{{
+                  isEditingQCEntry ? 'Update QC Entry' : 'Create QC Entry'
+                }}</span>
+                <span *ngIf="uploading">{{
+                  isEditingQCEntry ? 'Updating...' : 'Creating...'
+                }}</span>
               </button>
             </div>
           </div>

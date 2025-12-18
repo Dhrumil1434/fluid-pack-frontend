@@ -10,29 +10,12 @@ import { MessageService } from 'primeng/api';
 import { BaseApiService } from '../../../core/services/base-api.service';
 import { MachineService } from '../../../core/services/machine.service';
 import { PageHeaderComponent } from '../../../core/components/page-header/page-header.component';
+import { SO } from '../../../core/models/so.model';
 
 interface MachineRow {
   _id: string;
   so_id: string; // Reference to SO
-  so?: {
-    _id: string;
-    name: string;
-    category_id?:
-      | {
-          _id: string;
-          name: string;
-        }
-      | string;
-    subcategory_id?:
-      | {
-          _id: string;
-          name: string;
-        }
-      | string
-      | null;
-    party_name?: string;
-    mobile_number?: string;
-  } | null; // Populated SO data
+  so?: SO | null; // Populated SO data
   is_approved: boolean;
   location?: string;
   machine_sequence?: string;
@@ -166,7 +149,7 @@ interface MachineRow {
                       </td>
                       <td class="px-3 py-2">{{ categoryName(m) }}</td>
                       <td class="px-3 py-2">{{ m.so?.party_name || '-' }}</td>
-                      <td class="px-3 py-2">{{ m.location || '-' }}</td>
+                      <td class="px-3 py-2">{{ m.so?.location || '-' }}</td>
                       <td class="px-3 py-2">
                         {{ m.so?.mobile_number || '-' }}
                       </td>
@@ -226,6 +209,8 @@ interface MachineRow {
                   <tr class="text-left">
                     <th class="px-3 py-2">Sequence</th>
                     <th class="px-3 py-2">Name</th>
+                    <th class="px-3 py-2">S.O. Number</th>
+                    <th class="px-3 py-2">P.O. Number</th>
                     <th class="px-3 py-2">Category</th>
                     <th class="px-3 py-2">Party</th>
                     <th class="px-3 py-2">Location</th>
@@ -256,9 +241,15 @@ interface MachineRow {
                     <td class="px-3 py-2">
                       {{ getSOName(m) }}
                     </td>
+                    <td class="px-3 py-2">
+                      {{ m.so?.so_number || '-' }}
+                    </td>
+                    <td class="px-3 py-2">
+                      {{ m.so?.po_number || '-' }}
+                    </td>
                     <td class="px-3 py-2">{{ categoryName(m) }}</td>
                     <td class="px-3 py-2">{{ m.so?.party_name || '-' }}</td>
-                    <td class="px-3 py-2">{{ m.location || '-' }}</td>
+                    <td class="px-3 py-2">{{ m.so?.location || '-' }}</td>
                     <td class="px-3 py-2">{{ m.so?.mobile_number || '-' }}</td>
                     <td class="px-3 py-2">
                       {{ m.createdAt | date: 'medium' }}
@@ -324,11 +315,17 @@ export class TechnicianDashboardComponent implements OnInit {
             typeof soIdValue === 'object' &&
             soIdValue !== null
           ) {
-            // so_id is populated - extract the SO data
+            // so_id is populated - extract the SO data (same as technician-machines component)
             soIdString = soIdValue._id?.toString() || null;
             soData = {
               _id: soIdString,
               name: soIdValue.name || null,
+              customer: soIdValue.customer || null,
+              so_number: soIdValue.so_number || null,
+              po_number: soIdValue.po_number || null,
+              so_date: soIdValue.so_date || null,
+              po_date: soIdValue.po_date || null,
+              location: soIdValue.location || null,
               category_id: soIdValue.category_id || null,
               subcategory_id: soIdValue.subcategory_id || null,
               party_name: soIdValue.party_name || null,
@@ -409,7 +406,10 @@ export class TechnicianDashboardComponent implements OnInit {
   }
 
   getSOName(m: MachineRow): string {
+    // Match the logic from technician-machines component
+    if (m.so?.customer) return m.so.customer;
     if (m.so?.name) return m.so.name;
+    if (m.so?.so_number) return m.so.so_number;
     if (m.so_id) return m.so_id;
     return '-';
   }

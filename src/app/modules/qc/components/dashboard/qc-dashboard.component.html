@@ -41,12 +41,22 @@
           <div class="relative">
             <input
               type="text"
-              placeholder="Search QC entries..."
+              [(ngModel)]="searchTerm"
+              (input)="onSearchChange()"
+              placeholder="Search by machine name, SO number, PO number, customer, party, location, sequence..."
               class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all duration-200 text-sm"
             />
             <i
               class="pi pi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"
             ></i>
+            <button
+              *ngIf="searchTerm"
+              (click)="clearSearch()"
+              class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              title="Clear search"
+            >
+              <i class="pi pi-times text-sm"></i>
+            </button>
           </div>
         </div>
 

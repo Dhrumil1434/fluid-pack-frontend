@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 
 // Shared Components
 import { QcSidebarComponent } from '../../components/shared/qc-sidebar/qc-sidebar.component';
@@ -26,6 +27,7 @@ import { QCEntryService } from '../../../../core/services/qc-entry.service';
   imports: [
     CommonModule,
     RouterModule,
+    FormsModule,
     QcSidebarComponent,
     StatsCardsComponent,
     QcRecentEntriesComponent,
@@ -42,6 +44,7 @@ export class QcDashboardComponent implements OnInit {
   isLoading = false;
   error: string | null = null;
   notificationCount = 0;
+  searchTerm = '';
 
   // Dashboard data
   dashboardData: any = null;
@@ -222,5 +225,21 @@ export class QcDashboardComponent implements OnInit {
 
   goToAddEntry(): void {
     this.router.navigate(['/qc/document-entry']);
+  }
+
+  onSearchChange(): void {
+    // Navigate to approval management with search query
+    if (this.searchTerm.trim()) {
+      this.router.navigate(['/qc/approval-management'], {
+        queryParams: { search: this.searchTerm.trim() },
+      });
+    }
+  }
+
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.router.navigate(['/qc/approval-management'], {
+      queryParams: {},
+    });
   }
 }

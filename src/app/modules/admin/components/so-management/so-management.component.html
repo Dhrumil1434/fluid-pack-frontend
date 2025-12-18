@@ -1,0 +1,1448 @@
+<div
+  class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100"
+>
+  <app-admin-sidebar
+    [collapsed]="sidebarCollapsed"
+    (collapseChange)="onSidebarCollapseChange($event)"
+  ></app-admin-sidebar>
+
+  <div
+    class="transition-all duration-300"
+    [class.ml-16]="sidebarCollapsed"
+    [class.ml-64]="!sidebarCollapsed"
+  >
+    <!-- Header -->
+    <app-page-header
+      title="SO Management"
+      [sidebarCollapsed]="sidebarCollapsed"
+      (toggleSidebar)="toggleSidebar()"
+      [breadcrumbs]="[
+        { label: 'Dashboard', route: '/admin/dashboard' },
+        { label: 'SO Management' },
+      ]"
+    >
+      <div headerActions class="flex items-center gap-2">
+        <button
+          class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer flex items-center gap-2 shadow-sm"
+          (click)="openCreate()"
+          title="Add new SO"
+        >
+          <i class="pi pi-plus text-sm"></i>
+          Add SO
+        </button>
+      </div>
+    </app-page-header>
+
+    <main class="p-6 space-y-4">
+      <div class="bg-white border border-neutral-200 rounded-lg p-4 space-y-4">
+        <!-- Search with Autocomplete -->
+        <div class="relative">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Search SOs (SO Number, Customer, P.O. Number)
+          </label>
+          <div class="relative">
+            <input
+              type="text"
+              class="w-full px-4 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="Search by SO Number, Customer, or P.O. Number..."
+              [(ngModel)]="searchQuery"
+              (input)="onSearchInput($event)"
+              (focus)="showSuggestions = true"
+              (blur)="onSearchBlur()"
+              (keydown.arrowDown)="onArrowDown($any($event))"
+              (keydown.arrowUp)="onArrowUp($any($event))"
+              (keydown.enter)="selectSuggestion()"
+            />
+            <i
+              class="pi pi-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            ></i>
+
+            <!-- Suggestions Dropdown -->
+            <div
+              *ngIf="showSuggestions && searchSuggestions.length > 0"
+              class="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+            >
+              <div
+                *ngFor="
+                  let suggestion of searchSuggestions;
+                  trackBy: trackBySuggestionId;
+                  let i = index
+                "
+                class="px-4 py-2 hover:bg-neutral-100 cursor-pointer transition-colors"
+                [class.bg-primary/10]="selectedSuggestionIndex === i"
+                (click)="selectSuggestion(suggestion)"
+                (keyup.enter)="selectSuggestion(suggestion)"
+                (keyup.space)="selectSuggestion(suggestion)"
+                (mouseenter)="selectedSuggestionIndex = i"
+                tabindex="0"
+                role="button"
+              >
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-search text-xs text-gray-400"></i>
+                  <div class="flex-1">
+                    <div class="text-sm font-medium text-gray-900">
+                      {{ suggestion.label }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      {{ suggestion.type }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Options -->
+        <div class="flex flex-wrap items-end gap-3">
+          <select
+            class="px-3 py-2 border border-neutral-300 rounded-md"
+            [(ngModel)]="filters.is_active"
+            (change)="reload()"
+          >
+            <option [ngValue]="undefined">All statuses</option>
+            <option [ngValue]="true">Active</option>
+            <option [ngValue]="false">Inactive</option>
+          </select>
+          <select
+            class="px-3 py-2 border border-neutral-300 rounded-md min-w-48"
+            [(ngModel)]="filters.category_id"
+            (change)="onCategoryFilterChange()"
+          >
+            <option [ngValue]="undefined">All categories</option>
+            <option
+              *ngFor="let cat of categories; trackBy: trackByCategoryId"
+              [value]="cat._id"
+            >
+              {{ cat.name }}
+            </option>
+          </select>
+          <button
+            class="px-4 py-2 bg-primary text-white rounded-md font-medium transition-colors duration-150 hover:bg-primary/90 cursor-pointer"
+            (click)="reload()"
+          >
+            Apply Filters
+          </button>
+          <button
+            class="px-4 py-2 border border-neutral-300 text-gray-700 rounded-md font-medium transition-colors duration-150 hover:bg-neutral-50 cursor-pointer"
+            (click)="clearFilters()"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <app-list-table-shell title="Sales Orders">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="bg-gray-50 text-left border-b border-gray-200">
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Customer
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                P.O. Number
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                S.O. Number
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Party Name
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+              >
+                Location
+              </th>
+              <th
+                class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
+              >
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr
+              *ngFor="let so of sos; trackBy: trackBySOId"
+              class="hover:bg-gray-50 transition-colors duration-150"
+            >
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">
+                  {{ so.customer || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ so.po_number || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ so.so_number || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ so.party_name || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {{ so.location || '-' }}
+                </div>
+              </td>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <button
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-info bg-info/10 border border-info/20 rounded-md hover:bg-info/20 hover:border-info/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="openView(so)"
+                    title="View SO details"
+                  >
+                    <i class="pi pi-eye text-xs mr-1"></i>
+                    View
+                  </button>
+                  <button
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="openEdit(so)"
+                    title="Edit SO"
+                  >
+                    <i class="pi pi-pencil text-xs mr-1"></i>
+                    Edit
+                  </button>
+                  <button
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-error bg-error/10 border border-error/20 rounded-md hover:bg-error/20 hover:border-error/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="confirmDelete(so)"
+                    title="Delete SO"
+                  >
+                    <i class="pi pi-trash text-xs mr-1"></i>
+                    Delete
+                  </button>
+                  <button
+                    *ngIf="!so.is_active"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-success bg-success/10 border border-success/20 rounded-md hover:bg-success/20 hover:border-success/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="activateSO(so)"
+                    title="Activate SO"
+                  >
+                    <i class="pi pi-check text-xs mr-1"></i>
+                    Activate
+                  </button>
+                  <button
+                    *ngIf="so.is_active"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded-md hover:bg-warning/20 hover:border-warning/30 transition-all duration-150 cursor-pointer shadow-sm"
+                    (click)="deactivateSO(so)"
+                    title="Deactivate SO"
+                  >
+                    <i class="pi pi-times text-xs mr-1"></i>
+                    Deactivate
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="sos.length === 0">
+              <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                <div class="flex flex-col items-center justify-center">
+                  <i class="pi pi-inbox text-4xl text-gray-300 mb-2"></i>
+                  <p class="text-sm font-medium">No SOs found</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div table-footer class="w-full">
+          <app-table-pagination
+            [page]="page"
+            [pages]="pages"
+            [total]="total"
+            [limit]="limit"
+            (pageChange)="onPageChange($event)"
+            (limitChange)="onLimitChange($event)"
+          ></app-table-pagination>
+        </div>
+      </app-list-table-shell>
+
+      <!-- Create / Edit Modal -->
+      <div
+        *ngIf="formVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="closeForm()"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="closeForm()"
+          (keydown.space)="closeForm()"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
+        >
+          <div
+            class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+          >
+            <h3 class="text-lg font-semibold text-text">
+              {{ editing ? 'Edit SO' : 'Add SO' }}
+            </h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="closeForm()"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <form
+              [formGroup]="form"
+              class="p-4 space-y-4"
+              (ngSubmit)="submitForm()"
+            >
+              <div class="space-y-1">
+                <label class="text-sm">Customer *</label>
+                <input
+                  type="text"
+                  class="w-full border rounded px-3 py-2"
+                  [class.border-red-500]="
+                    (form.controls['customer'].touched &&
+                      form.controls['customer'].invalid) ||
+                    backendErrors['customer']
+                  "
+                  formControlName="customer"
+                  placeholder="Enter customer (e.g., T0037 - fsnf skfsfn sfksn)"
+                  (blur)="form.controls['customer'].markAsTouched()"
+                  (input)="clearBackendError('customer')"
+                />
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['customer'].touched &&
+                    form.controls['customer'].invalid
+                  "
+                >
+                  <span *ngIf="form.controls['customer'].errors?.['required']">
+                    Customer is required
+                  </span>
+                  <span *ngIf="form.controls['customer'].errors?.['minlength']">
+                    Customer must be at least 2 characters long
+                  </span>
+                  <span *ngIf="form.controls['customer'].errors?.['maxlength']">
+                    Customer cannot exceed 200 characters
+                  </span>
+                  <span *ngIf="backendErrors['customer']" class="text-error">
+                    {{ backendErrors['customer'] }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-sm">Location *</label>
+                <input
+                  type="text"
+                  class="w-full border rounded px-3 py-2"
+                  [class.border-red-500]="
+                    (form.controls['location'].touched &&
+                      form.controls['location'].invalid) ||
+                    backendErrors['location']
+                  "
+                  formControlName="location"
+                  placeholder="Enter location"
+                  (blur)="form.controls['location'].markAsTouched()"
+                  (input)="clearBackendError('location')"
+                />
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['location'].touched &&
+                    form.controls['location'].invalid
+                  "
+                >
+                  <span *ngIf="form.controls['location'].errors?.['required']">
+                    Location is required
+                  </span>
+                  <span *ngIf="form.controls['location'].errors?.['minlength']">
+                    Location must be at least 2 characters long
+                  </span>
+                  <span *ngIf="form.controls['location'].errors?.['maxlength']">
+                    Location cannot exceed 100 characters
+                  </span>
+                  <span *ngIf="backendErrors['location']" class="text-error">
+                    {{ backendErrors['location'] }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- P.O. Number and P.O. Date -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1">
+                  <label class="text-sm">P.O. Number *</label>
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2"
+                    [class.border-red-500]="
+                      (form.controls['po_number'].touched &&
+                        form.controls['po_number'].invalid) ||
+                      backendErrors['po_number']
+                    "
+                    formControlName="po_number"
+                    placeholder="Enter P.O. Number"
+                    (blur)="form.controls['po_number'].markAsTouched()"
+                    (input)="clearBackendError('po_number')"
+                  />
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="
+                      form.controls['po_number'].touched &&
+                      form.controls['po_number'].invalid
+                    "
+                  >
+                    <span
+                      *ngIf="form.controls['po_number'].errors?.['required']"
+                    >
+                      P.O. Number is required
+                    </span>
+                    <span *ngIf="backendErrors['po_number']" class="text-error">
+                      {{ backendErrors['po_number'] }}
+                    </span>
+                  </div>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-sm">P.O. Date * (DD/MM/YYYY)</label>
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2"
+                    [class.border-red-500]="
+                      (form.controls['po_date'].touched &&
+                        form.controls['po_date'].invalid) ||
+                      backendErrors['po_date']
+                    "
+                    formControlName="po_date"
+                    placeholder="DD/MM/YYYY"
+                    maxlength="10"
+                    (blur)="
+                      formatDateField('po_date');
+                      form.controls['po_date'].markAsTouched()
+                    "
+                    (input)="
+                      onDateInput('po_date', $event);
+                      clearBackendError('po_date')
+                    "
+                  />
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="
+                      form.controls['po_date'].touched &&
+                      form.controls['po_date'].invalid
+                    "
+                  >
+                    <span *ngIf="form.controls['po_date'].errors?.['required']">
+                      P.O. Date is required
+                    </span>
+                    <span
+                      *ngIf="form.controls['po_date'].errors?.['invalidDate']"
+                    >
+                      Invalid date format. Please use DD/MM/YYYY
+                    </span>
+                    <span
+                      *ngIf="form.controls['po_date'].errors?.['invalidFormat']"
+                    >
+                      Date must be in DD/MM/YYYY format
+                    </span>
+                    <span *ngIf="backendErrors['po_date']" class="text-error">
+                      {{ backendErrors['po_date'] }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- S.O. Number and S.O. Date -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-1">
+                  <label class="text-sm">S.O. Number *</label>
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2"
+                    [class.border-red-500]="
+                      (form.controls['so_number'].touched &&
+                        form.controls['so_number'].invalid) ||
+                      backendErrors['so_number']
+                    "
+                    formControlName="so_number"
+                    placeholder="Enter S.O. Number"
+                    (blur)="form.controls['so_number'].markAsTouched()"
+                    (input)="clearBackendError('so_number')"
+                  />
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="
+                      form.controls['so_number'].touched &&
+                      form.controls['so_number'].invalid
+                    "
+                  >
+                    <span
+                      *ngIf="form.controls['so_number'].errors?.['required']"
+                    >
+                      S.O. Number is required
+                    </span>
+                    <span *ngIf="backendErrors['so_number']" class="text-error">
+                      {{ backendErrors['so_number'] }}
+                    </span>
+                  </div>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-sm">S.O. Date * (DD/MM/YYYY)</label>
+                  <input
+                    type="text"
+                    class="w-full border rounded px-3 py-2"
+                    [class.border-red-500]="
+                      (form.controls['so_date'].touched &&
+                        form.controls['so_date'].invalid) ||
+                      backendErrors['so_date']
+                    "
+                    formControlName="so_date"
+                    placeholder="DD/MM/YYYY"
+                    maxlength="10"
+                    (blur)="
+                      formatDateField('so_date');
+                      form.controls['so_date'].markAsTouched()
+                    "
+                    (input)="
+                      onDateInput('so_date', $event);
+                      clearBackendError('so_date')
+                    "
+                  />
+                  <div
+                    class="text-xs text-error"
+                    *ngIf="
+                      form.controls['so_date'].touched &&
+                      form.controls['so_date'].invalid
+                    "
+                  >
+                    <span *ngIf="form.controls['so_date'].errors?.['required']">
+                      S.O. Date is required
+                    </span>
+                    <span
+                      *ngIf="form.controls['so_date'].errors?.['invalidDate']"
+                    >
+                      Invalid date format. Please use DD/MM/YYYY
+                    </span>
+                    <span
+                      *ngIf="form.controls['so_date'].errors?.['invalidFormat']"
+                    >
+                      Date must be in DD/MM/YYYY format
+                    </span>
+                    <span *ngIf="backendErrors['so_date']" class="text-error">
+                      {{ backendErrors['so_date'] }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dynamic Items -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="text-sm font-medium">Items (Optional)</label>
+                  <button
+                    type="button"
+                    class="text-primary text-sm"
+                    (click)="addItem()"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+                <div
+                  class="rounded border border-neutral-200 divide-y"
+                  formArrayName="items"
+                >
+                  <div
+                    class="p-3 space-y-3"
+                    *ngFor="
+                      let item of items.controls;
+                      let i = index;
+                      trackBy: trackByIndex
+                    "
+                    [formGroupName]="i"
+                  >
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-medium">Item {{ i + 1 }}</span>
+                      <button
+                        type="button"
+                        class="p-1 text-red-500 hover:bg-red-50 rounded"
+                        (click)="removeItem(i)"
+                        *ngIf="items.length > 0"
+                      >
+                        <i class="pi pi-trash text-sm"></i>
+                      </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="space-y-1">
+                        <label class="text-xs">No. (Optional)</label>
+                        <input
+                          type="number"
+                          class="w-full border rounded px-2 py-1 text-sm"
+                          [class.border-red-500]="
+                            backendErrors['items.' + i + '.no']
+                          "
+                          formControlName="no"
+                          min="1"
+                          placeholder="1"
+                        />
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="backendErrors['items.' + i + '.no']"
+                        >
+                          {{ backendErrors['items.' + i + '.no'] }}
+                        </div>
+                      </div>
+                      <div class="space-y-1">
+                        <label class="text-xs">Item Code (Optional)</label>
+                        <input
+                          type="text"
+                          class="w-full border rounded px-2 py-1 text-sm"
+                          [class.border-red-500]="
+                            backendErrors['items.' + i + '.item_code']
+                          "
+                          formControlName="item_code"
+                          placeholder="Enter item code"
+                        />
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="backendErrors['items.' + i + '.item_code']"
+                        >
+                          {{ backendErrors['items.' + i + '.item_code'] }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-xs">Item Details (Optional)</label>
+                      <input
+                        type="text"
+                        class="w-full border rounded px-2 py-1 text-sm"
+                        [class.border-red-500]="
+                          backendErrors['items.' + i + '.item_details']
+                        "
+                        formControlName="item_details"
+                        placeholder="Enter item details"
+                      />
+                      <div
+                        class="text-xs text-error"
+                        *ngIf="backendErrors['items.' + i + '.item_details']"
+                      >
+                        {{ backendErrors['items.' + i + '.item_details'] }}
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="space-y-1">
+                        <label class="text-xs">UOM (Optional)</label>
+                        <input
+                          type="text"
+                          class="w-full border rounded px-2 py-1 text-sm"
+                          [class.border-red-500]="
+                            backendErrors['items.' + i + '.uom']
+                          "
+                          formControlName="uom"
+                          placeholder="Enter UOM"
+                        />
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="backendErrors['items.' + i + '.uom']"
+                        >
+                          {{ backendErrors['items.' + i + '.uom'] }}
+                        </div>
+                      </div>
+                      <div class="space-y-1">
+                        <label class="text-xs">Quantity (Optional)</label>
+                        <input
+                          type="number"
+                          class="w-full border rounded px-2 py-1 text-sm"
+                          [class.border-red-500]="
+                            backendErrors['items.' + i + '.quantity']
+                          "
+                          formControlName="quantity"
+                          min="0"
+                          placeholder="0"
+                        />
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="backendErrors['items.' + i + '.quantity']"
+                        >
+                          {{ backendErrors['items.' + i + '.quantity'] }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="space-y-1">
+                        <label class="text-xs"
+                          >Delivery Schedule (Optional)</label
+                        >
+                        <input
+                          type="text"
+                          class="w-full border rounded px-2 py-1 text-sm"
+                          [class.border-red-500]="
+                            backendErrors['items.' + i + '.delivery_schedule']
+                          "
+                          formControlName="delivery_schedule"
+                          placeholder="DD/MM/YYYY"
+                          maxlength="10"
+                          (blur)="formatItemDateField(i, 'delivery_schedule')"
+                          (input)="
+                            onItemDateInput(i, 'delivery_schedule', $event)
+                          "
+                        />
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="
+                            backendErrors['items.' + i + '.delivery_schedule']
+                          "
+                        >
+                          {{
+                            backendErrors['items.' + i + '.delivery_schedule']
+                          }}
+                        </div>
+                      </div>
+                      <div class="space-y-1">
+                        <label class="text-xs">Total (Optional)</label>
+                        <input
+                          type="number"
+                          class="w-full border rounded px-2 py-1 text-sm"
+                          [class.border-red-500]="
+                            backendErrors['items.' + i + '.total']
+                          "
+                          formControlName="total"
+                          min="0"
+                          placeholder="0"
+                        />
+                        <div
+                          class="text-xs text-error"
+                          *ngIf="backendErrors['items.' + i + '.total']"
+                        >
+                          {{ backendErrors['items.' + i + '.total'] }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-sm">Category *</label>
+                <select
+                  class="w-full border rounded px-3 py-2"
+                  [class.border-red-500]="
+                    (form.controls['category_id'].touched &&
+                      form.controls['category_id'].invalid) ||
+                    backendErrors['category_id']
+                  "
+                  formControlName="category_id"
+                  (change)="onCategoryChange()"
+                  (blur)="form.controls['category_id'].markAsTouched()"
+                >
+                  <option value="" disabled>Select category</option>
+                  <option
+                    *ngFor="let c of categories; trackBy: trackByCategoryId"
+                    [value]="c._id"
+                  >
+                    {{ c.name }}
+                  </option>
+                </select>
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['category_id'].touched &&
+                    form.controls['category_id'].invalid
+                  "
+                >
+                  <span
+                    *ngIf="form.controls['category_id'].errors?.['required']"
+                  >
+                    Category is required
+                  </span>
+                  <span *ngIf="backendErrors['category_id']" class="text-error">
+                    {{ backendErrors['category_id'] }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="space-y-1" *ngIf="subcategories.length > 0">
+                <label class="text-sm">Subcategory (Optional)</label>
+                <select
+                  class="w-full border rounded px-3 py-2"
+                  formControlName="subcategory_id"
+                  (change)="onSubcategoryChange()"
+                >
+                  <option value="">No subcategory</option>
+                  <option
+                    *ngFor="let sc of subcategories; trackBy: trackByCategoryId"
+                    [value]="sc._id"
+                  >
+                    {{ sc.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-sm">Party Name *</label>
+                <input
+                  type="text"
+                  class="w-full border rounded px-3 py-2"
+                  [class.border-red-500]="
+                    (form.controls['party_name'].touched &&
+                      form.controls['party_name'].invalid) ||
+                    backendErrors['party_name']
+                  "
+                  formControlName="party_name"
+                  placeholder="Enter party/company name"
+                  (blur)="form.controls['party_name'].markAsTouched()"
+                  (input)="clearBackendError('party_name')"
+                />
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['party_name'].touched &&
+                    form.controls['party_name'].invalid
+                  "
+                >
+                  <span
+                    *ngIf="form.controls['party_name'].errors?.['required']"
+                  >
+                    Party name is required
+                  </span>
+                  <span
+                    *ngIf="form.controls['party_name'].errors?.['minlength']"
+                  >
+                    Party name must be at least 2 characters long
+                  </span>
+                  <span
+                    *ngIf="form.controls['party_name'].errors?.['maxlength']"
+                  >
+                    Party name cannot exceed 100 characters
+                  </span>
+                  <span *ngIf="backendErrors['party_name']" class="text-error">
+                    {{ backendErrors['party_name'] }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-sm">Mobile Number *</label>
+                <input
+                  type="tel"
+                  class="w-full border rounded px-3 py-2"
+                  [class.border-red-500]="
+                    (form.controls['mobile_number'].touched &&
+                      form.controls['mobile_number'].invalid) ||
+                    backendErrors['mobile_number']
+                  "
+                  formControlName="mobile_number"
+                  placeholder="Enter mobile number (e.g., +1234567890, (123) 456-7890)"
+                  (blur)="form.controls['mobile_number'].markAsTouched()"
+                  (input)="clearBackendError('mobile_number')"
+                />
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['mobile_number'].touched &&
+                    form.controls['mobile_number'].invalid
+                  "
+                >
+                  <span
+                    *ngIf="form.controls['mobile_number'].errors?.['required']"
+                  >
+                    Mobile number is required
+                  </span>
+                  <span
+                    *ngIf="form.controls['mobile_number'].errors?.['minlength']"
+                  >
+                    Mobile number must be at least 10 characters
+                  </span>
+                  <span
+                    *ngIf="form.controls['mobile_number'].errors?.['pattern']"
+                  >
+                    Invalid mobile number format. Use format like: +1234567890,
+                    (123) 456-7890, or 123-456-7890
+                  </span>
+                  <span
+                    *ngIf="backendErrors['mobile_number']"
+                    class="text-error"
+                  >
+                    {{ backendErrors['mobile_number'] }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="space-y-1">
+                <label class="text-sm">Description (Optional)</label>
+                <textarea
+                  class="w-full border rounded px-3 py-2"
+                  formControlName="description"
+                  placeholder="Enter description (max 1000 characters)"
+                  rows="3"
+                ></textarea>
+                <div
+                  class="text-xs text-error"
+                  *ngIf="
+                    form.controls['description'].touched &&
+                    form.controls['description'].invalid
+                  "
+                >
+                  <span
+                    *ngIf="form.controls['description'].errors?.['maxlength']"
+                  >
+                    Description cannot exceed 1000 characters
+                  </span>
+                  <span *ngIf="backendErrors['description']" class="text-error">
+                    {{ backendErrors['description'] }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Documents section -->
+              <div class="space-y-2">
+                <label class="text-sm">Documents (Optional, max 10)</label>
+                <input
+                  #documentInput
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  class="hidden"
+                  (change)="onDocumentsSelected($event)"
+                />
+                <div
+                  class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer select-none transition-colors"
+                  [ngClass]="{
+                    'border-primary': isDocumentDragging,
+                    'bg-primary/5': isDocumentDragging,
+                  }"
+                  (click)="openDocumentPicker()"
+                  (keyup.enter)="openDocumentPicker()"
+                  (keyup.space)="openDocumentPicker()"
+                  (dragover)="onDocumentDragOver($event)"
+                  (dragleave)="onDocumentDragLeave($event)"
+                  (drop)="onDocumentDrop($event)"
+                  tabindex="0"
+                  role="button"
+                  [attr.aria-label]="'Upload documents'"
+                >
+                  <div class="flex flex-col items-center gap-1">
+                    <i class="pi pi-file text-2xl text-neutral-500"></i>
+                    <div class="text-sm">
+                      <span class="text-primary font-medium"
+                        >Click to upload</span
+                      >
+                      or drag and drop
+                    </div>
+                    <div class="text-xs text-neutral-500">
+                      PDF, DOC, DOCX, XLS, XLSX, TXT up to 10 files
+                    </div>
+                  </div>
+                </div>
+                <div
+                  class="text-xs text-text-muted"
+                  *ngIf="selectedDocuments.length > 0"
+                >
+                  {{ selectedDocuments.length }} document(s) selected (max 10)
+                </div>
+                <div
+                  class="space-y-2 mt-2"
+                  *ngIf="selectedDocuments.length > 0"
+                >
+                  <div
+                    class="flex items-center justify-between p-2 bg-neutral-50 rounded border"
+                    *ngFor="
+                      let doc of selectedDocuments;
+                      trackBy: trackByDocumentIndex;
+                      let i = index
+                    "
+                  >
+                    <div class="flex items-center gap-2">
+                      <i class="pi pi-file text-neutral-500"></i>
+                      <span class="text-sm">{{ doc.name }}</span>
+                      <span class="text-xs text-neutral-500"
+                        >({{ doc.size | number }} bytes)</span
+                      >
+                    </div>
+                    <button
+                      type="button"
+                      class="p-1 text-red-500 hover:bg-red-50 rounded"
+                      (click)="removeDocument(i)"
+                    >
+                      <i class="pi pi-times text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Existing Documents (Edit Mode) -->
+              <div *ngIf="editing && existingDocuments.length > 0" class="mt-4">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-sm font-medium">Existing Documents</label>
+                  <span class="text-xs text-text-muted"
+                    >{{ existingDocuments.length }} document(s)</span
+                  >
+                </div>
+                <div class="space-y-2">
+                  <div
+                    class="flex items-center justify-between p-2 bg-neutral-50 rounded border"
+                    *ngFor="
+                      let doc of existingDocuments;
+                      trackBy: trackByDocumentIndex;
+                      let i = index
+                    "
+                  >
+                    <div class="flex items-center gap-2">
+                      <i class="pi pi-file text-neutral-500"></i>
+                      <span class="text-sm">{{ doc.name }}</span>
+                      <span class="text-xs text-neutral-500">{{
+                        doc.document_type || 'Document'
+                      }}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        class="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                        (click)="downloadDocument(doc)"
+                        title="Download"
+                      >
+                        <i class="pi pi-download text-xs"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="p-1 text-green-500 hover:bg-green-50 rounded"
+                        (click)="previewDocument(doc)"
+                        title="Preview"
+                      >
+                        <i class="pi pi-eye text-xs"></i>
+                      </button>
+                      <button
+                        type="button"
+                        class="p-1 text-red-500 hover:bg-red-50 rounded"
+                        (click)="removeExistingDocument(i)"
+                        title="Remove"
+                      >
+                        <i class="pi pi-times text-xs"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div
+            class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              type="button"
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="closeForm()"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-3 py-2 rounded-md bg-primary text-white hover:bg-primary-light disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
+              [disabled]="(editing ? !form.dirty : form.invalid) || submitting"
+              [title]="
+                form.invalid && !editing
+                  ? 'Please fix validation errors before submitting'
+                  : submitting
+                    ? 'Saving...'
+                    : editing && !form.dirty
+                      ? 'No changes to save'
+                      : ''
+              "
+              (click)="submitForm()"
+            >
+              <i *ngIf="submitting" class="pi pi-spinner pi-spin"></i>
+              <i *ngIf="!submitting" class="pi pi-save"></i>
+              <span>{{ editing ? 'Save Changes' : 'Create' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- View Modal -->
+      <div
+        *ngIf="viewVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="viewVisible = false"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="viewVisible = false"
+          (keydown.space)="viewVisible = false"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-4xl max-h-[90vh] flex flex-col"
+        >
+          <div
+            class="flex items-center justify-between p-4 border-b border-neutral-200 flex-shrink-0"
+          >
+            <h3 class="text-lg font-semibold text-text">SO Details</h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="viewVisible = false"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Name (if exists) -->
+              <div class="md:col-span-2" *ngIf="selected?.name">
+                <span class="block text-xs text-text-muted mb-1">Name</span>
+                <span class="text-sm font-medium">{{ selected?.name }}</span>
+              </div>
+
+              <!-- Customer -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Customer</span>
+                <span class="text-sm">{{ selected?.customer || '-' }}</span>
+              </div>
+
+              <!-- Location -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Location</span>
+                <span class="text-sm">{{ selected?.location || '-' }}</span>
+              </div>
+
+              <!-- P.O. Number -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >P.O. Number</span
+                >
+                <span class="text-sm">{{ selected?.po_number || '-' }}</span>
+              </div>
+
+              <!-- P.O. Date -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >P.O. Date</span
+                >
+                <span class="text-sm">{{
+                  selected?.po_date
+                    ? (selected?.po_date | date: 'dd/MM/yyyy')
+                    : '-'
+                }}</span>
+              </div>
+
+              <!-- S.O. Number -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >S.O. Number</span
+                >
+                <span class="text-sm">{{ selected?.so_number || '-' }}</span>
+              </div>
+
+              <!-- S.O. Date -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >S.O. Date</span
+                >
+                <span class="text-sm">{{
+                  selected?.so_date
+                    ? (selected?.so_date | date: 'dd/MM/yyyy')
+                    : '-'
+                }}</span>
+              </div>
+
+              <!-- Category -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Category</span>
+                <span class="text-sm">{{
+                  selected?.category_id?.name || '-'
+                }}</span>
+              </div>
+
+              <!-- Subcategory -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Subcategory</span
+                >
+                <span *ngIf="selected?.subcategory_id" class="text-sm">
+                  {{ selected?.subcategory_id?.name }}
+                </span>
+                <span
+                  *ngIf="!selected?.subcategory_id"
+                  class="text-gray-400 text-sm"
+                  >-</span
+                >
+              </div>
+
+              <!-- Party Name -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Party Name</span
+                >
+                <span class="text-sm">{{ selected?.party_name || '-' }}</span>
+              </div>
+
+              <!-- Mobile Number -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Mobile Number</span
+                >
+                <span class="text-sm">{{
+                  selected?.mobile_number || '-'
+                }}</span>
+              </div>
+
+              <!-- Description -->
+              <div class="md:col-span-2">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Description</span
+                >
+                <span class="text-sm">{{ selected?.description || '-' }}</span>
+              </div>
+
+              <!-- Items -->
+              <div
+                class="md:col-span-2"
+                *ngIf="selected?.items && (selected?.items?.length ?? 0) > 0"
+              >
+                <span class="block text-xs text-text-muted mb-2">Items</span>
+                <div class="border border-neutral-200 rounded-md divide-y">
+                  <ng-container *ngIf="selected && selected.items">
+                    <div
+                      *ngFor="
+                        let item of selected.items;
+                        trackBy: trackByItemIndex;
+                        let i = index
+                      "
+                      class="p-3 space-y-2"
+                    >
+                      <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium"
+                          >Item {{ i + 1 }}</span
+                        >
+                      </div>
+                      <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div *ngIf="item.no">
+                          <span class="text-text-muted text-xs">No.:</span>
+                          <span class="ml-2">{{ item.no }}</span>
+                        </div>
+                        <div *ngIf="item.item_code">
+                          <span class="text-text-muted text-xs"
+                            >Item Code:</span
+                          >
+                          <span class="ml-2">{{ item.item_code }}</span>
+                        </div>
+                        <div *ngIf="item.item_details" class="col-span-2">
+                          <span class="text-text-muted text-xs"
+                            >Item Details:</span
+                          >
+                          <span class="ml-2">{{ item.item_details }}</span>
+                        </div>
+                        <div *ngIf="item.uom">
+                          <span class="text-text-muted text-xs">UOM:</span>
+                          <span class="ml-2">{{ item.uom }}</span>
+                        </div>
+                        <div
+                          *ngIf="
+                            item.quantity !== undefined &&
+                            item.quantity !== null
+                          "
+                        >
+                          <span class="text-text-muted text-xs">Quantity:</span>
+                          <span class="ml-2">{{ item.quantity }}</span>
+                        </div>
+                        <div *ngIf="item.delivery_schedule">
+                          <span class="text-text-muted text-xs"
+                            >Delivery Schedule:</span
+                          >
+                          <span class="ml-2">{{
+                            item.delivery_schedule | date: 'dd/MM/yyyy'
+                          }}</span>
+                        </div>
+                        <div
+                          *ngIf="
+                            item.total !== undefined && item.total !== null
+                          "
+                        >
+                          <span class="text-text-muted text-xs">Total:</span>
+                          <span class="ml-2">{{ item.total }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </ng-container>
+                </div>
+              </div>
+
+              <!-- Status -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1">Status</span>
+                <span
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                  [ngClass]="{
+                    'bg-success/20 text-success': selected?.is_active,
+                    'bg-warning/20 text-warning': !selected?.is_active,
+                  }"
+                >
+                  {{ selected?.is_active ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+
+              <!-- Created By -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Created By</span
+                >
+                <span class="text-sm">
+                  {{ selected?.created_by?.username || '-' }}
+                  <span
+                    *ngIf="selected?.created_by?.email"
+                    class="text-text-muted"
+                  >
+                    ({{ selected?.created_by?.email }})
+                  </span>
+                </span>
+              </div>
+
+              <!-- Updated By -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Updated By</span
+                >
+                <span class="text-sm">{{
+                  selected?.updatedBy?.username || 'Ã¢â‚¬â€'
+                }}</span>
+              </div>
+
+              <!-- Created Date -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Created Date</span
+                >
+                <span class="text-sm">{{
+                  selected?.createdAt | date: 'medium'
+                }}</span>
+              </div>
+
+              <!-- Updated Date -->
+              <div class="md:col-span-1">
+                <span class="block text-xs text-text-muted mb-1"
+                  >Updated Date</span
+                >
+                <span class="text-sm">{{
+                  selected?.updatedAt | date: 'medium'
+                }}</span>
+              </div>
+
+              <!-- Documents -->
+              <div class="md:col-span-2">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="block text-xs text-text-muted">Documents</span>
+                </div>
+                <div
+                  class="mt-1 flex gap-2 flex-wrap"
+                  *ngIf="selected?.documents?.length; else nodocs"
+                >
+                  <div
+                    *ngFor="
+                      let doc of selected?.documents;
+                      let i = index;
+                      trackBy: trackByIndex
+                    "
+                    class="flex items-center gap-2 px-3 py-2 bg-neutral-100 rounded-md border text-sm hover:bg-neutral-200 transition-colors"
+                  >
+                    <i class="pi pi-file text-primary"></i>
+                    <span class="truncate max-w-40 font-medium">{{
+                      doc.name
+                    }}</span>
+                    <button
+                      type="button"
+                      class="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                      (click)="downloadDocument(doc)"
+                      title="Download"
+                    >
+                      <i class="pi pi-download text-xs"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="p-1 text-green-500 hover:bg-green-50 rounded"
+                      (click)="previewDocument(doc)"
+                      title="Preview"
+                    >
+                      <i class="pi pi-eye text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+                <ng-template #nodocs>
+                  <div class="flex items-center gap-2 text-sm text-text-muted">
+                    <i class="pi pi-file"></i>
+                    <span>No documents attached</span>
+                  </div>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+          <div
+            class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+          >
+            <button
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="viewVisible = false"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div
+        *ngIf="confirmVisible"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        <div
+          class="absolute inset-0 bg-black/40"
+          (click)="confirmVisible = false"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="confirmVisible = false"
+          (keydown.space)="confirmVisible = false"
+        ></div>
+        <div
+          class="relative bg-bg border border-neutral-300 rounded-xl shadow-medium w-full max-w-md p-5"
+        >
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-semibold text-text">Delete SO</h3>
+            <button
+              class="p-2 text-text-muted hover:bg-neutral-100 rounded-md"
+              (click)="confirmVisible = false"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          <div class="text-text">
+            Are you sure you want to delete "{{ getSODisplayName(selected) }}"?
+          </div>
+          <div class="flex items-center justify-end gap-2 mt-4">
+            <button
+              class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"
+              (click)="confirmVisible = false"
+            >
+              Cancel
+            </button>
+            <button
+              class="px-3 py-2 rounded-md border border-error text-error hover:bg-error/10"
+              (click)="doDelete()"
+              [disabled]="submitting"
+            >
+              <i *ngIf="submitting" class="pi pi-spinner pi-spin mr-1"></i>
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Component -->
+  <p-toast></p-toast>
+</div>

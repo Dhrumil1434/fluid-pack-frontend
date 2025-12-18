@@ -29,10 +29,17 @@ interface ApprovalRow {
     | {
         _id?: string;
         machine_sequence?: string;
+        dispatch_date?: string;
         so_id?:
           | {
               _id?: string;
               name?: string;
+              customer?: string;
+              so_number?: string;
+              po_number?: string;
+              so_date?: string;
+              po_date?: string;
+              location?: string;
               category_id?: { name?: string } | string;
               subcategory_id?: { name?: string } | string;
               party_name?: string;
@@ -109,7 +116,7 @@ interface ApprovalRow {
 
           <app-list-filters
             searchLabel="Search approvals"
-            searchPlaceholder="Machine name, requester, notes, created by..."
+            searchPlaceholder="Search by machine name, SO/PO number, customer, party, location, sequence, requester, notes, created by, mobile..."
             (searchChange)="onSearchChange($event)"
             (apply)="reload()"
             (clear)="clearFilters()"
@@ -235,6 +242,16 @@ interface ApprovalRow {
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
+                    S.O. Number
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    P.O. Number
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
                     Type
                   </th>
                   <th
@@ -251,6 +268,21 @@ interface ApprovalRow {
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
                   >
                     Created
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    Dispatch Date
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    S.O. Date
+                  </th>
+                  <th
+                    class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  >
+                    P.O. Date
                   </th>
                   <th
                     class="px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider w-40"
@@ -279,6 +311,16 @@ interface ApprovalRow {
                       class="text-xs text-gray-400 italic mt-1"
                     >
                       No sequence
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ getSONumber(a) || '-' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{ getPONumber(a) || '-' }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -325,6 +367,29 @@ interface ApprovalRow {
                     </div>
                     <div class="text-xs text-gray-500">
                       {{ a.createdAt | date: 'HH:mm' }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{
+                        getDispatchDate(a)
+                          ? (getDispatchDate(a) | date: 'dd-MM-yyyy')
+                          : '-'
+                      }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{
+                        getSODate(a) ? (getSODate(a) | date: 'dd/MM/yyyy') : '-'
+                      }}
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                      {{
+                        getPODate(a) ? (getPODate(a) | date: 'dd/MM/yyyy') : '-'
+                      }}
                     </div>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -613,8 +678,27 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
                 typeof soIdValue === 'object' &&
                 soIdValue !== null
               ) {
-                // SO is already populated, keep as is
-                return approval;
+                // SO is already populated, ensure all fields are mapped
+                return {
+                  ...approval,
+                  machineId: {
+                    ...machineIdValue,
+                    so_id: {
+                      _id: soIdValue._id?.toString() || null,
+                      name: soIdValue.name || null,
+                      customer: soIdValue.customer || null,
+                      so_number: soIdValue.so_number || null,
+                      po_number: soIdValue.po_number || null,
+                      so_date: soIdValue.so_date || null,
+                      po_date: soIdValue.po_date || null,
+                      location: soIdValue.location || null,
+                      category_id: soIdValue.category_id || null,
+                      subcategory_id: soIdValue.subcategory_id || null,
+                      party_name: soIdValue.party_name || null,
+                      mobile_number: soIdValue.mobile_number || null,
+                    },
+                  },
+                };
               } else if (soIdValue && typeof soIdValue === 'string') {
                 // SO is just an ID, we'll need to handle this on display
                 return approval;
@@ -727,27 +811,112 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
     this.approvals.getById(a._id).subscribe({
       next: (full: any) => {
         this.selectedApproval = full;
+        // Check if machineId is already populated with full data
+        const machineIdValue = full?.machineId;
+        if (
+          machineIdValue &&
+          typeof machineIdValue === 'object' &&
+          machineIdValue !== null &&
+          machineIdValue._id
+        ) {
+          // Machine is already populated, use it directly
+          // Ensure SO data is properly structured
+          const soIdValue = machineIdValue.so_id;
+          if (
+            soIdValue &&
+            typeof soIdValue === 'object' &&
+            soIdValue !== null
+          ) {
+            // SO is populated, use the machine data as-is
+            this.selectedMachine = {
+              ...machineIdValue,
+              so_id: {
+                _id: soIdValue._id?.toString() || null,
+                name: soIdValue.name || null,
+                customer: soIdValue.customer || null,
+                so_number: soIdValue.so_number || null,
+                po_number: soIdValue.po_number || null,
+                so_date: soIdValue.so_date || null,
+                po_date: soIdValue.po_date || null,
+                location: soIdValue.location || null,
+                category_id: soIdValue.category_id || null,
+                subcategory_id: soIdValue.subcategory_id || null,
+                party_name: soIdValue.party_name || null,
+                mobile_number: soIdValue.mobile_number || null,
+              },
+            };
+            this.viewVisible = true;
+            return;
+          }
+        }
+
+        // If machine is not populated or SO is missing, fetch it
         const mid =
-          typeof full?.machineId === 'string'
-            ? full?.machineId
-            : full?.machineId?._id;
+          typeof machineIdValue === 'string'
+            ? machineIdValue
+            : machineIdValue?._id;
         if (!mid) {
           this.viewVisible = true;
           return;
         }
-        // fetch via same base API used globally
+        // Fetch machine with SO populated
         (this.approvals as any).api.get(`/machines/${mid}`).subscribe({
           next: (mres: any) => {
             const data = mres?.data || mres;
-            this.selectedMachine = data?.machine || data;
+            const machine = data?.machine || data;
+            // Ensure SO data is properly structured
+            const soIdValue = machine?.so_id;
+            if (
+              soIdValue &&
+              typeof soIdValue === 'object' &&
+              soIdValue !== null
+            ) {
+              this.selectedMachine = {
+                ...machine,
+                so_id: {
+                  _id: soIdValue._id?.toString() || null,
+                  name: soIdValue.name || null,
+                  customer: soIdValue.customer || null,
+                  so_number: soIdValue.so_number || null,
+                  po_number: soIdValue.po_number || null,
+                  so_date: soIdValue.so_date || null,
+                  po_date: soIdValue.po_date || null,
+                  location: soIdValue.location || null,
+                  category_id: soIdValue.category_id || null,
+                  subcategory_id: soIdValue.subcategory_id || null,
+                  party_name: soIdValue.party_name || null,
+                  mobile_number: soIdValue.mobile_number || null,
+                },
+              };
+            } else {
+              this.selectedMachine = machine;
+            }
             this.viewVisible = true;
           },
           error: () => {
+            // If fetch fails, try to use machine data from approval if available
+            if (
+              machineIdValue &&
+              typeof machineIdValue === 'object' &&
+              machineIdValue !== null
+            ) {
+              this.selectedMachine = machineIdValue;
+            }
             this.viewVisible = true;
           },
         });
       },
       error: () => {
+        // If getById fails, use the row data
+        this.selectedApproval = a;
+        const machineIdValue = a.machineId;
+        if (
+          machineIdValue &&
+          typeof machineIdValue === 'object' &&
+          machineIdValue !== null
+        ) {
+          this.selectedMachine = machineIdValue;
+        }
         this.viewVisible = true;
       },
     });
@@ -758,14 +927,62 @@ export class AdminMachineApprovalsComponent implements OnInit, OnDestroy {
     if (!m) return '-';
     if (typeof m === 'string') return m;
 
-    // Extract name from SO (machines now reference SO)
+    // Extract customer/name from SO (machines now reference SO)
     const soIdValue = m?.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
-      return soIdValue.name || '-';
+      if (soIdValue.customer) return soIdValue.customer;
+      if (soIdValue.name) return soIdValue.name;
+      if (soIdValue.so_number) return soIdValue.so_number;
     }
 
     // Fallback to machine ID if SO is not populated
     return m?._id || '-';
+  }
+
+  getSONumber(a: ApprovalRow): string | null {
+    const m = a.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.so_number || null;
+    }
+    return null;
+  }
+
+  getPONumber(a: ApprovalRow): string | null {
+    const m = a.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.po_number || null;
+    }
+    return null;
+  }
+
+  getDispatchDate(a: ApprovalRow): Date | null {
+    const m = a.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    return m?.dispatch_date ? new Date(m.dispatch_date) : null;
+  }
+
+  getSODate(a: ApprovalRow): Date | null {
+    const m = a.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.so_date ? new Date(soIdValue.so_date) : null;
+    }
+    return null;
+  }
+
+  getPODate(a: ApprovalRow): Date | null {
+    const m = a.machineId as any;
+    if (!m || typeof m === 'string') return null;
+    const soIdValue = m?.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.po_date ? new Date(soIdValue.po_date) : null;
+    }
+    return null;
   }
 
   getMachineSequence(a: ApprovalRow): string | null {

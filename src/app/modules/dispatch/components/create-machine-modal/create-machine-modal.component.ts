@@ -76,7 +76,7 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
                   (input)="onSOInputChange()"
                   (focus)="onSOInputChange()"
                   (blur)="hideSOSuggestions()"
-                  placeholder="Search SO by name, party name, or category..."
+                  placeholder="Search by SO number, Customer, PO number, or Party name..."
                   [ngModelOptions]="{ standalone: true }"
                 />
                 <button
@@ -99,24 +99,33 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
                       class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
                       (mousedown)="selectSO(so)"
                     >
-                      <div class="font-medium">{{ so.name }}</div>
-                      <div class="text-xs text-neutral-600">
-                        Party: {{ so.party_name }} | Category:
-                        {{
-                          typeof so.category_id === 'object' &&
-                          so.category_id !== null
-                            ? so.category_id.name
-                            : 'N/A'
-                        }}
-                        <span
-                          *ngIf="
-                            so.subcategory_id &&
-                            typeof so.subcategory_id === 'object' &&
-                            so.subcategory_id !== null
-                          "
+                      <div class="font-medium text-gray-900">
+                        <span *ngIf="so.so_number" class="text-primary"
+                          >SO: {{ so.so_number }}</span
                         >
-                          | Subcategory: {{ so.subcategory_id.name }}
-                        </span>
+                        <span
+                          *ngIf="!so.so_number && so.customer"
+                          class="text-primary"
+                          >Customer: {{ so.customer }}</span
+                        >
+                        <span
+                          *ngIf="!so.so_number && !so.customer && so.name"
+                          class="text-primary"
+                          >{{ so.name }}</span
+                        >
+                      </div>
+                      <div class="text-xs text-neutral-600 mt-1">
+                        <span *ngIf="so.customer"
+                          >Customer: {{ so.customer }}</span
+                        >
+                        <span *ngIf="so.customer && so.po_number"> | </span>
+                        <span *ngIf="so.po_number">PO: {{ so.po_number }}</span>
+                        <span *ngIf="so.party_name">
+                          | Party: {{ so.party_name }}</span
+                        >
+                        <span *ngIf="so.mobile_number">
+                          | Mobile: {{ so.mobile_number }}</span
+                        >
                       </div>
                     </div>
                   </ng-container>
@@ -151,13 +160,25 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
                   Selected SO Details:
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span class="font-medium">Name:</span>
-                    {{ selectedSO.name }}
+                  <div *ngIf="selectedSO.customer">
+                    <span class="font-medium">Customer:</span>
+                    {{ selectedSO.customer }}
                   </div>
-                  <div>
+                  <div *ngIf="selectedSO.so_number">
+                    <span class="font-medium">SO Number:</span>
+                    {{ selectedSO.so_number }}
+                  </div>
+                  <div *ngIf="selectedSO.po_number">
+                    <span class="font-medium">PO Number:</span>
+                    {{ selectedSO.po_number }}
+                  </div>
+                  <div *ngIf="selectedSO.party_name">
                     <span class="font-medium">Party:</span>
                     {{ selectedSO.party_name }}
+                  </div>
+                  <div *ngIf="selectedSO.location">
+                    <span class="font-medium">Location:</span>
+                    {{ selectedSO.location }}
                   </div>
                   <div>
                     <span class="font-medium">Category:</span>
@@ -172,7 +193,7 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
                     <span class="font-medium">Subcategory:</span>
                     {{ selectedSO.subcategory_id?.name || 'N/A' }}
                   </div>
-                  <div>
+                  <div *ngIf="selectedSO.mobile_number">
                     <span class="font-medium">Mobile:</span>
                     {{ selectedSO.mobile_number }}
                   </div>
@@ -226,48 +247,22 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
               </div>
             </div>
             <div class="space-y-1">
-              <label class="text-sm">Location</label>
+              <label class="text-sm">Dispatch Date (DD/MM/YYYY)</label>
               <input
                 type="text"
-                class="w-full border rounded px-3 py-2"
-                [class.border-red-500]="
-                  form.controls['location'].touched &&
-                  form.controls['location'].invalid
-                "
-                formControlName="location"
-                placeholder="Enter city-country or location"
-                (blur)="form.controls['location'].markAsTouched()"
-                (input)="form.controls['location'].markAsTouched()"
-              />
-              <div
-                class="text-xs text-error"
-                *ngIf="
-                  form.controls['location'].touched &&
-                  form.controls['location'].invalid
-                "
-              >
-                <span *ngIf="form.controls['location'].errors?.['required']">
-                  Location is required
-                </span>
-                <span *ngIf="form.controls['location'].errors?.['minlength']">
-                  Location must be at least 2 characters long
-                </span>
-                <span *ngIf="form.controls['location'].errors?.['maxlength']">
-                  Location cannot exceed 100 characters
-                </span>
-              </div>
-            </div>
-            <div class="space-y-1">
-              <label class="text-sm">Dispatch Date</label>
-              <input
-                type="date"
                 class="w-full border rounded px-3 py-2"
                 [class.border-red-500]="
                   form.controls['dispatch_date'].touched &&
                   form.controls['dispatch_date'].invalid
                 "
                 formControlName="dispatch_date"
-                (blur)="form.controls['dispatch_date'].markAsTouched()"
+                placeholder="DD/MM/YYYY"
+                maxlength="10"
+                (blur)="
+                  formatDispatchDate();
+                  form.controls['dispatch_date'].markAsTouched()
+                "
+                (input)="onDispatchDateInput($event)"
               />
               <div
                 class="text-xs text-error"
@@ -278,6 +273,18 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
               >
                 <span *ngIf="form.controls['dispatch_date'].errors?.['date']">
                   Please enter a valid date
+                </span>
+                <span
+                  *ngIf="form.controls['dispatch_date'].errors?.['invalidDate']"
+                >
+                  Invalid date format. Please use DD/MM/YYYY
+                </span>
+                <span
+                  *ngIf="
+                    form.controls['dispatch_date'].errors?.['invalidFormat']
+                  "
+                >
+                  Date must be in DD/MM/YYYY format
                 </span>
               </div>
             </div>
@@ -832,14 +839,6 @@ export class CreateMachineModalComponent
         '',
         [Validators.required, Validators.pattern(/^[0-9a-fA-F]{24}$/)],
       ],
-      location: [
-        '',
-        [
-          Validators.required,
-          Validators.minLength(2),
-          Validators.maxLength(100),
-        ],
-      ],
       dispatch_date: [''],
       machine_sequence: [''],
       metadata: this.fb.array([], [this.uniqueKeysValidator]),
@@ -1136,7 +1135,6 @@ export class CreateMachineModalComponent
     this.machineService
       .createMachineForm({
         so_id: soId,
-        location: this.form.value.location.trim(),
         dispatch_date: this.form.value.dispatch_date || undefined,
         images: this.selectedFiles.length > 0 ? this.selectedFiles : undefined,
         documents:
@@ -1603,37 +1601,28 @@ export class CreateMachineModalComponent
       return;
     }
 
-    // Enhanced search: search in name, party_name, category name, subcategory name, and mobile number
+    // Enhanced search: search in SO number, Customer, PO number, Party name, and mobile number
     this.soSuggestions = this.activeSOs
       .filter(so => {
-        const nameMatch = so.name?.toLowerCase().includes(query) || false;
+        const soNumberMatch =
+          so.so_number?.toLowerCase().includes(query) || false;
+        const customerMatch =
+          so.customer?.toLowerCase().includes(query) || false;
+        const poNumberMatch =
+          so.po_number?.toLowerCase().includes(query) || false;
         const partyMatch =
           so.party_name?.toLowerCase().includes(query) || false;
         const mobileMatch =
           so.mobile_number?.toLowerCase().includes(query) || false;
-
-        // Check category name (handle both object and string)
-        const categoryName =
-          typeof so.category_id === 'object' && so.category_id !== null
-            ? so.category_id.name?.toLowerCase() || ''
-            : '';
-        const categoryMatch = categoryName.includes(query);
-
-        // Check subcategory name (handle both object and string)
-        const subcategoryName =
-          so.subcategory_id &&
-          typeof so.subcategory_id === 'object' &&
-          so.subcategory_id !== null
-            ? so.subcategory_id.name?.toLowerCase() || ''
-            : '';
-        const subcategoryMatch = subcategoryName.includes(query);
+        const nameMatch = so.name?.toLowerCase().includes(query) || false;
 
         return (
-          nameMatch ||
+          soNumberMatch ||
+          customerMatch ||
+          poNumberMatch ||
           partyMatch ||
           mobileMatch ||
-          categoryMatch ||
-          subcategoryMatch
+          nameMatch
         );
       })
       .slice(0, 50); // Limit results to 50 for performance
@@ -1645,7 +1634,9 @@ export class CreateMachineModalComponent
   selectSO(so: SO): void {
     this.selectedSO = so;
     this.form.patchValue({ so_id: so._id });
-    this.soSearchInput = `${so.name} - ${so.party_name}`;
+    // Display format: SO Number or Customer - Party Name
+    const displayName = so.so_number || so.customer || so.name || '';
+    this.soSearchInput = `${displayName}${so.party_name ? ' - ' + so.party_name : ''}`;
     this.showSOSuggestions = false;
     this.form.get('so_id')?.markAsTouched();
   }
@@ -1661,5 +1652,61 @@ export class CreateMachineModalComponent
     setTimeout(() => {
       this.showSOSuggestions = false;
     }, 200);
+  }
+
+  // Date formatting methods for DD/MM/YYYY format
+  onDispatchDateInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    let value = input.value.replace(/\D/g, ''); // Remove non-digits
+
+    // Format as DD/MM/YYYY
+    if (value.length >= 2) {
+      value = value.substring(0, 2) + '/' + value.substring(2);
+    }
+    if (value.length >= 5) {
+      value = value.substring(0, 5) + '/' + value.substring(5, 9);
+    }
+
+    this.form.patchValue({ dispatch_date: value }, { emitEvent: false });
+  }
+
+  formatDispatchDate(): void {
+    const control = this.form.get('dispatch_date');
+    if (!control) return;
+
+    const value = control.value?.trim();
+    if (!value) {
+      control.setValue('');
+      return;
+    }
+
+    // Validate and format DD/MM/YYYY
+    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const match = value.match(dateRegex);
+
+    if (match) {
+      const day = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const year = parseInt(match[3], 10);
+
+      // Validate date
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900) {
+        const date = new Date(year, month - 1, day);
+        if (
+          date.getDate() === day &&
+          date.getMonth() === month - 1 &&
+          date.getFullYear() === year
+        ) {
+          // Valid date, format as YYYY-MM-DD for backend
+          const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          control.setValue(formattedDate, { emitEvent: false });
+          control.setErrors(null);
+          return;
+        }
+      }
+    }
+
+    // Invalid date format
+    control.setErrors({ invalidDate: true });
   }
 }

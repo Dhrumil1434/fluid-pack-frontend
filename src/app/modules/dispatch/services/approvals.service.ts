@@ -28,11 +28,20 @@ export class ApprovalsService {
     status: 'pending' | 'approved' | 'rejected' = 'pending',
     sort: string = '-createdAt',
     filters?: {
+      approvalType?: 'MACHINE_CREATION' | 'MACHINE_EDIT' | 'MACHINE_DELETION';
       sequence?: string;
       categoryId?: string;
       dateFrom?: string;
       dateTo?: string;
+      soDateFrom?: string;
+      soDateTo?: string;
+      poDateFrom?: string;
+      poDateTo?: string;
+      soNumber?: string;
+      poNumber?: string;
       requestedBy?: string;
+      createdBy?: string;
+      machineName?: string;
       metadataKey?: string;
       metadataValue?: string;
     }
@@ -54,11 +63,20 @@ export class ApprovalsService {
       if (sort) params['sort'] = sort;
 
       // Add enhanced filters
+      if (filters?.approvalType) params['approvalType'] = filters.approvalType;
       if (filters?.sequence) params['sequence'] = filters.sequence;
       if (filters?.categoryId) params['categoryId'] = filters.categoryId;
       if (filters?.dateFrom) params['dateFrom'] = filters.dateFrom;
       if (filters?.dateTo) params['dateTo'] = filters.dateTo;
+      if (filters?.soDateFrom) params['soDateFrom'] = filters.soDateFrom;
+      if (filters?.soDateTo) params['soDateTo'] = filters.soDateTo;
+      if (filters?.poDateFrom) params['poDateFrom'] = filters.poDateFrom;
+      if (filters?.poDateTo) params['poDateTo'] = filters.poDateTo;
+      if (filters?.soNumber) params['soNumber'] = filters.soNumber;
+      if (filters?.poNumber) params['poNumber'] = filters.poNumber;
       if (filters?.requestedBy) params['requestedBy'] = filters.requestedBy;
+      if (filters?.createdBy) params['createdBy'] = filters.createdBy;
+      if (filters?.machineName) params['machineName'] = filters.machineName;
       if (filters?.metadataKey) params['metadataKey'] = filters.metadataKey;
       if (filters?.metadataValue)
         params['metadataValue'] = filters.metadataValue;
@@ -76,11 +94,20 @@ export class ApprovalsService {
     if (sort) params['sort'] = sort;
 
     // Add enhanced filters
+    if (filters?.approvalType) params['approvalType'] = filters.approvalType;
     if (filters?.sequence) params['sequence'] = filters.sequence;
     if (filters?.categoryId) params['categoryId'] = filters.categoryId;
     if (filters?.dateFrom) params['dateFrom'] = filters.dateFrom;
     if (filters?.dateTo) params['dateTo'] = filters.dateTo;
+    if (filters?.soDateFrom) params['soDateFrom'] = filters.soDateFrom;
+    if (filters?.soDateTo) params['soDateTo'] = filters.soDateTo;
+    if (filters?.poDateFrom) params['poDateFrom'] = filters.poDateFrom;
+    if (filters?.poDateTo) params['poDateTo'] = filters.poDateTo;
+    if (filters?.soNumber) params['soNumber'] = filters.soNumber;
+    if (filters?.poNumber) params['poNumber'] = filters.poNumber;
     if (filters?.requestedBy) params['requestedBy'] = filters.requestedBy;
+    if (filters?.createdBy) params['createdBy'] = filters.createdBy;
+    if (filters?.machineName) params['machineName'] = filters.machineName;
     if (filters?.metadataKey) params['metadataKey'] = filters.metadataKey;
     if (filters?.metadataValue) params['metadataValue'] = filters.metadataValue;
 

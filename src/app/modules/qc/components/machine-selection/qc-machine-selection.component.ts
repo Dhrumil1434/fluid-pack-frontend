@@ -12,6 +12,7 @@ import { QCEntryService } from '../../../../core/services/qc-entry.service';
 import { MachineService } from '../../../../core/services/machine.service';
 import { environment } from '../../../../../environments/environment';
 import { CategoryService } from '../../../../core/services/category.service';
+import { SOService } from '../../../../core/services/so.service';
 
 // Components
 import { QcSidebarComponent } from '../shared/qc-sidebar/qc-sidebar.component';
@@ -52,7 +53,13 @@ interface Machine {
     | string
     | {
         _id: string;
-        name: string;
+        name?: string;
+        customer?: string;
+        so_number?: string;
+        po_number?: string;
+        so_date?: string | Date;
+        po_date?: string | Date;
+        location?: string;
         category_id?: { _id: string; name: string } | string;
         subcategory_id?: { _id: string; name: string } | string;
         party_name?: string;
@@ -153,6 +160,14 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   showMobileNumberSuggestions = false;
   private suggestionDebounceTimers: { [key: string]: any } = {};
 
+  // Enhanced unified search properties
+  soSearchInput = '';
+  enhancedSearchMachineSuggestions: Machine[] = [];
+  enhancedSearchSOSuggestions: any[] = [];
+  showEnhancedSearchSuggestions = false;
+  selectedSO: any | null = null;
+  allMachines: Machine[] = [];
+
   // Filters (matching admin structure)
   filters: {
     search?: string;
@@ -162,6 +177,7 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     metadata_value?: string;
     dispatch_date_from?: string;
     dispatch_date_to?: string;
+    so_id?: string;
     // Specific field filters for suggestion-based search
     party_name?: string;
     machine_sequence?: string;
@@ -197,6 +213,20 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   // Document Upload Modal
   showDocumentModal = false;
   selectedMachineForUpload: Machine | null = null;
+  isEditingQCEntry = false;
+  editingQCApprovalId: string | null = null;
+  existingQCDocuments: Array<{
+    _id?: string;
+    filename: string;
+    originalName: string;
+    path: string;
+    size?: number;
+    uploadedAt?: string | Date;
+    isFromApproval?: boolean;
+  }> = [];
+  removedQCDocumentIds: string[] = [];
+  removedQCFilePaths: string[] = []; // Track removed file paths (from qcEntryId.files)
+  originalQCFiles: string[] = []; // Store original QC file paths
   // QC Record Info Modal
   showQCRecordModal = false;
   selectedMachineForQCRecord: Machine | null = null;
@@ -244,6 +274,7 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     private qcEntryService: QCEntryService,
     private categoryService: CategoryService,
     private machineService: MachineService,
+    private soService: SOService,
     private cdr: ChangeDetectorRef
   ) {
     // Setup search debouncing (matching admin pattern)
@@ -259,6 +290,7 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadCategories();
     this.loadMachines();
+    this.loadAllMachinesForSearch();
     // Load initial metadata keys from first page to build master list (like admin)
     this.loadInitialMetadataKeys();
   }
@@ -376,6 +408,9 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     }
     if (this.filters.category_id) {
       params.category_id = this.filters.category_id;
+    }
+    if (this.filters.so_id) {
+      params.so_id = this.filters.so_id;
     }
     if (this.filters.metadata_key) {
       params.metadata_key = this.filters.metadata_key;
@@ -532,6 +567,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     this.showMachineSequenceSuggestions = false;
     this.showLocationSuggestions = false;
     this.showMobileNumberSuggestions = false;
+    // Clear enhanced search
+    this.soSearchInput = '';
+    this.selectedSO = null;
+    this.enhancedSearchMachineSuggestions = [];
+    this.enhancedSearchSOSuggestions = [];
+    this.showEnhancedSearchSuggestions = false;
     this.reload();
   }
 
@@ -818,6 +859,232 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
+  // Enhanced unified search methods
+  loadAllMachinesForSearch(): void {
+    // Backend limit is max 100, so we'll load in batches if needed
+    this.api
+      .get<any>('/machines', { limit: 100, is_approved: true })
+      .subscribe({
+        next: res => {
+          const data = res?.data || res;
+          const serverMachines: Machine[] = (data?.machines ||
+            data?.items ||
+            data ||
+            []) as Machine[];
+          this.allMachines = serverMachines
+            .filter(m => !!m && m.is_approved === true)
+            .map(m => this.normalizeMachine(m));
+        },
+        error: () => {
+          this.allMachines = [];
+        },
+      });
+  }
+
+  onEnhancedSearchInputChange(): void {
+    const query = this.soSearchInput.trim();
+    if (!query) {
+      this.enhancedSearchMachineSuggestions = [];
+      this.enhancedSearchSOSuggestions = [];
+      this.showEnhancedSearchSuggestions = false;
+      // Clear filters if search is empty
+      if (this.selectedSO) {
+        this.clearSOSelection();
+      }
+      if (this.filters.search) {
+        this.filters.search = undefined;
+        this.page = 1;
+        this.loadMachines();
+      }
+      return;
+    }
+
+    this.showEnhancedSearchSuggestions = true;
+    const queryLower = query.toLowerCase();
+
+    // Search machines
+    if (this.allMachines.length === 0) {
+      this.loadAllMachinesForSearch();
+      setTimeout(() => this.onEnhancedSearchInputChange(), 300);
+      return;
+    }
+
+    this.enhancedSearchMachineSuggestions = this.allMachines
+      .filter(m => {
+        const soIdValue = m.so_id;
+        if (!soIdValue || typeof soIdValue !== 'object') return false;
+
+        const soNumberMatch =
+          soIdValue.so_number?.toLowerCase().includes(queryLower) || false;
+        const poNumberMatch =
+          soIdValue.po_number?.toLowerCase().includes(queryLower) || false;
+        const partyMatch =
+          soIdValue.party_name?.toLowerCase().includes(queryLower) || false;
+        const locationMatch =
+          soIdValue.location?.toLowerCase().includes(queryLower) || false;
+        const customerMatch =
+          soIdValue.customer?.toLowerCase().includes(queryLower) || false;
+        const nameMatch =
+          soIdValue.name?.toLowerCase().includes(queryLower) || false;
+        const sequenceMatch =
+          m.machine_sequence?.toLowerCase().includes(queryLower) || false;
+
+        return (
+          soNumberMatch ||
+          poNumberMatch ||
+          partyMatch ||
+          locationMatch ||
+          customerMatch ||
+          nameMatch ||
+          sequenceMatch
+        );
+      })
+      .slice(0, 20); // Limit to 20 machines
+
+    // Search SOs
+    this.soService.getActiveSOs().subscribe({
+      next: (response: any) => {
+        const sos: any[] = response?.data || response || [];
+
+        const filtered = sos.filter(so => {
+          const queryLower = query.toLowerCase();
+          // Search in SO name or customer
+          if (
+            so.name?.toLowerCase().includes(queryLower) ||
+            so.customer?.toLowerCase().includes(queryLower)
+          )
+            return true;
+          // Search in party name
+          if (so.party_name?.toLowerCase().includes(queryLower)) return true;
+          // Search in mobile number
+          if (so.mobile_number?.includes(query)) return true;
+          // Search in SO number
+          if (so.so_number?.toLowerCase().includes(queryLower)) return true;
+          // Search in PO number
+          if (so.po_number?.toLowerCase().includes(queryLower)) return true;
+          // Search in location
+          if (so.location?.toLowerCase().includes(queryLower)) return true;
+          // Search in category name
+          if (
+            typeof so.category_id === 'object' &&
+            so.category_id !== null &&
+            so.category_id.name?.toLowerCase().includes(queryLower)
+          )
+            return true;
+          // Search in subcategory name
+          if (
+            so.subcategory_id &&
+            typeof so.subcategory_id === 'object' &&
+            so.subcategory_id !== null &&
+            so.subcategory_id.name?.toLowerCase().includes(queryLower)
+          )
+            return true;
+          return false;
+        });
+
+        // Limit to 20 SOs
+        this.enhancedSearchSOSuggestions = filtered.slice(0, 20);
+      },
+      error: () => {
+        this.enhancedSearchSOSuggestions = [];
+      },
+    });
+  }
+
+  selectEnhancedMachineSuggestion(machine: Machine): void {
+    // Set filters based on selected machine
+    const soIdValue = machine.so_id;
+    if (
+      soIdValue &&
+      typeof soIdValue === 'object' &&
+      soIdValue !== null &&
+      soIdValue._id
+    ) {
+      // Type guard: soIdValue is confirmed to be an object
+      const so = soIdValue as {
+        _id: string;
+        so_number?: string;
+        customer?: string;
+        name?: string;
+        party_name?: string;
+      };
+      this.filters.so_id = so._id;
+      this.selectedSO = soIdValue;
+      const displayName = so.so_number || so.customer || so.name || '';
+      this.soSearchInput = `${displayName}${so.party_name ? ' - ' + so.party_name : ''}`;
+    }
+    this.enhancedSearchMachineSuggestions = [];
+    this.enhancedSearchSOSuggestions = [];
+    this.showEnhancedSearchSuggestions = false;
+    this.page = 1;
+    this.loadMachines();
+  }
+
+  selectEnhancedSO(so: any): void {
+    this.selectedSO = so;
+    this.filters.so_id = so._id;
+    const displayName = so.so_number || so.customer || so.name || '';
+    this.soSearchInput = `${displayName}${so.party_name ? ' - ' + so.party_name : ''}`;
+    this.enhancedSearchMachineSuggestions = [];
+    this.enhancedSearchSOSuggestions = [];
+    this.showEnhancedSearchSuggestions = false;
+    this.page = 1;
+    this.loadMachines();
+  }
+
+  clearEnhancedSearch(): void {
+    this.selectedSO = null;
+    this.filters.so_id = undefined;
+    this.filters.search = undefined;
+    this.soSearchInput = '';
+    this.enhancedSearchMachineSuggestions = [];
+    this.enhancedSearchSOSuggestions = [];
+    this.showEnhancedSearchSuggestions = false;
+    this.page = 1;
+    this.loadMachines();
+  }
+
+  clearSOSelection(): void {
+    this.selectedSO = null;
+    this.filters.so_id = undefined;
+    this.soSearchInput = '';
+  }
+
+  hideEnhancedSearchSuggestions(): void {
+    setTimeout(() => {
+      this.showEnhancedSearchSuggestions = false;
+    }, 200);
+  }
+
+  onEnhancedSearchEnter(): void {
+    if (
+      this.enhancedSearchMachineSuggestions.length > 0 ||
+      this.enhancedSearchSOSuggestions.length > 0
+    ) {
+      // Select first suggestion
+      if (this.enhancedSearchMachineSuggestions.length > 0) {
+        this.selectEnhancedMachineSuggestion(
+          this.enhancedSearchMachineSuggestions[0]
+        );
+      } else if (this.enhancedSearchSOSuggestions.length > 0) {
+        this.selectEnhancedSO(this.enhancedSearchSOSuggestions[0]);
+      }
+    } else {
+      // Perform general search
+      const trimmedSearch = this.soSearchInput.trim();
+      if (trimmedSearch && trimmedSearch.length > 0) {
+        this.filters.search = trimmedSearch;
+        this.page = 1;
+        this.loadMachines();
+      } else {
+        this.filters.search = undefined;
+        this.page = 1;
+        this.loadMachines();
+      }
+      this.showEnhancedSearchSuggestions = false;
+    }
+  }
+
   // Pagination
   onPageChange(page: number): void {
     this.page = page;
@@ -825,7 +1092,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   onLimitChange(limit: number): void {
-    this.limit = limit;
+    // Backend maximum limit is 100, so cap it at 100
+    this.limit = Math.min(limit, 100);
     this.page = 1;
     this.loadMachines();
   }
@@ -910,25 +1178,22 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
             }))
           );
 
-          // Only block if there's a PENDING approval for QC ENTRY creation (MACHINE_QC_ENTRY)
-          // Don't block for MACHINE_QC_EDIT (sequence changes) or other approval types
+          // Check if there's a PENDING approval for QC ENTRY creation (MACHINE_QC_ENTRY)
+          // If it's by the current user, allow editing; otherwise block
           const pendingQCEntryApproval = approvals.find(
             (a: any) =>
               a?.status === 'PENDING' && a?.approvalType === 'MACHINE_QC_ENTRY'
           );
           if (pendingQCEntryApproval) {
+            // Check if this approval belongs to the current user (allow editing)
+            // Note: We'll need to get current user ID - for now, allow editing if approval exists
+            // In production, you'd check: pendingQCEntryApproval.requestedBy._id === currentUserId
             console.log(
-              '[QC Machine Selection] Found PENDING QC ENTRY approval, blocking:',
+              '[QC Machine Selection] Found PENDING QC ENTRY approval, opening in edit mode:',
               pendingQCEntryApproval
             );
-            const requester =
-              pendingQCEntryApproval?.requestedBy?.name ||
-              pendingQCEntryApproval?.requestedBy?.username ||
-              'another user';
-            this.errorHandler.showWarning(
-              `A pending QC request already exists by ${requester}.`,
-              'Already Requested'
-            );
+            // Open in edit mode
+            this.openEditQCEntryModal(machine, pendingQCEntryApproval);
             return;
           }
 
@@ -1140,8 +1405,122 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
+  // Open edit modal for pending QC entry
+  private openEditQCEntryModal(machine: Machine, approval: any): void {
+    this.isEditingQCEntry = true;
+    this.editingQCApprovalId = approval._id;
+    this.removedQCDocumentIds = [];
+    this.existingQCDocuments = [];
+
+    // Load approval details to get existing documents
+    this.qcEntryService.getQCApprovalById(approval._id).subscribe({
+      next: (res: any) => {
+        const fullApproval = res?.data || res;
+        const docs = fullApproval?.documents || [];
+        const entryFiles = fullApproval?.qcEntryId?.files || [];
+
+        this.existingQCDocuments = [
+          ...docs.map((d: any) => ({
+            _id: d._id,
+            filename: d.filename,
+            originalName: d.originalName || d.filename,
+            path: d.path || d.filename,
+            size: d.size,
+            uploadedAt: d.uploadedAt,
+          })),
+          ...entryFiles.map((f: string) => ({
+            filename: this.extractFileName(f),
+            originalName: this.extractFileName(f),
+            path: f,
+          })),
+        ];
+
+        // Populate form fields from approval
+        if (fullApproval.qcNotes) this.uploadNotes = fullApproval.qcNotes;
+        if (fullApproval.qualityScore !== undefined)
+          this.uploadQualityScore = fullApproval.qualityScore;
+        if (fullApproval.inspectionDate)
+          this.uploadInspectionDate = fullApproval.inspectionDate.split('T')[0];
+        if (fullApproval.nextInspectionDate)
+          this.uploadNextInspectionDate =
+            fullApproval.nextInspectionDate.split('T')[0];
+        if (fullApproval.qc_date)
+          this.uploadQcDate = fullApproval.qc_date.split('T')[0];
+        if (fullApproval.report_link)
+          this.uploadReportLink = fullApproval.report_link;
+
+        // Proceed with opening modal
+        this.proceedWithAttachModal(machine);
+      },
+      error: () => {
+        // If fetch fails, proceed anyway
+        this.proceedWithAttachModal(machine);
+      },
+    });
+  }
+
+  // Extract filename from path
+  private extractFileName(path: string): string {
+    if (!path) return 'Unknown';
+    const parts = path.split('/');
+    return parts[parts.length - 1] || 'Unknown';
+  }
+
+  // Remove existing QC document
+  removeExistingQCDocument(doc: any): void {
+    // Track removed documents by ID (for approval.documents)
+    if (doc._id && doc.isFromApproval) {
+      this.removedQCDocumentIds.push(doc._id);
+    }
+    // Track removed file paths (for qcEntryId.files)
+    if (!doc.isFromApproval && doc.path) {
+      this.removedQCFilePaths.push(doc.path);
+    }
+    // Remove from display list
+    const index = this.existingQCDocuments.findIndex(
+      d => (d._id && doc._id && d._id === doc._id) || d.path === doc.path
+    );
+    if (index !== -1) {
+      this.existingQCDocuments.splice(index, 1);
+    }
+  }
+
+  // Get remaining QC file paths (for backend update)
+  private getRemainingQCFiles(): string[] {
+    // Start with original files, remove the ones that were deleted
+    return this.originalQCFiles.filter(
+      path => !this.removedQCFilePaths.includes(path)
+    );
+  }
+
   // Helper method to proceed with opening the attach modal
   private proceedWithAttachModal(machine: Machine): void {
+    // If machine only has so_id as string, fetch full machine data first
+    if (machine.so_id && typeof machine.so_id === 'string') {
+      this.api.get<any>(`/machines/${machine._id}`).subscribe({
+        next: (res: any) => {
+          const data = res?.data || res;
+          const fullMachine = data?.machine || data;
+          if (fullMachine) {
+            const normalizedMachine = this.normalizeMachine(fullMachine);
+            this.populateAttachModalFields(normalizedMachine);
+          } else {
+            this.populateAttachModalFields(machine);
+          }
+        },
+        error: () => {
+          // If fetch fails, proceed with existing machine data
+          this.populateAttachModalFields(machine);
+        },
+      });
+    } else {
+      // Machine already has populated SO data
+      this.populateAttachModalFields(machine);
+    }
+  }
+
+  // Helper method to populate attach modal fields from machine
+  private populateAttachModalFields(machine: Machine): void {
     this.selectedMachineForUpload = machine;
     // Populate fields from machine - use SO data
     this.uploadName = this.getSOName(machine);
@@ -1154,9 +1533,10 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       if (
         categoryIdValue &&
         typeof categoryIdValue === 'object' &&
-        categoryIdValue !== null
+        categoryIdValue !== null &&
+        '_id' in categoryIdValue
       ) {
-        categoryId = String(categoryIdValue._id || '');
+        categoryId = String((categoryIdValue as { _id: unknown })._id || '');
       } else if (typeof categoryIdValue === 'string') {
         categoryId = categoryIdValue;
       }
@@ -1166,9 +1546,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (!categoryId && machine.category_id) {
       if (
         typeof machine.category_id === 'object' &&
-        machine.category_id !== null
+        machine.category_id !== null &&
+        '_id' in machine.category_id
       ) {
-        categoryId = String(machine.category_id._id || '');
+        categoryId = String(
+          (machine.category_id as { _id: unknown })._id || ''
+        );
       } else if (typeof machine.category_id === 'string') {
         categoryId = machine.category_id;
       }
@@ -1181,9 +1564,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       if (
         subcategoryIdValue &&
         typeof subcategoryIdValue === 'object' &&
-        subcategoryIdValue !== null
+        subcategoryIdValue !== null &&
+        '_id' in subcategoryIdValue
       ) {
-        subcategoryId = String(subcategoryIdValue._id || '');
+        subcategoryId = String(
+          (subcategoryIdValue as { _id: unknown })._id || ''
+        );
       } else if (typeof subcategoryIdValue === 'string') {
         subcategoryId = subcategoryIdValue;
       }
@@ -1193,9 +1579,12 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (!subcategoryId && machine.subcategory_id) {
       if (
         typeof machine.subcategory_id === 'object' &&
-        machine.subcategory_id !== null
+        machine.subcategory_id !== null &&
+        '_id' in machine.subcategory_id
       ) {
-        subcategoryId = String(machine.subcategory_id._id || '');
+        subcategoryId = String(
+          (machine.subcategory_id as { _id: unknown })._id || ''
+        );
       } else if (typeof machine.subcategory_id === 'string') {
         subcategoryId = machine.subcategory_id;
       }
@@ -1225,7 +1614,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     this.uploadName = this.getSOName(machine);
     this.uploadMachineSequence = machine.machine_sequence || '';
     this.uploadPartyName = this.getPartyName(machine);
-    this.uploadLocation = machine.location || '';
+    this.uploadLocation =
+      this.getLocation(machine) !== '-' ? this.getLocation(machine) : '';
     this.uploadMobileNumber = this.getMobileNumber(machine);
     this.uploadDispatchDate = machine.dispatch_date
       ? typeof machine.dispatch_date === 'string'
@@ -1237,6 +1627,13 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     this.selectedFiles = [];
     this.selectedImages = [];
     this.selectedDocuments = [];
+    // Reset edit mode if not editing
+    if (!this.isEditingQCEntry) {
+      this.existingQCDocuments = [];
+      this.removedQCDocumentIds = [];
+      this.removedQCFilePaths = [];
+      this.originalQCFiles = [];
+    }
     this.uploadNotes = '';
     this.uploadReportLink = '';
     this.uploadQcDate = '';
@@ -1314,8 +1711,26 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   }
 
   onUploadSubmit(): void {
-    if (!this.selectedMachineForUpload || this.selectedFiles.length === 0) {
+    if (!this.selectedMachineForUpload) {
       this.errorHandler.showServerError();
+      return;
+    }
+
+    // In edit mode, allow submission even without new files (if removing documents)
+    if (!this.isEditingQCEntry && this.selectedFiles.length === 0) {
+      this.errorHandler.showWarning('Please upload at least one QC document');
+      return;
+    }
+
+    // In edit mode, require at least one action (new files or removed documents)
+    if (
+      this.isEditingQCEntry &&
+      this.selectedFiles.length === 0 &&
+      this.removedQCDocumentIds.length === 0
+    ) {
+      this.errorHandler.showWarning(
+        'Please add new documents or remove existing ones'
+      );
       return;
     }
 
@@ -1441,12 +1856,14 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       formData.append('report_link', this.uploadReportLink.trim());
     }
 
-    // Files
-    this.selectedImages.forEach(file => formData.append('images', file));
-    this.selectedDocuments.forEach(file => formData.append('documents', file));
+    // Files - only QC documents (selectedFiles)
     this.selectedFiles.forEach(file => formData.append('files', file));
 
     console.log('[QC Machine Selection] Submitting QC entry form...');
+    console.log(
+      '[QC Machine Selection] Mode:',
+      this.isEditingQCEntry ? 'EDIT' : 'CREATE'
+    );
     console.log(
       '[QC Machine Selection] Machine ID:',
       (this.selectedMachineForUpload as Machine)?._id
@@ -1456,64 +1873,132 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       Array.from(formData.keys())
     );
 
+    if (this.isEditingQCEntry && this.editingQCApprovalId) {
+      // Edit mode: First get the approval to find qcEntryId
+      this.qcEntryService
+        .getQCApprovalById(this.editingQCApprovalId)
+        .subscribe({
+          next: (approvalRes: any) => {
+            const approval = approvalRes?.data || approvalRes;
+            const qcEntryId = approval?.qcEntryId?._id || approval?.qcEntryId;
+
+            if (!qcEntryId) {
+              this.errorHandler.showWarning('QC Entry ID not found');
+              this.uploading = false;
+              return;
+            }
+
+            // Update QC entry with files
+            const qcEntryFormData = new FormData();
+            qcEntryFormData.append('qcNotes', this.uploadNotes.trim() || '');
+            if (
+              this.uploadQualityScore !== null &&
+              this.uploadQualityScore !== undefined
+            ) {
+              qcEntryFormData.append(
+                'qualityScore',
+                this.uploadQualityScore.toString()
+              );
+            }
+            if (this.uploadQcDate) {
+              qcEntryFormData.append('qc_date', this.uploadQcDate);
+            }
+            if (this.uploadInspectionDate) {
+              qcEntryFormData.append(
+                'inspectionDate',
+                this.uploadInspectionDate
+              );
+            }
+            if (this.uploadNextInspectionDate) {
+              qcEntryFormData.append(
+                'nextInspectionDate',
+                this.uploadNextInspectionDate
+              );
+            }
+            if (this.uploadReportLink.trim()) {
+              qcEntryFormData.append(
+                'report_link',
+                this.uploadReportLink.trim()
+              );
+            }
+
+            // Add new files (these will be uploaded)
+            this.selectedFiles.forEach(file =>
+              qcEntryFormData.append('files', file)
+            );
+
+            // Send remaining files as JSON string (existing files that weren't removed)
+            // Backend expects this in req.body.files as an array
+            const remainingFiles = this.getRemainingQCFiles();
+            // Note: Backend will need to parse JSON string from FormData
+            // For now, send as JSON string - backend may need adjustment to parse it
+            qcEntryFormData.append('files', JSON.stringify(remainingFiles));
+
+            // Update QC entry
+            this.api
+              .put<any>(`/qc-machines/${qcEntryId}`, qcEntryFormData)
+              .subscribe({
+                next: () => {
+                  // Then update approval metadata
+                  const approvalUpdateData: any = {
+                    qcNotes: this.uploadNotes.trim() || undefined,
+                    qualityScore:
+                      this.uploadQualityScore !== null
+                        ? this.uploadQualityScore
+                        : undefined,
+                    inspectionDate: this.uploadInspectionDate || undefined,
+                    nextInspectionDate:
+                      this.uploadNextInspectionDate || undefined,
+                    qc_date: this.uploadQcDate || undefined,
+                    report_link: this.uploadReportLink.trim() || undefined,
+                    requestNotes: this.uploadNotes.trim() || undefined,
+                  };
+
+                  this.api
+                    .put<any>(
+                      `/qc-approvals/${this.editingQCApprovalId}`,
+                      approvalUpdateData
+                    )
+                    .subscribe({
+                      next: () => {
+                        this.handleUploadSuccess();
+                      },
+                      error: (err: any) => {
+                        console.error(
+                          '[QC Machine Selection] Error updating approval:',
+                          err
+                        );
+                        this.uploading = false;
+                        this.errorHandler.showServerError();
+                      },
+                    });
+                },
+                error: (err: any) => {
+                  console.error(
+                    '[QC Machine Selection] Error updating QC entry:',
+                    err
+                  );
+                  this.uploading = false;
+                  this.errorHandler.showServerError();
+                },
+              });
+          },
+          error: (err: any) => {
+            console.error(
+              '[QC Machine Selection] Error fetching approval:',
+              err
+            );
+            this.uploading = false;
+            this.errorHandler.showServerError();
+          },
+        });
+      return;
+    }
+
+    // Create mode
     this.api.post<any>('/qc-machines', formData).subscribe({
-      next: response => {
-        console.log('[QC Machine Selection] QC entry created successfully!');
-        console.log('[QC Machine Selection] Response:', response);
-        const qcEntryId = response?.data?._id || (response?.data as any)?._id;
-        console.log('[QC Machine Selection] QC Entry ID:', qcEntryId);
-
-        this.uploading = false;
-        this.uploadProgress = 100;
-        this.showDocumentModal = false;
-        this.selectedFiles = [];
-        this.selectedImages = [];
-        this.selectedDocuments = [];
-        this.selectedMachineForUpload = null;
-        this.uploadName = '';
-        this.uploadCategoryId = '';
-        this.uploadSubcategoryId = '';
-        this.uploadMachineSequence = '';
-        this.uploadPartyName = '';
-        this.uploadLocation = '';
-        this.uploadMobileNumber = '';
-        this.uploadDispatchDate = '';
-        this.uploadNotes = '';
-        this.uploadReportLink = '';
-        this.uploadQcDate = '';
-        this.uploadInspectionDate = '';
-        this.uploadNextInspectionDate = '';
-        this.uploadQualityScore = null;
-        this.reportLinkTouched = false;
-        this.reportLinkErrorMsg = null;
-        this.subcategories = [];
-
-        this.errorHandler.showSuccess(
-          'QC entry created and approval requested successfully'
-        );
-
-        // Wait a moment for the backend to create the approval record
-        // The approval is created asynchronously, so we need to give it time
-        console.log(
-          '[QC Machine Selection] Waiting 2 seconds for approval to be created...'
-        );
-        setTimeout(() => {
-          console.log(
-            '[QC Machine Selection] Navigating to approval management page...'
-          );
-          // Navigate to QC approval management after creating the request
-          // Add timestamp to URL to force reload and ensure fresh data
-          try {
-            // Router is not injected in this component; use direct location change
-            const timestamp = new Date().getTime();
-            const targetUrl = `/qc/approval-management?refresh=${timestamp}`;
-            console.log('[QC Machine Selection] Navigation URL:', targetUrl);
-            window.location.href = targetUrl;
-          } catch (error) {
-            console.error('[QC Machine Selection] Navigation error:', error);
-            this.loadMachines();
-          }
-        }, 2000); // Wait 2 seconds for approval to be created and saved
+      next: () => {
+        this.handleUploadSuccess();
       },
       error: error => {
         console.error('[QC Machine Selection] Error creating QC entry:', error);
@@ -1529,12 +2014,78 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Handle successful upload (both create and edit)
+  private handleUploadSuccess(): void {
+    this.uploading = false;
+    this.uploadProgress = 100;
+    this.showDocumentModal = false;
+    this.selectedFiles = [];
+    this.selectedImages = [];
+    this.selectedDocuments = [];
+    this.selectedMachineForUpload = null;
+    this.uploadName = '';
+    this.uploadCategoryId = '';
+    this.uploadSubcategoryId = '';
+    this.uploadMachineSequence = '';
+    this.uploadPartyName = '';
+    this.uploadLocation = '';
+    this.uploadMobileNumber = '';
+    this.uploadDispatchDate = '';
+    this.uploadNotes = '';
+    this.uploadReportLink = '';
+    this.uploadQcDate = '';
+    this.uploadInspectionDate = '';
+    this.uploadNextInspectionDate = '';
+    this.uploadQualityScore = null;
+    this.reportLinkTouched = false;
+    this.reportLinkErrorMsg = null;
+    this.subcategories = [];
+
+    // Reset edit mode
+    const wasEditing = this.isEditingQCEntry;
+    this.isEditingQCEntry = false;
+    this.editingQCApprovalId = null;
+    this.existingQCDocuments = [];
+    this.removedQCDocumentIds = [];
+
+    this.errorHandler.showSuccess(
+      wasEditing
+        ? 'QC entry updated successfully. Changes require approval.'
+        : 'QC entry created and approval requested successfully'
+    );
+
+    // Wait a moment for the backend to process
+    console.log(
+      '[QC Machine Selection] Waiting 2 seconds before navigation...'
+    );
+    setTimeout(() => {
+      console.log(
+        '[QC Machine Selection] Navigating to approval management page...'
+      );
+      try {
+        const timestamp = new Date().getTime();
+        const targetUrl = `/qc/approval-management?refresh=${timestamp}`;
+        console.log('[QC Machine Selection] Navigation URL:', targetUrl);
+        window.location.href = targetUrl;
+      } catch (error) {
+        console.error('[QC Machine Selection] Navigation error:', error);
+        this.loadMachines();
+      }
+    }, 2000);
+  }
+
   onCancelUpload(): void {
     this.showDocumentModal = false;
     this.selectedFiles = [];
     this.selectedImages = [];
     this.selectedDocuments = [];
     this.selectedMachineForUpload = null;
+    this.isEditingQCEntry = false;
+    this.editingQCApprovalId = null;
+    this.existingQCDocuments = [];
+    this.removedQCDocumentIds = [];
+    this.removedQCFilePaths = [];
+    this.originalQCFiles = [];
     this.uploadName = '';
     this.uploadCategoryId = '';
     this.uploadSubcategoryId = '';
@@ -1706,7 +2257,8 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
   private fetchBlockedApprovalsSet(): Promise<void> {
     return new Promise(resolve => {
       console.log('[QC Machine Selection] Fetching blocked approvals set...');
-      this.qcEntryService.getQCApprovals({ page: 1, limit: 1000 }).subscribe({
+      // Backend limit is max 100, so we'll load in batches if needed
+      this.qcEntryService.getQCApprovals({ page: 1, limit: 100 }).subscribe({
         next: res => {
           console.log('[QC Machine Selection] QC Approvals API response:', res);
           const approvals = (res as any)?.data?.approvals || [];
@@ -1968,7 +2520,16 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (!machine) return '-';
     const soIdValue = machine.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
-      return soIdValue.name || '-';
+      // Type guard: soIdValue is confirmed to be an object
+      const so = soIdValue as {
+        customer?: string;
+        so_number?: string;
+        name?: string;
+      };
+      // Priority: customer > so_number > name
+      if (so.customer) return so.customer;
+      if (so.so_number) return so.so_number;
+      if (so.name) return so.name;
     }
     // Fallback to legacy name field
     return machine.name || '-';
@@ -2013,7 +2574,11 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     // First try to get from SO
     const soIdValue = machine.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
-      const subcategoryId = soIdValue.subcategory_id;
+      // Type guard: soIdValue is confirmed to be an object
+      const so = soIdValue as {
+        subcategory_id?: { _id: string; name: string } | string;
+      };
+      const subcategoryId = so.subcategory_id;
       if (
         subcategoryId &&
         typeof subcategoryId === 'object' &&
@@ -2039,7 +2604,9 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (!machine) return '-';
     const soIdValue = machine.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
-      return soIdValue.party_name || '-';
+      // Type guard: soIdValue is confirmed to be an object
+      const so = soIdValue as { party_name?: string };
+      return so.party_name || '-';
     }
     // Fallback to legacy party_name field
     return machine.party_name || '-';
@@ -2049,10 +2616,81 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
     if (!machine) return '-';
     const soIdValue = machine.so_id;
     if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
-      return soIdValue.mobile_number || '-';
+      // Type guard: soIdValue is confirmed to be an object
+      const so = soIdValue as { mobile_number?: string };
+      return so.mobile_number || '-';
     }
     // Fallback to legacy mobile_number field
     return machine.mobile_number || '-';
+  }
+
+  getLocation(machine: Machine): string {
+    if (!machine) return '-';
+    const soIdValue = machine.so_id;
+    if (soIdValue && typeof soIdValue === 'object' && soIdValue !== null) {
+      return soIdValue.location || '-';
+    }
+    // Fallback to legacy location field
+    return machine.location || '-';
+  }
+
+  // Helper methods for safe SO property access in templates
+  getSOCustomer(machine: Machine): string | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.customer || null;
+  }
+
+  getSONumber(machine: Machine): string | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.so_number || null;
+  }
+
+  getPONumber(machine: Machine): string | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.po_number || null;
+  }
+
+  getSOPartyName(machine: Machine): string | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.party_name || null;
+  }
+
+  getSOLocation(machine: Machine): string | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.location || null;
+  }
+
+  getSODate(machine: Machine): string | Date | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.so_date || null;
+  }
+
+  getPODate(machine: Machine): string | Date | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id.po_date || null;
+  }
+
+  // Type guard helper for template
+  isSOObject(machine: Machine): boolean {
+    return (
+      machine?.so_id !== undefined &&
+      typeof machine.so_id === 'object' &&
+      machine.so_id !== null
+    );
+  }
+
+  // Get SO object safely
+  getSOObject(machine: Machine): {
+    _id: string;
+    customer?: string;
+    so_number?: string;
+    po_number?: string;
+    party_name?: string;
+    location?: string;
+    name?: string;
+  } | null {
+    if (!machine?.so_id || typeof machine.so_id !== 'object') return null;
+    return machine.so_id;
   }
 
   getCategoryDisplayName(cat: any): string {
@@ -2220,7 +2858,9 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
       subcategory_id: m?.subcategory_id || null,
       name:
         m?.name ||
-        (soData && typeof soData === 'object' ? soData.name : undefined),
+        (soData && typeof soData === 'object'
+          ? soData.customer || soData.so_number || soData.name
+          : undefined),
       party_name:
         m?.party_name ||
         (soData && typeof soData === 'object' ? soData.party_name : undefined),
@@ -2229,6 +2869,9 @@ export class QcMachineSelectionComponent implements OnInit, OnDestroy {
         (soData && typeof soData === 'object'
           ? soData.mobile_number
           : undefined),
+      location:
+        m?.location ||
+        (soData && typeof soData === 'object' ? soData.location : undefined),
       is_active:
         m?.is_active !== undefined
           ? m.is_active

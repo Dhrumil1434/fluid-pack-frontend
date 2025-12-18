@@ -338,8 +338,24 @@ export class AdminSidebarComponent implements OnInit, OnDestroy {
     }
 
     if (item.children && item.children.length > 0) {
-      // Toggle expand/collapse for items with children
-      this.toggleExpand(item);
+      // If clicking on a parent with children, check if we should navigate or expand
+      const hasActiveChild = this.hasActiveChild(item);
+      const isParentActive = this.isActiveRoute(item.route);
+
+      // If parent route is active or has active child, toggle expand
+      // Otherwise, navigate to parent route first, then expand
+      if (isParentActive || hasActiveChild) {
+        this.toggleExpand(item);
+      } else {
+        // Navigate to parent route first, then expand after navigation
+        this.navigateTo(item.route);
+        // Use setTimeout to ensure navigation completes before expanding
+        setTimeout(() => {
+          if (!this.expandedItems.has(item.route)) {
+            this.expandedItems.add(item.route);
+          }
+        }, 100);
+      }
     } else {
       // Navigate to route for items without children
       this.navigateTo(item.route);

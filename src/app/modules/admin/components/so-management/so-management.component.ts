@@ -259,6 +259,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                         View
                       </button>
                       <button
+                        *ngIf="canEditSO(so)"
                         class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-md hover:bg-primary/20 hover:border-primary/30 transition-all duration-150 cursor-pointer shadow-sm"
                         (click)="openEdit(so)"
                         title="Edit SO"
@@ -1016,7 +1017,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                           form.controls['description'].errors?.['maxlength']
                         "
                       >
-                        Description cannot exceed 1000 characters
+                        Description cannot exceed 50000 characters
                       </span>
                       <span
                         *ngIf="backendErrors['description']"
@@ -1707,7 +1708,7 @@ export class SOManagementComponent implements OnInit, OnDestroy {
           ),
         ],
       ],
-      description: ['', [Validators.maxLength(1000)]],
+      description: ['', [Validators.maxLength(50000)]],
       documents: [null],
     });
     // Items are optional - no initial item needed
@@ -2031,6 +2032,24 @@ export class SOManagementComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Check if current user can edit the SO
+   * Sub-admins can only edit SOs that are not activated
+   */
+  canEditSO(so: SO): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    const userRole = currentUser?.role?.name?.toLowerCase();
+    const isSubAdmin = userRole === 'sub-admin';
+
+    // Sub-admins cannot edit activated SOs
+    if (isSubAdmin && so.is_active) {
+      return false;
+    }
+
+    // Admins can always edit
+    return true;
+  }
+
+  /**
    * Handle backend validation errors and set them on form controls
    */
   private handleBackendErrors(err: any): void {
@@ -2272,7 +2291,7 @@ export class SOManagementComponent implements OnInit, OnDestroy {
       }
 
       this.soService.updateSOForm(this.selected._id, updateData).subscribe({
-        next: () => {
+        next: _response => {
           this.submitting = false;
           this.formVisible = false;
           this.messageService.add({
@@ -2280,6 +2299,19 @@ export class SOManagementComponent implements OnInit, OnDestroy {
             summary: 'Success',
             detail: 'SO updated successfully',
           });
+
+          // If view modal is open, refresh the selected SO data
+          if (this.viewVisible && this.selected) {
+            this.soService.getSOById(this.selected._id).subscribe({
+              next: res => {
+                this.selected = res.data;
+              },
+              error: err => {
+                console.error('Error refreshing SO in view modal:', err);
+              },
+            });
+          }
+
           this.reload();
         },
         error: (err: any) => {

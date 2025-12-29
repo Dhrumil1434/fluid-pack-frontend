@@ -1153,7 +1153,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                 </form>
               </div>
               <div
-                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 shrink-0"
               >
                 <button
                   type="button"
@@ -1531,7 +1531,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                 </div>
               </div>
               <div
-                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 flex-shrink-0"
+                class="flex items-center justify-end gap-2 p-4 border-t border-neutral-200 shrink-0"
               >
                 <button
                   class="px-3 py-2 rounded-md border border-neutral-300 text-text hover:bg-neutral-50"

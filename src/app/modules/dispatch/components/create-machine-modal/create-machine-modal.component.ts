@@ -28,6 +28,7 @@ import { MachineService } from '../../../../core/services/machine.service';
 import { SOService } from '../../../../core/services/so.service';
 import { SO } from '../../../../core/models/so.model';
 import { NgxDocViewerModule } from 'ngx-doc-viewer';
+import { SOSearchModalComponent } from '../so-search-modal/so-search-modal.component';
 
 @Component({
   selector: 'app-create-machine-modal',
@@ -38,6 +39,7 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
     FormsModule,
     ToastModule,
     NgxDocViewerModule,
+    SOSearchModalComponent,
   ],
   template: `
     <p-toast></p-toast>
@@ -67,75 +69,34 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
               <div class="relative">
                 <input
                   type="text"
-                  class="w-full border rounded px-3 py-2"
+                  class="w-full border rounded px-3 py-2 pr-10"
                   [class.border-red-500]="
                     form.controls['so_id'].touched &&
                     form.controls['so_id'].invalid
                   "
-                  [(ngModel)]="soSearchInput"
-                  (input)="onSOInputChange()"
-                  (focus)="onSOInputChange()"
-                  (blur)="hideSOSuggestions()"
-                  placeholder="Search by SO number, Customer, PO number, or Party name..."
-                  [ngModelOptions]="{ standalone: true }"
+                  [value]="getSODisplayValue()"
+                  (click)="openSOSearchModal()"
+                  (focus)="openSOSearchModal()"
+                  readonly
+                  placeholder="Click to search and select SO..."
                 />
+                <button
+                  type="button"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-primary hover:bg-primary/10 rounded"
+                  (click)="openSOSearchModal(); $event.stopPropagation()"
+                  title="Search SO"
+                >
+                  <i class="pi pi-search text-sm"></i>
+                </button>
                 <button
                   *ngIf="selectedSO"
                   type="button"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:bg-red-50 rounded"
+                  class="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-red-500 hover:bg-red-50 rounded"
                   (click)="clearSOSelection(); $event.stopPropagation()"
                   title="Clear selection"
                 >
                   <i class="pi pi-times text-xs"></i>
                 </button>
-                <!-- SO Suggestions Dropdown -->
-                <div
-                  *ngIf="showSOSuggestions"
-                  class="absolute z-50 w-full mt-1 bg-white border border-neutral-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                >
-                  <ng-container *ngIf="soSuggestions.length > 0">
-                    <div
-                      *ngFor="let so of soSuggestions"
-                      class="px-3 py-2 hover:bg-neutral-100 cursor-pointer text-sm border-b border-neutral-100 last:border-b-0"
-                      (mousedown)="selectSO(so)"
-                    >
-                      <div class="font-medium text-gray-900">
-                        <span *ngIf="so.so_number" class="text-primary"
-                          >SO: {{ so.so_number }}</span
-                        >
-                        <span
-                          *ngIf="!so.so_number && so.customer"
-                          class="text-primary"
-                          >Customer: {{ so.customer }}</span
-                        >
-                        <span
-                          *ngIf="!so.so_number && !so.customer && so.name"
-                          class="text-primary"
-                          >{{ so.name }}</span
-                        >
-                      </div>
-                      <div class="text-xs text-neutral-600 mt-1">
-                        <span *ngIf="so.customer"
-                          >Customer: {{ so.customer }}</span
-                        >
-                        <span *ngIf="so.customer && so.po_number"> | </span>
-                        <span *ngIf="so.po_number">PO: {{ so.po_number }}</span>
-                        <span *ngIf="so.party_name">
-                          | Party: {{ so.party_name }}</span
-                        >
-                        <span *ngIf="so.mobile_number">
-                          | Mobile: {{ so.mobile_number }}</span
-                        >
-                      </div>
-                    </div>
-                  </ng-container>
-                  <div
-                    *ngIf="soSuggestions.length === 0 && soSearchInput.trim()"
-                    class="px-3 py-4 text-sm text-neutral-500 text-center"
-                  >
-                    No SOs found matching "{{ soSearchInput }}"
-                  </div>
-                </div>
               </div>
               <div
                 class="text-xs text-error"
@@ -615,6 +576,13 @@ import { NgxDocViewerModule } from 'ngx-doc-viewer';
       </div>
     </div>
 
+    <!-- SO Search Modal -->
+    <app-so-search-modal
+      [visible]="soSearchModalVisible"
+      (cancel)="closeSOSearchModal()"
+      (soSelected)="onSOSelected($event)"
+    ></app-so-search-modal>
+
     <!-- Document Preview Modal -->
     <div
       class="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]"
@@ -773,12 +741,9 @@ export class CreateMachineModalComponent
   @Input() set visible(v: boolean) {
     this._visible = v;
     if (v) {
-      // Load active SOs each time modal opens
-      this.loadActiveSOs();
       // Reset SO selection and sequence when modal opens
       this.selectedSO = null;
-      this.soSearchInput = '';
-      this.showSOSuggestions = false;
+      this.soSearchModalVisible = false;
       this.form.patchValue({ so_id: '', machine_sequence: '' });
       this.selectedSequence = '';
       // Load metadata suggestions
@@ -820,11 +785,8 @@ export class CreateMachineModalComponent
   showValueSuggestions: { [index: number]: boolean } = {};
 
   // SO Management
-  activeSOs: SO[] = [];
   selectedSO: SO | null = null;
-  soSearchInput = '';
-  showSOSuggestions = false;
-  soSuggestions: SO[] = [];
+  soSearchModalVisible = false;
 
   constructor(
     private fb: FormBuilder,
@@ -1566,92 +1528,36 @@ export class CreateMachineModalComponent
   }
 
   // SO Management Methods
-  loadActiveSOs(): void {
-    this.soService.getActiveSOs().subscribe({
-      next: res => {
-        if (res.success) {
-          this.activeSOs = res.data || [];
-          // Initialize suggestions with first 50 SOs for performance
-          this.soSuggestions = this.activeSOs.slice(0, 50);
-          console.log(`Loaded ${this.activeSOs.length} active SOs`);
-        } else {
-          console.warn('Failed to load active SOs:', res);
-          this.activeSOs = [];
-          this.soSuggestions = [];
-        }
-      },
-      error: error => {
-        console.error('Error loading active SOs:', error);
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Failed to load SOs. Please refresh the page.',
-        });
-        this.activeSOs = [];
-        this.soSuggestions = [];
-      },
-    });
+  openSOSearchModal(): void {
+    this.soSearchModalVisible = true;
   }
 
-  onSOInputChange(): void {
-    const query = this.soSearchInput.trim().toLowerCase();
-    if (!query) {
-      this.soSuggestions = this.activeSOs.slice(0, 50); // Limit to first 50 for performance
-      this.showSOSuggestions = false;
-      return;
-    }
-
-    // Enhanced search: search in SO number, Customer, PO number, Party name, and mobile number
-    this.soSuggestions = this.activeSOs
-      .filter(so => {
-        const soNumberMatch =
-          so.so_number?.toLowerCase().includes(query) || false;
-        const customerMatch =
-          so.customer?.toLowerCase().includes(query) || false;
-        const poNumberMatch =
-          so.po_number?.toLowerCase().includes(query) || false;
-        const partyMatch =
-          so.party_name?.toLowerCase().includes(query) || false;
-        const mobileMatch =
-          so.mobile_number?.toLowerCase().includes(query) || false;
-        const nameMatch = so.name?.toLowerCase().includes(query) || false;
-
-        return (
-          soNumberMatch ||
-          customerMatch ||
-          poNumberMatch ||
-          partyMatch ||
-          mobileMatch ||
-          nameMatch
-        );
-      })
-      .slice(0, 50); // Limit results to 50 for performance
-
-    // Show suggestions if there are results OR if user has typed something (to show "no results" message)
-    this.showSOSuggestions = true;
+  closeSOSearchModal(): void {
+    this.soSearchModalVisible = false;
   }
 
-  selectSO(so: SO): void {
+  onSOSelected(so: SO): void {
     this.selectedSO = so;
     this.form.patchValue({ so_id: so._id });
-    // Display format: SO Number or Customer - Party Name
-    const displayName = so.so_number || so.customer || so.name || '';
-    this.soSearchInput = `${displayName}${so.party_name ? ' - ' + so.party_name : ''}`;
-    this.showSOSuggestions = false;
     this.form.get('so_id')?.markAsTouched();
+    this.closeSOSearchModal();
   }
 
   clearSOSelection(): void {
     this.selectedSO = null;
     this.form.patchValue({ so_id: '' });
-    this.soSearchInput = '';
-    this.showSOSuggestions = false;
   }
 
-  hideSOSuggestions(): void {
-    setTimeout(() => {
-      this.showSOSuggestions = false;
-    }, 200);
+  getSODisplayValue(): string {
+    if (!this.selectedSO) return '';
+    const displayName =
+      this.selectedSO.so_number ||
+      this.selectedSO.customer ||
+      this.selectedSO.name ||
+      '';
+    return this.selectedSO.party_name
+      ? `${displayName} - ${this.selectedSO.party_name}`
+      : displayName;
   }
 
   // Date formatting methods for DD/MM/YYYY format

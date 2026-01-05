@@ -194,7 +194,7 @@ import { firstValueFrom } from 'rxjs';
                   </span>
                 </td>
                 <td class="px-4 py-2">
-                  {{ c.created_by.username || '-' }}
+                  {{ c.created_by?.username || '-' }}
                 </td>
                 <td class="px-4 py-2">
                   <span

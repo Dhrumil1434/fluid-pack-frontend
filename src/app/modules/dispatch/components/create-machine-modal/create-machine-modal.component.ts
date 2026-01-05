@@ -280,7 +280,7 @@ import { SOSearchModalComponent } from '../so-search-modal/so-search-modal.compo
                     or drag and drop
                   </div>
                   <div class="text-xs text-neutral-500">
-                    PNG, JPG up to 10 files
+                    PNG, JPG up to 100 files
                   </div>
                 </div>
               </div>
@@ -289,7 +289,7 @@ import { SOSearchModalComponent } from '../so-search-modal/so-search-modal.compo
                 class="text-xs text-text-muted"
                 *ngIf="selectedFiles.length > 0"
               >
-                {{ selectedFiles.length }} file(s) selected (max 10)
+                {{ selectedFiles.length }} file(s) selected (max 100)
               </div>
 
               <div
@@ -349,7 +349,7 @@ import { SOSearchModalComponent } from '../so-search-modal/so-search-modal.compo
                     or drag and drop
                   </div>
                   <div class="text-xs text-neutral-500">
-                    PDF, DOC, DOCX, TXT, XLS, XLSX up to 10 files
+                    PDF, DOC, DOCX, TXT, XLS, XLSX up to 100 files
                   </div>
                 </div>
               </div>
@@ -358,7 +358,7 @@ import { SOSearchModalComponent } from '../so-search-modal/so-search-modal.compo
                 class="text-xs text-text-muted"
                 *ngIf="selectedDocuments.length > 0"
               >
-                {{ selectedDocuments.length }} document(s) selected (max 10)
+                {{ selectedDocuments.length }} document(s) selected (max 100)
               </div>
 
               <div
@@ -859,7 +859,7 @@ export class CreateMachineModalComponent
   }
 
   private acceptFiles(files: File[]): void {
-    const maxImages = 10; // Backend allows max 10 images
+    const maxImages = 100; // Backend allows max 100 images
     const limited = files.slice(
       0,
       Math.max(0, maxImages - this.selectedFiles.length)
@@ -869,7 +869,7 @@ export class CreateMachineModalComponent
         this.messageService.add({
           severity: 'warn',
           summary: 'Limit reached',
-          detail: 'Cannot upload more than 10 images',
+          detail: 'Cannot upload more than 100 images',
         });
       }
       return;
@@ -915,11 +915,21 @@ export class CreateMachineModalComponent
   }
 
   private acceptDocuments(files: File[]): void {
+    const maxDocuments = 100; // Backend allows max 100 documents
     const limited = files.slice(
       0,
-      Math.max(0, 10 - this.selectedDocuments.length)
+      Math.max(0, maxDocuments - this.selectedDocuments.length)
     );
-    if (limited.length === 0) return;
+    if (limited.length === 0) {
+      if (this.selectedDocuments.length >= maxDocuments) {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Limit reached',
+          detail: 'Cannot upload more than 100 documents',
+        });
+      }
+      return;
+    }
     this.selectedDocuments = [...this.selectedDocuments, ...limited];
   }
 

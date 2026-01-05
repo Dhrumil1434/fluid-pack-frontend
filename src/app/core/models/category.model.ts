@@ -10,7 +10,7 @@ export interface Category {
   image_url?: string;
   seo_title?: string;
   seo_description?: string;
-  created_by: {
+  created_by?: {
     _id: string;
     username: string;
     email: string;
@@ -85,7 +85,7 @@ export interface SequenceConfig {
   starting_number: number;
   format: string;
   is_active: boolean;
-  created_by: {
+  created_by?: {
     _id: string;
     username: string;
     email: string;

@@ -3803,27 +3803,36 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
 
     this.sequenceFormat = config.format;
 
-    // Generate example - use category/subcategory names or slugs
+    // Generate example - use category/subcategory names (preserves special characters)
     const category = this.filterCategories.find(c => c._id === categoryId);
     const categoryName =
       category?.name ||
       (typeof machine.so?.category_id === 'object'
         ? machine.so.category_id?.name
         : 'CATEGORY');
-    const categorySlug = categoryName.toUpperCase().replace(/\s+/g, '-');
+    // Format category name for sequence (preserves special characters like parentheses and dots)
+    const formatCategoryNameForSequence = (name: string): string => {
+      return name
+        .toUpperCase()
+        .trim()
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+        .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+    };
+    const categoryFormatted = formatCategoryNameForSequence(categoryName);
 
     const subcategoryName = machine.so?.subcategory_id
       ? typeof machine.so.subcategory_id === 'object'
         ? machine.so.subcategory_id?.name
         : ''
       : '';
-    const subcategorySlug = subcategoryName
-      ? subcategoryName.toUpperCase().replace(/\s+/g, '-')
+    const subcategoryFormatted = subcategoryName
+      ? formatCategoryNameForSequence(subcategoryName)
       : '';
 
     this.sequenceFormatExample = config.format
-      .replace('{category}', categorySlug)
-      .replace('{subcategory}', subcategorySlug)
+      .replace('{category}', categoryFormatted)
+      .replace('{subcategory}', subcategoryFormatted)
       .replace('{sequence}', '001')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
@@ -3897,20 +3906,30 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
             (typeof machine.so?.category_id === 'object'
               ? machine.so.category_id?.name
               : 'CATEGORY');
-          const categorySlug = categoryName.toUpperCase().replace(/\s+/g, '-');
+
+          // Format category name for sequence (preserves special characters like parentheses and dots)
+          const formatCategoryNameForSequence = (name: string): string => {
+            return name
+              .toUpperCase()
+              .trim()
+              .replace(/\s+/g, '-') // Replace spaces with hyphens
+              .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+              .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+          };
+          const categoryFormatted = formatCategoryNameForSequence(categoryName);
 
           const subcategoryName = machine.so?.subcategory_id
             ? typeof machine.so.subcategory_id === 'object'
               ? machine.so.subcategory_id?.name
               : ''
             : '';
-          const subcategorySlug = subcategoryName
-            ? subcategoryName.toUpperCase().replace(/\s+/g, '-')
+          const subcategoryFormatted = subcategoryName
+            ? formatCategoryNameForSequence(subcategoryName)
             : '';
 
           this.sequenceFormatExample = config.format
-            .replace('{category}', categorySlug)
-            .replace('{subcategory}', subcategorySlug)
+            .replace('{category}', categoryFormatted)
+            .replace('{subcategory}', subcategoryFormatted)
             .replace('{sequence}', '001')
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '');
@@ -3974,7 +3993,7 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
     this.sequenceSuggestions = suggestions;
   }
 
-  // Validate sequence format
+  // Validate sequence format - accepts both old format (slug) and new format (name with special characters)
   validateSequenceFormat(sequence: string): boolean {
     if (!this.sequenceFormat || !this.editingMachine) return false;
     if (!this.editingMachine.so?.category_id) return false;
@@ -3985,27 +4004,76 @@ export class TechnicianMachinesComponent implements OnInit, OnDestroy {
         : this.editingMachine.so.category_id;
 
     const category = this.filterCategories.find(c => c._id === categoryId);
-    const categorySlug =
-      category?.name?.toUpperCase().replace(/\s+/g, '-') || '[A-Z0-9-]+';
-    const subcategorySlug = this.editingMachine.so?.subcategory_id
+    const categoryName =
+      category?.name ||
+      (typeof this.editingMachine.so.category_id === 'object'
+        ? this.editingMachine.so.category_id?.name
+        : 'CATEGORY');
+
+    // Helper function to format category name for sequence (preserves special characters)
+    const formatCategoryNameForSequence = (name: string): string => {
+      return name
+        .toUpperCase()
+        .trim()
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+        .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+    };
+
+    // New format: using category name (preserves special characters)
+    const categoryFormatted = formatCategoryNameForSequence(categoryName);
+
+    // Old format: using slug (no special characters) - for backward compatibility
+    // Generate slug from name by removing special characters
+    const categorySlug = categoryName
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s-]/g, '')
+      .replace(/\s+/g, '-');
+
+    const subcategoryName = this.editingMachine.so?.subcategory_id
       ? typeof this.editingMachine.so.subcategory_id === 'object'
         ? this.editingMachine.so.subcategory_id?.name
-            ?.toUpperCase()
-            .replace(/\s+/g, '-')
         : ''
-      : '[A-Z0-9-]*';
+      : '';
 
-    // Build regex pattern
-    let pattern = this.sequenceFormat
+    const subcategoryFormatted = subcategoryName
+      ? formatCategoryNameForSequence(subcategoryName)
+      : '';
+
+    // Generate slug from subcategory name by removing special characters
+    const subcategorySlug = subcategoryName
+      ? subcategoryName
+          .toUpperCase()
+          .replace(/[^A-Z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+      : '';
+
+    // Build regex pattern for new format (with special characters)
+    let patternNew = this.sequenceFormat
       .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      .replace(/\\\{category\\\}/g, categorySlug)
-      .replace(/\\\{subcategory\\\}/g, subcategorySlug)
+      .replace(/\\\{category\\\}/g, this.escapeRegex(categoryFormatted))
+      .replace(/\\\{subcategory\\\}/g, subcategoryFormatted || '[A-Z0-9-().]*')
       .replace(/\\\{sequence\\\}/g, '\\d+');
+    patternNew = patternNew.replace(/-+/g, '-').replace(/^-|-$/g, '');
 
-    pattern = pattern.replace(/-+/g, '-').replace(/^-|-$/g, '');
-    const regex = new RegExp(`^${pattern}$`, 'i');
+    // Build regex pattern for old format (slug-based, no special characters) - for backward compatibility
+    let patternOld = this.sequenceFormat
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\\\{category\\\}/g, this.escapeRegex(categorySlug))
+      .replace(/\\\{subcategory\\\}/g, subcategorySlug || '[A-Z0-9-]*')
+      .replace(/\\\{sequence\\\}/g, '\\d+');
+    patternOld = patternOld.replace(/-+/g, '-').replace(/^-|-$/g, '');
 
-    return regex.test(sequence);
+    // Test against both patterns (new format and old format for backward compatibility)
+    const regexNew = new RegExp(`^${patternNew}$`, 'i');
+    const regexOld = new RegExp(`^${patternOld}$`, 'i');
+
+    return regexNew.test(sequence) || regexOld.test(sequence);
+  }
+
+  // Helper function to escape regex special characters
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   // Close edit sequence modal

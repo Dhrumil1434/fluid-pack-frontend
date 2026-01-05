@@ -879,7 +879,7 @@
                 <textarea
                   class="w-full border rounded px-3 py-2"
                   formControlName="description"
-                  placeholder="Enter description (max 1000 characters)"
+                  placeholder="Enter description"
                   rows="3"
                 ></textarea>
                 <div
@@ -889,11 +889,6 @@
                     form.controls['description'].invalid
                   "
                 >
-                  <span
-                    *ngIf="form.controls['description'].errors?.['maxlength']"
-                  >
-                    Description cannot exceed 1000 characters
-                  </span>
                   <span *ngIf="backendErrors['description']" class="text-error">
                     {{ backendErrors['description'] }}
                   </span>

@@ -1002,7 +1002,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                     <textarea
                       class="w-full border rounded px-3 py-2"
                       formControlName="description"
-                      placeholder="Enter description (max 1000 characters)"
+                      placeholder="Enter description"
                       rows="3"
                     ></textarea>
                     <div
@@ -1012,13 +1012,6 @@ import { AuthService } from '../../../../core/services/auth.service';
                         form.controls['description'].invalid
                       "
                     >
-                      <span
-                        *ngIf="
-                          form.controls['description'].errors?.['maxlength']
-                        "
-                      >
-                        Description cannot exceed 50000 characters
-                      </span>
                       <span
                         *ngIf="backendErrors['description']"
                         class="text-error"
@@ -1708,7 +1701,7 @@ export class SOManagementComponent implements OnInit, OnDestroy {
           ),
         ],
       ],
-      description: ['', [Validators.maxLength(50000)]],
+      description: [''],
       documents: [null],
     });
     // Items are optional - no initial item needed

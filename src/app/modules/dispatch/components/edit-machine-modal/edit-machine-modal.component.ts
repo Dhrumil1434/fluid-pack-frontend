@@ -341,7 +341,7 @@ interface MachineRow {
                     or drag and drop
                   </div>
                   <div class="text-xs text-neutral-500">
-                    PNG, JPG, GIF up to 10 files
+                    PNG, JPG, GIF, WebP — up to 50 images, 100 MB each
                   </div>
                 </div>
               </div>
@@ -349,7 +349,7 @@ interface MachineRow {
                 class="text-xs text-neutral-600"
                 *ngIf="previewImages.length > 0"
               >
-                {{ previewImages.length }} image(s) selected (max 10)
+                {{ previewImages.length }} image(s) selected (max 50 total)
               </div>
               <div
                 class="grid grid-cols-5 gap-2 mt-2"
@@ -433,7 +433,7 @@ interface MachineRow {
                     or drag and drop
                   </div>
                   <div class="text-xs text-neutral-500">
-                    PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR up to 10 files
+                    PDF, DOC, DOCX, XLS, XLSX, TXT, ZIP, RAR — up to 50 files
                   </div>
                 </div>
               </div>
@@ -441,7 +441,8 @@ interface MachineRow {
                 class="text-xs text-neutral-600"
                 *ngIf="selectedDocuments.length > 0"
               >
-                {{ selectedDocuments.length }} document(s) selected (max 10)
+                {{ selectedDocuments.length }} document(s) selected (max 50
+                total)
               </div>
               <div class="space-y-2 mt-2" *ngIf="selectedDocuments.length > 0">
                 <div
@@ -861,7 +862,7 @@ export class EditMachineModalComponent implements OnInit, OnChanges, OnDestroy {
     const totalSelected = this.selectedImages.length;
 
     // Limit total images (existing + selected + new) to 10
-    const maxTotalImages = 10;
+    const maxTotalImages = 50;
     const availableSlots = Math.max(
       0,
       maxTotalImages - totalExisting - totalSelected
@@ -885,7 +886,7 @@ export class EditMachineModalComponent implements OnInit, OnChanges, OnDestroy {
     // Append new files to existing selectedImages instead of replacing
     this.selectedImages.push(...limited);
 
-    // Limit total to 10 if somehow exceeded
+    // Limit total to 50 if somehow exceeded
     const totalNow = this.existingImages.length + this.selectedImages.length;
     if (totalNow > maxTotalImages) {
       const excess = totalNow - maxTotalImages;
@@ -936,7 +937,7 @@ export class EditMachineModalComponent implements OnInit, OnChanges, OnDestroy {
     const totalSelected = this.selectedDocuments.length;
 
     // Limit total documents (existing + selected + new) to 10
-    const maxTotalDocuments = 10;
+    const maxTotalDocuments = 50;
     const availableSlots = Math.max(
       0,
       maxTotalDocuments - totalExisting - totalSelected
@@ -1033,7 +1034,7 @@ export class EditMachineModalComponent implements OnInit, OnChanges, OnDestroy {
       const totalSelected = this.selectedImages.length;
 
       // Limit total images (existing + selected + new) to 10
-      const maxTotalImages = 10;
+      const maxTotalImages = 50;
       const availableSlots = Math.max(
         0,
         maxTotalImages - totalExisting - totalSelected
@@ -1053,7 +1054,7 @@ export class EditMachineModalComponent implements OnInit, OnChanges, OnDestroy {
       // Append new files to existing selectedImages instead of replacing
       this.selectedImages.push(...limited);
 
-      // Limit total to 10 if somehow exceeded
+      // Limit total to 50 if somehow exceeded
       const totalNow = this.existingImages.length + this.selectedImages.length;
       if (totalNow > maxTotalImages) {
         const excess = totalNow - maxTotalImages;
@@ -1113,7 +1114,7 @@ export class EditMachineModalComponent implements OnInit, OnChanges, OnDestroy {
       const totalSelected = this.selectedDocuments.length;
 
       // Limit total documents (existing + selected + new) to 10
-      const maxTotalDocuments = 10;
+      const maxTotalDocuments = 50;
       const availableSlots = Math.max(
         0,
         maxTotalDocuments - totalExisting - totalSelected

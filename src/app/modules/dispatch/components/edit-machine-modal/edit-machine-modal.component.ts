@@ -74,7 +74,7 @@ interface MachineRow {
         class="bg-white w-full max-w-4xl max-h-[90vh] rounded-xl shadow-xl border border-neutral-300 flex flex-col"
       >
         <div
-          class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between flex-shrink-0"
+          class="px-4 py-3 border-b border-neutral-200 flex items-center justify-between shrink-0"
         >
           <h3 class="font-medium">Edit Machine</h3>
           <button class="p-2 hover:bg-neutral-100 rounded" (click)="onCancel()">
